@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1\n"
 "Report-Msgid-Bugs-To: http://wordpress.org/tag/hyper-cache-utility\n"
-"POT-Creation-Date: 2013-09-09 03:51+0100\n"
-"PO-Revision-Date: 2013-09-09 03:51+0100\n"
+"POT-Creation-Date: 2013-09-09 17:03+0100\n"
+"PO-Revision-Date: \n"
 "Last-Translator: Florian Höch <florian.hoech@gmx.de>\n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -15,132 +15,138 @@ msgstr ""
 "X-Poedit-Basepath: .\n"
 "X-Poedit-SearchPath-0: ..\n"
 
-#: ../includes/hyper-cache-utility.php:51
+#: ../includes/hyper-cache-utility.php:56
 msgid "Hyper Cache Utility"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:57
+#: ../includes/hyper-cache-utility.php:63
 msgid "Sort by HTTP Status Code"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:57
+#: ../includes/hyper-cache-utility.php:63
 msgid "Status"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:58
+#: ../includes/hyper-cache-utility.php:64
 msgid "Sort by URI"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:58
+#: ../includes/hyper-cache-utility.php:64
 msgid "URI &amp; Cache Filename"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:59
+#: ../includes/hyper-cache-utility.php:65
 msgid "Sort by Date"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:59
+#: ../includes/hyper-cache-utility.php:65
 msgid "Date"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:60
+#: ../includes/hyper-cache-utility.php:66
 msgid "Sort by Size"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:60
+#: ../includes/hyper-cache-utility.php:66
 msgid "Size"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:61
+#: ../includes/hyper-cache-utility.php:67
 msgid "Sort by Type"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:61
+#: ../includes/hyper-cache-utility.php:67
 msgid "Type"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:62
+#: ../includes/hyper-cache-utility.php:68
 msgid "Sort by Content-Type"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:62
+#: ../includes/hyper-cache-utility.php:68
 msgid "Content-Type"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:63
+#: ../includes/hyper-cache-utility.php:69
 msgid "Sort by Compression"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:63
+#: ../includes/hyper-cache-utility.php:69
 msgid "Compression"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:64
+#: ../includes/hyper-cache-utility.php:70
 msgid "Sort by HTTP User Agent"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:64
+#: ../includes/hyper-cache-utility.php:70
 msgid "User Agent"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:102
+#: ../includes/hyper-cache-utility.php:135
 #, php-format
 msgid "HTTP Status Code %u %s"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:118
+#: ../includes/hyper-cache-utility.php:153
 msgid "GZIP"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:118
+#: ../includes/hyper-cache-utility.php:153
 msgid "None"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:120
+#: ../includes/hyper-cache-utility.php:155
 msgid "Delete"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:161
+#: ../includes/hyper-cache-utility.php:196
 msgid "Files in cache (valid and expired)"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:161
+#: ../includes/hyper-cache-utility.php:196
 #, php-format
 msgid ""
 "Not Found: <span class=\"status-404-count\">%u</span>, Moved Permanently: "
 "<span class=\"status-301-count\">%u</span>"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:169
+#: ../includes/hyper-cache-utility.php:204
 msgid "Delete all with status 404"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:177
+#: ../includes/hyper-cache-utility.php:212
 msgid "Delete all"
 msgstr ""
-msgstr ""
 
-#: ../includes/css/hyper-cache-utility.css.php:11
+#: ../includes/css/hyper-cache-utility.css.php:13
 msgid "N/A"
 msgstr ""
 
+#: ../languages/dummy.php:5
 msgid "Archive"
 msgstr ""
 
+#: ../languages/dummy.php:6
 msgid "Attachment"
 msgstr ""
 
+#: ../languages/dummy.php:7
 msgid "Blog"
 msgstr ""
 
+#: ../languages/dummy.php:8
 msgid "Feed"
 msgstr ""
 
+#: ../languages/dummy.php:9
 msgid "Home"
 msgstr ""
 
+#: ../languages/dummy.php:10
 msgid "Page"
 msgstr ""
 
+#: ../languages/dummy.php:11
 msgid "Post"
 msgstr ""
