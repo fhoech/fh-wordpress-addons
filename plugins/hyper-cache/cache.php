@@ -128,8 +128,9 @@ if ($hyper_data['type'] == 'home' || $hyper_data['type'] == 'archive' || $hyper_
 // Valid cache file check ends here
 
 if (!empty($hyper_data['location'])) {
+    header($_SERVER['SERVER_PROTOCOL'] . ' 301 Moved Permanently');
     header('Location: ' . $hyper_data['location']);
-    header('X-HyperCache: 302 Found');
+    header('X-HyperCache: 301 Moved Permanently');
     flush();
     die();
 }
