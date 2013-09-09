@@ -182,6 +182,9 @@
 #hyper-cache-utility .status-404 .uri {
 	border-color: #900;
 }
+#hyper-cache-utility .expired .status span:before {
+	content: '\f017';
+}
 #hyper-cache-utility tr:last-child.status-404 .status {
 	border-bottom: 1px solid #900;
 }

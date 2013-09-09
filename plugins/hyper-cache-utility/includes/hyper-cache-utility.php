@@ -82,40 +82,64 @@ if (is_file($advanced_cache)) {
 	if (preg_match('/\$hyper_cache_path\s*=\s*(["\'])(.+?)\1/', $contents, $match)) {
 		$hyper_cache_path = $match[2];
 	}
+	if (preg_match('/\$hyper_cache_timeout\s*=\s*(\d+(?:.\d+)?)/', $contents, $match)) {
+		$hyper_cache_timeout = floatval($match[1]);
+	}
 };
 
 if (!isset($hyper_cache_path)) $hyper_cache_path = WP_CONTENT_DIR . '/cache/hyper-cache/';
+if (!isset($hyper_cache_timeout)) $hyper_cache_timeout = 2000000000;
 
 $files = glob($hyper_cache_path . '*.dat');
 if ($files === false) $files = array();
 $last_deleted_hash = '';
 $deleted = 0;
+$special = array('_archives', '_global');
+$expired = 0;
 $status301 = 0;
 $status404 = 0;
 $uris = array();
+$hc_invalidation_global_time = !empty($_POST['delete']) && $_POST['delete'] == '_global' ? 0 : @filemtime($hyper_cache_path . '_global.dat');
+$hc_invalidation_archives_time =  !empty($_POST['delete']) && $_POST['delete'] == '_archives' ? 0 : @filemtime($hyper_cache_path . '_archives.dat');
+$time = time();
 
 foreach ($files as $f) {
 	$filename = pathinfo($f, PATHINFO_FILENAME);
 	$data = unserialize(file_get_contents($f));
-	if (!empty($_POST['delete']) && ($_POST['delete'] == 'all' || $_POST['delete'] == $filename || ($_POST['delete'] == 404 && get($data['status']) == 404))) {
+	$hc_file_time = filemtime($f);
+	$hc_file_age = $time - $hc_file_time;
+	$is_expired = $hc_file_age > $hyper_cache_timeout ||
+		($hc_invalidation_global_time && $hc_file_time < $hc_invalidation_global_time) ||
+		(isset($data['type']) && ($data['type'] == 'blog' || $data['type'] == 'home' || $data['type'] == 'archive' || $data['type'] == 'feed') &&
+		 $hc_invalidation_archives_time && $hc_file_time < $hc_invalidation_archives_time);
+	if (!empty($_POST['delete']) &&
+		($_POST['delete'] == 'all' ||
+		 $_POST['delete'] == $filename ||
+		 ($_POST['delete'] == 404 && get($data['status']) == 404) ||
+		 ($_POST['delete'] == 'expired' && $is_expired && !in_array($filename, $special)))) {
 		unlink($f);
 		$last_deleted_hash = $filename;
 		$deleted ++;
 	}
 	else {
-		if (!isset($data['status']) && $filename != '_archives') $data['status'] = empty($data['location']) ? 200 : 301;
+		if (!isset($data['status']) && !in_array($filename, $special)) $data['status'] = empty($data['location']) ? 200 : 301;
 		if (get($data['status']) == 301) $status301 ++;
 		else if (get($data['status']) == 404) $status404 ++;
-		if (XHR) continue;
 		if (isset($data['type'])) $data['type'] = str_replace('single', 'post', $data['type']);
 		$rowclasses = array();
 		$rowclasses[] = 'status-' . (isset($data['status']) ? $data['status'] : 'not-applicable');
 		$rowclasses[] = 'type-' . (isset($data['type']) ? $data['type'] : 'not-applicable');
 		$rowclasses[] = 'mime-type-' . (isset($data['mime']) ? str_replace('/', '-', preg_replace('/;.*$/', '', $data['mime'])) : 'not-applicable');
 		$rowclasses[] = 'compression-' . (isset($data['gz']) ? 'gz' : (isset($data['html']) ? 'none' : 'not-applicable'));
+		if ($is_expired && !in_array($filename, $special)) {
+			$expired ++;
+			$rowclasses[] = 'expired';
+		}
+
+		if (XHR) continue;
 ?>
 					<tr class="<?php echo implode(' ', $rowclasses); ?>" id="hash-<?php echo $filename; ?>">
-						<td class="status<?php if (!isset($data['status'])) echo ' not-applicable'; ?>"><?php echo isset($data['status']) ? '<abbr title="' . sprintf(__('HTTP Status Code %u %s', 'hyper-cache-utility'), $data['status'], get_status_header_desc($data['status'])) . '"><span>' . $data['status'] . '</span></abbr>' : '<!-- N/A -->'; ?></td>
+						<td class="status<?php if (!isset($data['status'])) echo ' not-applicable'; ?>"><?php echo isset($data['status']) ? '<abbr title="' . sprintf(__('HTTP Status Code %u %s', 'hyper-cache-utility'), $data['status'], get_status_header_desc($data['status'])) . ($is_expired ? ' ' . __('(Expired)', 'hyper-cache-utility') : '') . '"><span>' . $data['status'] . '</span></abbr>' : '<!-- N/A -->'; ?></td>
 						<td class="uri cache-filename">
 <?php if (!empty($data['uri'])) { ?>
 							<a href="//<?php echo htmlspecialchars(get($data['host']) . $data['uri'], ENT_COMPAT, 'UTF-8'); ?>" title="<?php echo htmlspecialchars(get($data['host']) . $data['uri'], ENT_COMPAT, 'UTF-8'); ?>"><span><?php echo htmlspecialchars(get($data['host']) . $data['uri'], ENT_COMPAT, 'UTF-8'); ?></span></a>
@@ -128,7 +152,7 @@ foreach ($files as $f) {
 							<?php echo basename($f); ?>
 
 						</td>
-						<td class="cache-filedate"><?php echo strftime('%Y-%m-%d %H:%M:%S', filemtime($f)); ?></td>
+						<td class="cache-filedate"><time datetime="<?php echo date('c', $hc_file_time); ?>"><?php echo strftime('%Y-%m-%d %H:%M:%S', $hc_file_time); ?></time></td>
 						<td class="cache-filesize"><?php echo number_format_i18n(filesize($f) / 1024, 2); ?> KiB</td>
 						<td class="type<?php if (!isset($data['type'])) echo ' not-applicable'; ?>"><?php echo isset($data['type']) ? __(ucfirst($data['type']), 'hyper-cache-utility') : '<!-- N/A -->'; ?></td>
 						<td class="mime-type<?php if (!isset($data['mime'])) echo ' not-applicable'; ?>"><?php echo isset($data['mime']) ? preg_replace('/;.*$/', '', $data['mime']) : '<!-- N/A -->'; ?></td>
@@ -159,11 +183,12 @@ if (!XHR) {
 }
 
 header('X-HyperCache-Count: ' . (count($files) - $deleted));
+header('X-HyperCache-Expired-Count: ' . $expired);
 header('X-HyperCache-Status-301-Count: ' . $status301);
 header('X-HyperCache-Status-404-Count: ' . $status404);
 	
 if ($deleted > 0) {
-	header('X-HyperCache-Deleted: ' . ($deleted == count($files) ? 'all' : ($deleted > 1 ? 'status=404' : 'hash=' . $last_deleted_hash)));
+	header('X-HyperCache-Deleted: ' . ($deleted == count($files) ? 'all' : ($deleted > 1 ? (get($_POST['delete']) == 'expired' ? 'expired' : 'status=404') : 'hash=' . $last_deleted_hash)));
 	if (!XHR) {
 
 ?>
@@ -176,10 +201,18 @@ if ($deleted > 0) {
 if (!XHR) {
 
 ?>
-			<p class="info"><?php echo __('Files in cache (valid and expired)', 'hyper-cache-utility') . ': <span class="count">' . (count($files) - $deleted) . '</span> (' . sprintf(__('Not Found: <span class="status-404-count">%u</span>, Moved Permanently: <span class="status-301-count">%u</span>', 'hyper-cache-utility'), $status404, $status301) . ')'; ?></p>
+			<p class="info"><?php echo __('Files in cache (valid and expired)', 'hyper-cache-utility') . ': <span class="count">' . (count($files) - $deleted) . '</span><br />(' . sprintf(__('Expired: <span class="expired-count">%u</span>, Not Found: <span class="status-404-count">%u</span>, Moved Permanently: <span class="status-301-count">%u</span>', 'hyper-cache-utility'), $expired, $status404, $status301) . ')'; ?></p>
 
 			<p class="options">
 <?php
+
+	if ($expired > 0) {
+
+?>
+				<button class="delete-expired" type="submit" name="delete" value="expired"><?php _e('Delete expired', 'hyper-cache-utility'); ?></button>
+<?php
+
+	}
 
 	if ($status404 > 0) {
 
@@ -223,6 +256,12 @@ if (!XHR) {
 
 ?>
 		</form>
+		<script>
+			var hyper_cache_timeout = parseFloat('<?php echo $hyper_cache_timeout; ?>'),
+				hc_invalidation_global_time = parseInt('<?php echo $hc_invalidation_global_time ?>'),
+				hc_invalidation_archives_time = parseInt('<?php echo $hc_invalidation_archives_time ?>'),
+				time = <?php echo $time; ?>;
+		</script>
 	</section>
 <?php
 

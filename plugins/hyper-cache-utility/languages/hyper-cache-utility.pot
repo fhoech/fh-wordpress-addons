@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1\n"
 "Report-Msgid-Bugs-To: http://wordpress.org/tag/hyper-cache-utility\n"
-"POT-Creation-Date: 2013-09-09 17:03+0100\n"
+"POT-Creation-Date: 2013-09-10 00:12+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Florian Höch <florian.hoech@gmx.de>\n"
 "Language-Team: \n"
@@ -83,39 +83,48 @@ msgstr ""
 msgid "User Agent"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:135
+#: ../includes/hyper-cache-utility.php:142
 #, php-format
 msgid "HTTP Status Code %u %s"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:153
+#: ../includes/hyper-cache-utility.php:142
+msgid "(Expired)"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:160
 msgid "GZIP"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:153
+#: ../includes/hyper-cache-utility.php:160
 msgid "None"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:155
+#: ../includes/hyper-cache-utility.php:162
 msgid "Delete"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:196
+#: ../includes/hyper-cache-utility.php:204
 msgid "Files in cache (valid and expired)"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:196
+#: ../includes/hyper-cache-utility.php:204
 #, php-format
 msgid ""
-"Not Found: <span class=\"status-404-count\">%u</span>, Moved Permanently: "
-"<span class=\"status-301-count\">%u</span>"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:204
-msgid "Delete all with status 404"
+"Expired: <span class=\"expired-count\">%u</span>, Not Found: <span class="
+"\"status-404-count\">%u</span>, Moved Permanently: <span class=\"status-301-"
+"count\">%u</span>"
 msgstr ""
 
 #: ../includes/hyper-cache-utility.php:212
+msgid "Delete expired"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:220
+msgid "Delete all with status 404"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:228
 msgid "Delete all"
 msgstr ""
 
