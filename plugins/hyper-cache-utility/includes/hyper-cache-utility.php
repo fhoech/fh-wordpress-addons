@@ -76,8 +76,17 @@ if (!XHR) {
 
 }
 
-$path = WP_CONTENT_DIR . '/cache/hyper-cache';
-$files = glob($path . '/*.dat');
+$advanced_cache = WP_CONTENT_DIR . '/advanced-cache.php';
+if (is_file($advanced_cache)) {
+	$contents = file_get_contents($advanced_cache);
+	if (preg_match('/\$hyper_cache_path\s*=\s*(["\'])(.+?)\1/', $contents, $match)) {
+		$hyper_cache_path = $match[2];
+	}
+};
+
+if (!isset($hyper_cache_path)) $hyper_cache_path = WP_CONTENT_DIR . '/cache/hyper-cache/';
+
+$files = glob($hyper_cache_path . '*.dat');
 if ($files === false) $files = array();
 $last_deleted_hash = '';
 $deleted = 0;
