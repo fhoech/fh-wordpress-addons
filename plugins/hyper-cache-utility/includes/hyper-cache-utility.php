@@ -105,7 +105,7 @@ $time = time();
 
 foreach ($files as $f) {
 	$filename = pathinfo($f, PATHINFO_FILENAME);
-	$data = unserialize(file_get_contents($f));
+	$data = @unserialize(file_get_contents($f));
 	$hc_file_time = filemtime($f);
 	$hc_file_age = $time - $hc_file_time;
 	$is_expired = $hc_file_age > $hyper_cache_timeout ||
