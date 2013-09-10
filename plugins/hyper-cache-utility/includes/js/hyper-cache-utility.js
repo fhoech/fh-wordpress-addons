@@ -79,34 +79,36 @@ jQuery(function ($) {
 					expired = xhr.getResponseHeader('X-HyperCache-Expired-Count'),
 					status301 = xhr.getResponseHeader('X-HyperCache-Status-301-Count'),
 					status404 = xhr.getResponseHeader('X-HyperCache-Status-404-Count');
-				function callback() {
-					$(this).remove();
-					$('#hyper-cache-utility .count').html(count);
-					$('#hyper-cache-utility .expired-count').html(expired);
-					$('#hyper-cache-utility .status-301-count').html(status301);
-					$('#hyper-cache-utility .status-404-count').html(status404);
-					if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').fadeOut();
-					if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').fadeOut();
-					if (!parseInt(count)) $('#hyper-cache-utility .delete-all').fadeOut();
-					if (deleted == 'hash=_archives' || deleted == 'hash=_global') {
-						if (deleted == 'hash=_global') hc_invalidation_global_time = 0;
-						else if (deleted == 'hash=_archives') hc_invalidation_archives_time = 0;
-						$('#hyper-cache-utility tbody > tr').each(function () {
-							var $this = $(this),
-								$time = $(this).find('time'),
-								hc_file_time = new Date($time.attr('datetime')) / 1000,
-								hc_file_age = time - hc_file_time;
-							if (hc_file_age <= hyper_cache_timeout &&
-								(isNaN(hc_invalidation_global_time) || hc_file_time >= hc_invalidation_global_time) &&
-								((!$this.hasClass('type-blog') && !$this.hasClass('type-home') && !$this.hasClass('type-archive') && !$this.hasClass('type-feed')) ||
-								 (isNaN(hc_invalidation_archives_time) || hc_file_time >= hc_invalidation_archives_time))) $(this).removeClass('expired');
-						});
-					}
-				};
-				if (deleted == 'all' || deleted == 'expired' || deleted == 'status=404')
-					$('#hyper-cache-utility tbody > tr' + (deleted == 'all' ? '' : (deleted == 'expired' ? '.expired' : '.status-404'))).addClass('zoom-out').timeout(callback, 500);
-				else if (deleted)
-					$('#' + deleted.replace(/=/, '-')).addClass('zoom-out').timeout(callback, 500);
+				$('#hyper-cache-utility .count').html(count);
+				$('#hyper-cache-utility .expired-count').html(expired);
+				$('#hyper-cache-utility .status-301-count').html(status301);
+				$('#hyper-cache-utility .status-404-count').html(status404);
+				if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').fadeOut();
+				if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').fadeOut();
+				if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table').fadeOut();
+				else {
+					function callback() {
+						$(this).remove();
+						if (deleted == 'hash=_archives' || deleted == 'hash=_global') {
+							if (deleted == 'hash=_global') hc_invalidation_global_time = 0;
+							else if (deleted == 'hash=_archives') hc_invalidation_archives_time = 0;
+							$('#hyper-cache-utility tbody > tr').each(function () {
+								var $this = $(this),
+									$time = $(this).find('time'),
+									hc_file_time = new Date($time.attr('datetime')) / 1000,
+									hc_file_age = time - hc_file_time;
+								if (hc_file_age <= hyper_cache_timeout &&
+									(isNaN(hc_invalidation_global_time) || hc_file_time >= hc_invalidation_global_time) &&
+									((!$this.hasClass('type-blog') && !$this.hasClass('type-home') && !$this.hasClass('type-archive') && !$this.hasClass('type-feed')) ||
+									 (isNaN(hc_invalidation_archives_time) || hc_file_time >= hc_invalidation_archives_time))) $(this).removeClass('expired');
+							});
+						}
+					};
+					if (deleted == 'expired' || deleted == 'status=404')
+						$('#hyper-cache-utility tbody > tr' + (deleted == 'expired' ? '.expired' : '.status-404')).addClass('zoom-out').timeout(callback, 500);
+					else if (deleted != 'all')
+						$('#' + deleted.replace(/=/, '-')).addClass('zoom-out').timeout(callback, 500);
+				}
 			}
 		}
 	});
