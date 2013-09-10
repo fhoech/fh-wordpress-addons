@@ -25,7 +25,7 @@ if ($hyper_qs !== false) {
     else if (!$hyper_cache_cache_qs) return hyper_cache_exit();
 }
 
-if (strpos($hyper_uri, 'robots.txt') !== false) return hyper_cache_exit();
+if (strpos($hyper_uri, 'robots.txt') !== false || strpos($hyper_uri, 'sitemap.xml') !== false) return hyper_cache_exit();
 
 // Checks for rejected url
 if ($hyper_cache_reject !== false) {
