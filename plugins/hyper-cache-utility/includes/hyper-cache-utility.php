@@ -55,7 +55,7 @@ if (!XHR) {
 		<header>
 			<h1><?php _e('Hyper Cache Utility', 'hyper-cache-utility'); ?></h1>
 		</header>
-		<form action="<?php echo $_SERVER['REQUEST_URI']; ?>" method="post">
+		<form action="<?php echo $_SERVER['PHP_SELF']; ?>?<?php echo $_SERVER['QUERY_STRING']; ?>" method="post">
 <?php ob_start(); ?>
 			<table>
 				<thead>
