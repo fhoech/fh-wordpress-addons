@@ -16,6 +16,10 @@ jQuery.fn.extend({
 	}
 });
 
+function log(msg) {
+	if (window.console && typeof console.log == 'function') console.log(msg);
+}
+
 jQuery(function ($) {
 
 	var offsetTop = $('thead').offset().top,
@@ -38,34 +42,70 @@ jQuery(function ($) {
 			return a < b ? -1 : (a > b ? 1 : 0);
 		},
 		usNumberFormat: usNumberFormat,
-		widgets: ['saveSort', 'stickyHeaders'],
+		widgets: ['resizable', 'saveSort', 'stickyHeaders'],
 		widgetOptions: {
 		  stickyHeaders: 'tablesorter-stickyHeader',
 		  stickyHeaders_offset: adminbar_height
 		}
 	});
 
-	// Fix sticky header position & width
+	// Fix sticky header position & cell dimensions
+	function fix_table_dimensions() {
+		log('fix_table_dimensions');
+		var widths = [], heights = [],
+			$inner = $('#hyper-cache-utility table.hasStickyHeaders thead .tablesorter-header-inner'),
+			$this,
+			$table = $('#hyper-cache-utility table.hasStickyHeaders'),
+			table_width;
+		$inner.each(function (i) {
+			// Step 1: Record the dimensions
+			$this = $(this);
+			widths[i] = $this.width(),
+			heights[i] = $this.height();
+		});
+		$inner.each(function (i) {
+			// Step 2: Set the dimensions
+			$this = $(this);
+			$this.width(widths[i]);
+			$this.height(heights[i]);
+			$('#hyper-cache-utility table.containsStickyHeaders thead .tablesorter-header-inner').eq(i).width(widths[i]).height(heights[i]);
+		});
+		table_width = $table.width();
+		$table.width(table_width);
+		$('#hyper-cache-utility table.containsStickyHeaders').width(table_width);
+	};
+	function reset_table_dimensions() {
+		log('reset_table_dimensions');
+		$('#hyper-cache-utility table.hasStickyHeaders thead .tablesorter-header-inner').each(function (i) {
+			var $this = $(this);
+			$this.width('');
+			$this.height('');
+		});
+		$('#hyper-cache-utility table.hasStickyHeaders').width('');
+	};
 	var laststate = 'hidden';
-	$(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll.tsSticky resize.tsSticky', function (e) {
-		if (e.type == 'resize') {
-			// Fix cell widths
-			$('#hyper-cache-utility table.hasStickyHeaders thead .tablesorter-header-inner').each(function (i) {
-				$(this).width('auto').height('auto');
-				var w = $(this).width(),
-					h = $(this).height();
-				$(this).width(w).height(h)
-				$('#hyper-cache-utility table.containsStickyHeaders thead .tablesorter-header-inner').eq(i).width(w).height(h);
-			});
+	$(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll resize', function (e) {
+		if (e.target == $('#hyper-cache-utility table.hasStickyHeaders')[0]) {
+			log(e.type + ' ' + e.target + ' ' + e.currentTarget + ' ' + e.relatedTarget);
+			return;
 		}
 		if ($(window).scrollTop() + adminbar_height > offsetTop) {
 			$('#hyper-cache-utility table.containsStickyHeaders').css('margin-left', -$(window).scrollLeft() + 'px')
-			if (laststate == 'hidden' || e.type == 'resize') {
+			if (laststate == 'hidden') {
+				log(e.type + ' ' + e.target);
+				fix_table_dimensions();
 				$('#hyper-cache-utility table.containsStickyHeaders').css({'left': 'auto', 'visibility': 'visible'});
 				laststate = 'visible';
 			}
+			else if (e.type == 'resize') {
+				log(e.type + ' ' + e.target);
+				reset_table_dimensions();
+				fix_table_dimensions();
+			}
 		}
 		else if (laststate == 'visible') {
+			log(e.type + ' ' + e.target);
+			reset_table_dimensions();
 			$('#hyper-cache-utility table.containsStickyHeaders').css('visibility', 'hidden');
 			laststate = 'hidden';
 		}

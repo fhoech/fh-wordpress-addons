@@ -288,10 +288,10 @@
 	visibility: visible;
 }
 /* jQuery Tablesorter */
-#hyper-cache-utility .tablesorter-header > .tablesorter-header-inner > [data-title] {
+#hyper-cache-utility .tablesorter-header-inner > [data-title] {
 	cursor: default;
 }
-#hyper-cache-utility .tablesorter-header > .tablesorter-header-inner span:before {
+#hyper-cache-utility .tablesorter-header-inner span:before {
 	font-family: FontAwesome, sans-serif;
 	font-size: 75%;
 	margin-right: 1ex;
