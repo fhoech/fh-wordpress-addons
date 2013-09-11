@@ -26,6 +26,18 @@ jQuery(function ($) {
 		adminbar_height = $('#wpadminbar').height();
 
 	// Table sorting
+	$('#hyper-cache-utility table').bind('initialized sortEnd', function () {
+		setTimeout(function () {
+			var sort_columns = $('#hyper-cache-utility [class*="tablesorter-sort-column-"]').filter('.tablesorter-headerAsc, .tablesorter-headerDesc');
+			$('#hyper-cache-utility th span[data-sort-column]').removeAttr('data-sort-column');
+			if (sort_columns.length > 2) {  // Remember: We have two headers (normal + sticky)
+				sort_columns.each(function () {
+					var column = $(this).attr('class').match(/tablesorter-sort-column-(\d+)/);
+					$(this).find('span').attr('data-sort-column', column[1]);
+				});
+			}
+		}, 50);
+	});
 	$('#hyper-cache-utility table th:not(.status, .cache-filedate, .cache-filesize, .options)').data('sorter', 'text');
 	$('#hyper-cache-utility table th.cache-filedate').data('sorter', 'isoDate');
 	$('#hyper-cache-utility table th.cache-filesize').data('sorter', 'digit');
@@ -42,8 +54,11 @@ jQuery(function ($) {
 			return a < b ? -1 : (a > b ? 1 : 0);
 		},
 		usNumberFormat: usNumberFormat,
-		widgets: ['resizable', 'saveSort', 'stickyHeaders'],
+		widgets: ['columns', 'resizable', 'saveSort', 'stickyHeaders'],
 		widgetOptions: {
+		  columns: $.map(new Array($('#hyper-cache-utility table:first thead tr:first th').length), function (e, i) {
+			  return 'tablesorter-sort-column-' + (i + 1);
+		  }),
 		  stickyHeaders: 'tablesorter-stickyHeader',
 		  stickyHeaders_offset: adminbar_height
 		}
