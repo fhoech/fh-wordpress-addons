@@ -50,13 +50,19 @@ jQuery(function ($) {
 	});
 
 	// Fix sticky header position & cell dimensions
+	var $table = $('#hyper-cache-utility table.hasStickyHeaders');
+	function fix_table_width() {
+		if ($table[0].style.width) return;
+		var w = $table[0].offsetWidth + 'px';
+		log('fix_table_width ' + w);
+		$table[0].style.width = w;
+		$('#hyper-cache-utility table.containsStickyHeaders')[0].style.width = w;
+	};
 	function fix_table_dimensions() {
 		log('fix_table_dimensions');
 		var widths = [], heights = [],
 			$inner = $('#hyper-cache-utility table.hasStickyHeaders thead .tablesorter-header-inner'),
-			$this,
-			$table = $('#hyper-cache-utility table.hasStickyHeaders'),
-			table_width;
+			$this;
 		$inner.each(function (i) {
 			// Step 1: Record the dimensions
 			$this = $(this);
@@ -70,44 +76,46 @@ jQuery(function ($) {
 			$this.height(heights[i]);
 			$('#hyper-cache-utility table.containsStickyHeaders thead .tablesorter-header-inner').eq(i).width(widths[i]).height(heights[i]);
 		});
-		table_width = $table.width();
-		$table.width(table_width);
-		$('#hyper-cache-utility table.containsStickyHeaders').width(table_width);
+		fix_table_width();
 	};
-	function reset_table_dimensions() {
-		log('reset_table_dimensions');
+	function reset_table_dimensions(reset_table_width) {
+		log('reset_table_dimensions reset_table_width = ' + (reset_table_width !== false));
 		$('#hyper-cache-utility table.hasStickyHeaders thead .tablesorter-header-inner').each(function (i) {
 			var $this = $(this);
 			$this.width('');
 			$this.height('');
 		});
-		$('#hyper-cache-utility table.hasStickyHeaders').width('');
+		if (reset_table_width !== false) $table.width('');
 	};
 	var laststate = 'hidden';
 	$(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll resize', function (e) {
-		if (e.target == $('#hyper-cache-utility table.hasStickyHeaders')[0]) {
+		if (e.target == $table[0]) {
 			log(e.type + ' ' + e.target + ' ' + e.currentTarget + ' ' + e.relatedTarget);
 			return;
 		}
 		if ($(window).scrollTop() + adminbar_height > offsetTop) {
 			$('#hyper-cache-utility table.containsStickyHeaders').css('margin-left', -$(window).scrollLeft() + 'px')
-			if (laststate == 'hidden') {
-				log(e.type + ' ' + e.target);
-				fix_table_dimensions();
-				$('#hyper-cache-utility table.containsStickyHeaders').css({'left': 'auto', 'visibility': 'visible'});
-				laststate = 'visible';
-			}
-			else if (e.type == 'resize') {
+			if (e.type == 'resize' || laststate == 'hidden') {
 				log(e.type + ' ' + e.target);
 				reset_table_dimensions();
 				fix_table_dimensions();
 			}
+			if (laststate == 'hidden') {
+				$('#hyper-cache-utility table.containsStickyHeaders').css({'left': 'auto', 'visibility': 'visible'});
+				laststate = 'visible';
+			}
 		}
-		else if (laststate == 'visible') {
-			log(e.type + ' ' + e.target);
-			reset_table_dimensions();
-			$('#hyper-cache-utility table.containsStickyHeaders').css('visibility', 'hidden');
-			laststate = 'hidden';
+		else {
+			if (e.type == 'resize') {
+				log(e.type + ' ' + e.target);
+				reset_table_dimensions();
+				fix_table_dimensions();
+				reset_table_dimensions(false);
+			}
+			if (laststate == 'visible') {
+				$('#hyper-cache-utility table.containsStickyHeaders').css('visibility', 'hidden');
+				laststate = 'hidden';
+			}
 		}
 	});
 	
