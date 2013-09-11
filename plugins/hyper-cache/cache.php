@@ -245,9 +245,9 @@ function hyper_cache_callback($buffer) {
         return $buffer;
     }
 
-    if (!is_front_page() && is_home()) $data['type'] = 'blog';
+    if (is_feed()) $data['type'] = 'feed';
+    else if (!is_front_page() && is_home()) $data['type'] = 'blog';
     else if (is_front_page()) $data['type'] = 'home';
-    else if (is_feed()) $data['type'] = 'feed';
         else if (is_archive()) $data['type'] = 'archive';
             else if (is_single()) $data['type'] = 'single';
                 else if (is_attachment()) $data['type'] = 'attachment';
