@@ -23,6 +23,7 @@ jQuery(function ($) {
 
 	// Table sorting
 	$('#hyper-cache-utility table th:not(.status, .cache-filedate, .cache-filesize, .options)').data('sorter', 'text');
+	$('#hyper-cache-utility table th.cache-filedate').data('sorter', 'isoDate');
 	$('#hyper-cache-utility table th.cache-filesize').data('sorter', 'digit');
 	$('#hyper-cache-utility table th.options').data('sorter', false);
 	$('#hyper-cache-utility table').tablesorter({
