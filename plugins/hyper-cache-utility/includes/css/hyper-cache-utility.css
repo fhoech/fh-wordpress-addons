@@ -301,8 +301,8 @@
 	content: '\f0dc';
 }
 #hyper-cache-utility .tablesorter-headerAsc:not(.sorter-false) .tablesorter-header-inner span:before {
-	content: '\f0dd';
+	content: '\f0de';
 }
 #hyper-cache-utility .tablesorter-headerDesc:not(.sorter-false) .tablesorter-header-inner span:before {
-	content: '\f0de';
+	content: '\f0dd';
 }
