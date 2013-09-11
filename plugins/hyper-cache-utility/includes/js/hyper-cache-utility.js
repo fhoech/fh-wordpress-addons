@@ -42,16 +42,20 @@ jQuery(function ($) {
 	// Fix sticky header position & width
 	var laststate = 'hidden';
 	$(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll.tsSticky resize.tsSticky', function (e) {
+		if (e.type == 'resize') {
+			// Fix cell widths
+			$('#hyper-cache-utility table.hasStickyHeaders thead .tablesorter-header-inner').each(function (i) {
+				$(this).width('auto').height('auto');
+				var w = $(this).width(),
+					h = $(this).height();
+				$(this).width(w).height(h)
+				$('#hyper-cache-utility table.containsStickyHeaders thead .tablesorter-header-inner').eq(i).width(w).height(h);
+			});
+		}
 		if ($(window).scrollTop() + adminbar_height > offsetTop) {
 			$('#hyper-cache-utility table.containsStickyHeaders').css('margin-left', -$(window).scrollLeft() + 'px')
 			if (laststate == 'hidden' || e.type == 'resize') {
-				$('#hyper-cache-utility table.hasStickyHeaders thead .tablesorter-header-inner').each(function (i) {
-					var w = $(this).width(),
-						h = $(this).height();
-					$('#hyper-cache-utility table.containsStickyHeaders thead .tablesorter-header-inner').eq(i).width(w).height(h);
-				});
-				// Important: First width('auto'), then the real width, otherwise the width may be one pixel stoo short
-				$('#hyper-cache-utility table.containsStickyHeaders').css({'left': 'auto', 'visibility': 'visible'}).width('auto').width($('#hyper-cache-utility table.hasStickyHeaders').width());
+				$('#hyper-cache-utility table.containsStickyHeaders').css({'left': 'auto', 'visibility': 'visible'});
 				laststate = 'visible';
 			}
 		}
