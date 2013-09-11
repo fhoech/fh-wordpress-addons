@@ -246,44 +246,45 @@
 	cursor: pointer;
 }
 #hyper-cache-utility *[data-title]:not(button):before {
+	/* Tooltip body */
 	background: #333;
 	border-radius: 7px;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
 	color: #fff;
 	content: attr(data-title);
 	font-weight: normal;
-	margin-bottom: -35px;
+	left: 4px;
+	margin-top: 7px;
 	max-width: 960px;
 	min-width: 36px;
 	overflow: hidden;
 	padding: 4px 7px;
-	position: absolute;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 #hyper-cache-utility *[data-title]:not(button):after {
+	/* Tooltip arrow */
 	border-left: 7px solid transparent;
 	border-right: 7px solid transparent;
 	border-bottom: 7px solid #333;
 	content: "";
-	margin-left: 14px;
-	margin-bottom: -7px;
+	left: 18px;
 }
 #hyper-cache-utility *[data-title]:not(button):before,
 #hyper-cache-utility *[data-title]:not(button):after {
-	left: 4px;
+	top: 100%;
 	opacity: 0;
 	pointer-events: none;
 	position: absolute;
-	bottom: 11px;
-	transition: bottom .25s linear, opacity .25s linear, visibility .25s linear;
+	transform: translate3d(0, 0, 0) translateY(-11px);
+	transition: transform .25s ease, opacity .25s ease, visibility .25s ease;
 	visibility: hidden;
 	z-index: 9999;
 }
 #hyper-cache-utility *[data-title]:not(button):hover:after,
 #hyper-cache-utility *[data-title]:not(button):hover:before {
 	opacity: 1;
-	bottom: 0;
+	transform: translateY(0);
 	visibility: visible;
 }
 /* jQuery Tablesorter */
