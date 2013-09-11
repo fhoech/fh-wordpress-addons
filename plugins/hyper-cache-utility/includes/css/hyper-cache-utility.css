@@ -64,7 +64,7 @@
 	margin-right: .5ex;
 	margin-top: -.2ex;
 	transform-origin: 50% 50%;
-	transition: transform .125s linear;
+	transition: transform .125s ease;
 	vertical-align: middle;
 }
 #hyper-cache-utility button:active:before,
@@ -83,7 +83,7 @@
 	width: 100%;
 }
 #hyper-cache-utility tr {
-	transition: opacity .5s linear, transform .5s linear;
+	transition: opacity .5s ease, transform .5s ease;
 }
 #hyper-cache-utility tr.zoom-out {
 	opacity: 0;
