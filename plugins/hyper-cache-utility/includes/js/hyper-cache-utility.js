@@ -22,7 +22,10 @@ jQuery(function ($) {
 		adminbar_height = $('#wpadminbar').height();
 
 	// Table sorting
-	$("#hyper-cache-utility table").tablesorter({
+	$('#hyper-cache-utility table th:not(.status, .cache-filedate, .cache-filesize, .options)').data('sorter', 'text');
+	$('#hyper-cache-utility table th.cache-filesize').data('sorter', 'digit');
+	$('#hyper-cache-utility table th.options').data('sorter', false);
+	$('#hyper-cache-utility table').tablesorter({
 		sortReset: true,
 		textSorter : function (a, b, table, column) {
 			if (column == 0) {
@@ -32,6 +35,7 @@ jQuery(function ($) {
 			if (table.config.sortLocaleCompare) return a.localeCompare(b);
 			return a < b ? -1 : (a > b ? 1 : 0);
 		},
+		usNumberFormat: usNumberFormat,
 		widgets: ['saveSort', 'stickyHeaders'],
 		widgetOptions: {
 		  stickyHeaders: 'tablesorter-stickyHeader',

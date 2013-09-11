@@ -47,7 +47,8 @@ function hyper_cache_utility_enqueue_scripts_styles() {
 	wp_enqueue_script( 'jquery.form', '//cdnjs.cloudflare.com/ajax/libs/jquery.form/3.32/jquery.form.min.js', array('jquery'), false, true );
 	wp_enqueue_script( 'jquery.tablesorter', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.min.js', array('jquery'), false, true );
 	wp_enqueue_script( 'jquery.tablesorter.widgets', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.widgets.min.js', array('jquery.tablesorter'), false, true );
-	wp_enqueue_script( 'hyper-cache-utility-js', plugins_url( 'includes/js/hyper-cache-utility.js' , __FILE__ ), array('jquery.form', 'jquery.tablesorter'), false, true );
+	wp_enqueue_script( 'hyper-cache-utility-config', plugins_url( 'includes/js/hyper-cache-utility-config.js.php' , __FILE__ ), array(), false, true );
+	wp_enqueue_script( 'hyper-cache-utility', plugins_url( 'includes/js/hyper-cache-utility.js' , __FILE__ ), array('jquery.form', 'jquery.tablesorter', 'hyper-cache-utility-config'), false, true );
 }
 
 function hyper_cache_utility_management_page() {
