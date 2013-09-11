@@ -27,6 +27,7 @@ jQuery(function ($) {
 	$('#hyper-cache-utility table th.options').data('sorter', false);
 	$('#hyper-cache-utility table').tablesorter({
 		sortReset: true,
+		sortRestart: true,
 		textSorter : function (a, b, table, column) {
 			if (column == 0) {
 				a = a.replace(/\w+\.dat\s*$/, '');
