@@ -159,7 +159,7 @@ foreach ($files as $f) {
 						<td class="charset<?php if (!isset($data['mime'])) echo ' not-applicable'; ?>"><?php echo isset($data['mime']) ? preg_replace('/^.*;\s*charset=/', '', $data['mime']) : '<!-- N/A -->'; ?></td>
 						<td class="compression<?php if (!isset($data['gz']) && !isset($data['html'])) echo ' not-applicable'; ?>"><?php echo isset($data['gz']) ? __('GZIP', 'hyper-cache-utility') : (isset($data['html']) ? __('None') : '<!-- N/A -->'); ?></td>
 						<td class="user-agent<?php if (!isset($data['user_agent'])) echo ' not-applicable'; ?>"><?php echo isset($data['user_agent']) ? preg_replace('/(\w+:\/\/[\w$%&\/=?@+~#.:-_]+)/', '<a href="$1" target="_blank">$1</a>', htmlspecialchars(get($data['user_agent']), ENT_COMPAT, 'UTF-8')) : '<!-- N/A -->'; ?></td>
-						<td class="options" data-sorter="false"><button type="submit" name="delete" value="<?php echo $filename; ?>"><?php _e('Delete', 'hyper-cache-utility'); ?></button></td>
+						<td class="options"><button type="submit" name="delete" value="<?php echo $filename; ?>"><?php _e('Delete', 'hyper-cache-utility'); ?></button></td>
 					</tr>
 <?php
 
