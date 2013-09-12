@@ -113,7 +113,7 @@ $time = time();
 foreach ($files as $f) {
 	$filename = pathinfo($f, PATHINFO_FILENAME);
 	$data = @unserialize(file_get_contents($f));
-	$hc_file_time = filemtime($f);
+	$hc_file_time = @filemtime($f);
 	$hc_file_age = $time - $hc_file_time;
 	$is_expired = $hc_file_age > $hyper_cache_timeout ||
 		($hc_invalidation_global_time && $hc_file_time < $hc_invalidation_global_time) ||
@@ -124,7 +124,7 @@ foreach ($files as $f) {
 		 $_POST['delete'] == $filename ||
 		 ($_POST['delete'] == 404 && get($data['status']) == 404) ||
 		 ($_POST['delete'] == 'expired' && $is_expired && !in_array($filename, $special)))) {
-		unlink($f);
+		@unlink($f);
 		$last_deleted_hash = $filename;
 		$deleted ++;
 	}
