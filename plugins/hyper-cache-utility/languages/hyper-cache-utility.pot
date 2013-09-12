@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1\n"
 "Report-Msgid-Bugs-To: http://wordpress.org/tag/hyper-cache-utility\n"
-"POT-Creation-Date: 2013-09-10 00:12+0100\n"
+"POT-Creation-Date: 2013-09-12 02:08+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Florian Höch <florian.hoech@gmx.de>\n"
 "Language-Team: \n"
@@ -68,11 +68,11 @@ msgid "Content-Type"
 msgstr ""
 
 #: ../includes/hyper-cache-utility.php:69
-msgid "Sort by Compression"
+msgid "Sort by Data Format"
 msgstr ""
 
 #: ../includes/hyper-cache-utility.php:69
-msgid "Compression"
+msgid "Data"
 msgstr ""
 
 #: ../includes/hyper-cache-utility.php:70
@@ -83,32 +83,32 @@ msgstr ""
 msgid "User Agent"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:142
+#: ../includes/hyper-cache-utility.php:146
 #, php-format
 msgid "HTTP Status Code %u %s"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:142
+#: ../includes/hyper-cache-utility.php:146
 msgid "(Expired)"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:160
+#: ../includes/hyper-cache-utility.php:164
 msgid "GZIP"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:160
-msgid "None"
+#: ../includes/hyper-cache-utility.php:164
+msgid "HTML"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:162
+#: ../includes/hyper-cache-utility.php:166
 msgid "Delete"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:204
+#: ../includes/hyper-cache-utility.php:208
 msgid "Files in cache (valid and expired)"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:204
+#: ../includes/hyper-cache-utility.php:208
 #, php-format
 msgid ""
 "Expired: <span class=\"expired-count\">%u</span>, Not Found: <span class="
@@ -116,15 +116,15 @@ msgid ""
 "count\">%u</span>"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:212
+#: ../includes/hyper-cache-utility.php:216
 msgid "Delete expired"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:220
+#: ../includes/hyper-cache-utility.php:224
 msgid "Delete all with status 404"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:228
+#: ../includes/hyper-cache-utility.php:232
 msgid "Delete all"
 msgstr ""
 

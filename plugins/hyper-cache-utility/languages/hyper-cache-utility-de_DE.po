@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1\n"
 "Report-Msgid-Bugs-To: http://wordpress.org/tag/hyper-cache-utility\n"
-"POT-Creation-Date: 2013-09-10 00:13+0100\n"
-"PO-Revision-Date: 2013-09-10 00:13+0100\n"
+"POT-Creation-Date: 2013-09-12 02:08+0100\n"
+"PO-Revision-Date: 2013-09-12 02:09+0100\n"
 "Last-Translator: Florian Höch <florian.hoech@gmx.de>\n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -70,12 +70,12 @@ msgid "Content-Type"
 msgstr "Inhaltstyp"
 
 #: ../includes/hyper-cache-utility.php:69
-msgid "Sort by Compression"
-msgstr "Nach Kompressionsverfahren sortieren"
+msgid "Sort by Data Format"
+msgstr "Nach Datenformat sortieren"
 
 #: ../includes/hyper-cache-utility.php:69
-msgid "Compression"
-msgstr "Kompression"
+msgid "Data"
+msgstr "Daten"
 
 #: ../includes/hyper-cache-utility.php:70
 msgid "Sort by HTTP User Agent"
@@ -85,32 +85,32 @@ msgstr "Nach HTTP-User-Agent sortieren"
 msgid "User Agent"
 msgstr "User-Agent"
 
-#: ../includes/hyper-cache-utility.php:142
+#: ../includes/hyper-cache-utility.php:146
 #, php-format
 msgid "HTTP Status Code %u %s"
 msgstr "HTTP-Statuscode %u %s"
 
-#: ../includes/hyper-cache-utility.php:142
+#: ../includes/hyper-cache-utility.php:146
 msgid "(Expired)"
 msgstr "(Abgelaufen)"
 
-#: ../includes/hyper-cache-utility.php:160
+#: ../includes/hyper-cache-utility.php:164
 msgid "GZIP"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:160
-msgid "None"
-msgstr "Keine"
+#: ../includes/hyper-cache-utility.php:164
+msgid "HTML"
+msgstr ""
 
-#: ../includes/hyper-cache-utility.php:162
+#: ../includes/hyper-cache-utility.php:166
 msgid "Delete"
 msgstr "Löschen"
 
-#: ../includes/hyper-cache-utility.php:204
+#: ../includes/hyper-cache-utility.php:208
 msgid "Files in cache (valid and expired)"
 msgstr "Dateien im Cache (gültig und abgelaufen)"
 
-#: ../includes/hyper-cache-utility.php:204
+#: ../includes/hyper-cache-utility.php:208
 #, php-format
 msgid ""
 "Expired: <span class=\"expired-count\">%u</span>, Not Found: <span class="
@@ -121,15 +121,15 @@ msgstr ""
 "class=\"status-404-count\">%u</span>, Verschoben: <span class=\"status-301-"
 "count\">%u</span>"
 
-#: ../includes/hyper-cache-utility.php:212
+#: ../includes/hyper-cache-utility.php:216
 msgid "Delete expired"
 msgstr "Abgelaufene löschen"
 
-#: ../includes/hyper-cache-utility.php:220
+#: ../includes/hyper-cache-utility.php:224
 msgid "Delete all with status 404"
 msgstr "Alle mit Status 404 löschen"
 
-#: ../includes/hyper-cache-utility.php:228
+#: ../includes/hyper-cache-utility.php:232
 msgid "Delete all"
 msgstr "Alle löschen"
 
@@ -164,3 +164,12 @@ msgstr "Seite"
 #: ../languages/dummy.php:11
 msgid "Post"
 msgstr "Beitrag"
+
+#~ msgid "Sort by Compression"
+#~ msgstr "Nach Kompressionsverfahren sortieren"
+
+#~ msgid "Compression"
+#~ msgstr "Kompression"
+
+#~ msgid "None"
+#~ msgstr "Keine"
