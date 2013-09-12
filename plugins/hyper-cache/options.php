@@ -415,7 +415,7 @@ else
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Home caching', 'hyper-cache'); ?></th>
+    <th><?php _e('Disable home caching', 'hyper-cache'); ?></th>
     <td>
         <input type="checkbox" name="options[home]" value="1" <?php echo $options['home']?'checked':''; ?>/>
         <div class="hints">
