@@ -8,7 +8,14 @@ $hyper_cache_stop = true;
 
 define('XHR', !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
 
-if (!function_exists('hyper_cache_utility_management_page')) exit;
+if (!function_exists('hyper_cache_utility_management_page')) {
+	// We're being called directly
+	$wp_root_dir = realpath( dirname(__FILE__) . '/../../../..' );
+	$wp_load = $wp_root_dir . '/wp-load.php';
+	if (!is_file($wp_load)) die('Fatal error: Could not load WordPress: File does not exist ' . $wp_load);
+	require( $wp_load );
+	if (!current_user_can( 'manage_options' )) exit;
+}
 
 if (!function_exists('hyper_cache_gzdecode')) {
 	function hyper_cache_gzdecode ($data) {
@@ -55,7 +62,7 @@ if (!XHR) {
 		<header>
 			<h1><?php _e('Hyper Cache Utility', 'hyper-cache-utility'); ?></h1>
 		</header>
-		<form action="<?php echo $_SERVER['PHP_SELF']; ?>?<?php echo $_SERVER['QUERY_STRING']; ?>" method="post">
+		<form action="<?php echo plugins_url( basename( __FILE__ ) , __FILE__ ); ?>" method="post">
 <?php ob_start(); ?>
 			<table>
 				<thead>
@@ -185,15 +192,17 @@ if (!XHR) {
 	ob_end_clean();
 
 }
+else {
 
-header('X-HyperCache-Count: ' . (count($files) - $deleted));
-header('X-HyperCache-Expired-Count: ' . $expired);
-header('X-HyperCache-Status-301-Count: ' . $status301);
-header('X-HyperCache-Status-404-Count: ' . $status404);
-	
+	header('X-HyperCache-Count: ' . (count($files) - $deleted));
+	header('X-HyperCache-Expired-Count: ' . $expired);
+	header('X-HyperCache-Status-301-Count: ' . $status301);
+	header('X-HyperCache-Status-404-Count: ' . $status404);
+}
+
 if ($deleted > 0) {
-	header('X-HyperCache-Deleted: ' . ($deleted == count($files) ? 'all' : ($deleted > 1 ? (get($_POST['delete']) == 'expired' ? 'expired' : 'status=404') : 'hash=' . $last_deleted_hash)));
-	if (!XHR) {
+	if (XHR) header('X-HyperCache-Deleted: ' . ($deleted == count($files) ? 'all' : ($deleted > 1 ? (get($_POST['delete']) == 'expired' ? 'expired' : 'status=404') : 'hash=' . $last_deleted_hash)));
+	else {
 
 ?>
 			<p><?php printf(_n('One file deleted.', '%u files deleted.', $deleted, 'hyper-cache-utility'), $deleted); ?></p>
