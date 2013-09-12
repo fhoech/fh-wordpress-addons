@@ -333,13 +333,26 @@ else
     <th><?php _e('Store compressed pages', 'hyper-cache'); ?></th>
     <td>
         <input type="checkbox" name="options[store_compressed]" value="1" <?php echo $options['store_compressed']?'checked':''; ?>
-            onchange="jQuery('input[name=&quot;options[gzip]&quot;]').attr('disabled', !this.checked)" />
+            onchange="jQuery('input[name=&quot;options[gzip]&quot;], input[name=&quot;options[store_uncompressed]&quot;]').attr('disabled', !this.checked)" />
         <div class="hints">
         <?php _e('Enable this option to minimize disk space usage and make sending of compressed pages possible with the option below.', 'hyper-cache'); ?>
         <?php _e('The cache will be a little less performant.', 'hyper-cache'); ?>
         <?php _e('Leave the options disabled if you note malfunctions, like blank pages.', 'hyper-cache'); ?>
         <br />
         <?php _e('If you enable this option, the option below will be available as well.', 'hyper-cache'); ?>
+        </div>
+    </td>
+</tr>
+
+<tr valign="top">
+    <th><?php _e('Also store uncompressed pages', 'hyper-cache'); ?></th>
+    <td>
+        <input type="checkbox" name="options[store_uncompressed]" value="1" <?php echo $options['store_uncompressed']||!$options['store_compressed']?'checked':''; ?>
+            <?php echo $options['store_compressed']?'':'disabled'; ?> />
+        <div class="hints">
+        <?php _e('Enable this option to also store uncompressed pages for user agents that do not support compression.', 'hyper-cache'); ?>
+        <?php _e('The cache will be a little more performant for those user agents, but server disk space usage will increase.', 'hyper-cache'); ?>
+        <?php _e('Leave this option disabled if you want pages to be decompressed on-the-fly for those user agents (but decompressing may cost a little server CPU each time).', 'hyper-cache'); ?>
         </div>
     </td>
 </tr>

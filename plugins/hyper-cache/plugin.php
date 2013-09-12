@@ -356,6 +356,7 @@ function hyper_generate_config(&$options)
     $buffer .= '$hyper_cache_gzip = ' . (isset($options['gzip'])?'true':'false') . ";\n";
     $buffer .= '$hyper_cache_gzip_on_the_fly = ' . (isset($options['gzip_on_the_fly'])?'true':'false') . ";\n";
     $buffer .= '$hyper_cache_store_compressed = ' . (isset($options['store_compressed'])?'true':'false') . ";\n";
+    $buffer .= '$hyper_cache_store_uncompressed = ' . (isset($options['store_uncompressed'])?'true':'false') . ";\n";
 
     //$buffer .= '$hyper_cache_clean_interval = ' . ($options['clean_interval']*60) . ";\n";
 

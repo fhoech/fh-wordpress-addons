@@ -302,7 +302,7 @@ function hyper_cache_callback($buffer) {
 }
 
 function hyper_cache_write(&$data) {
-    global $hc_file, $hyper_cache_store_compressed, $hyper_cache_name;
+    global $hc_file, $hyper_cache_store_compressed, $hyper_cache_store_uncompressed, $hyper_cache_name;
 
     $data['host'] = $_SERVER['HTTP_HOST'];
     $data['uri'] = $_SERVER['REQUEST_URI'];
@@ -311,7 +311,7 @@ function hyper_cache_write(&$data) {
     // Look if we need the compressed version
     if ($hyper_cache_store_compressed && !empty($data['html']) && function_exists('gzencode')) {
         $data['gz'] = gzencode($data['html']);
-        if ($data['gz']) unset($data['html']);
+        if ($data['gz'] && !$hyper_cache_store_uncompressed) unset($data['html']);
     }
     $file = fopen($hc_file, 'w');
     fwrite($file, serialize($data));
