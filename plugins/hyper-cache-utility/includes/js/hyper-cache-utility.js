@@ -145,7 +145,11 @@ jQuery(function ($) {
 
 	// Ajax form
 	$('#hyper-cache-utility form').ajaxForm({
-		success: function (responseText, statusText, xhr, $form) {
+		success: function (response, statusText, xhr, $form) {
+			if ((response + '').match(/\S/)) {
+				alert($('<p>' + response + '</p>').text());
+				return;
+			}
 			if (statusText == 'success') {
 				var count = xhr.getResponseHeader('X-HyperCache-Count'),
 					deleted = xhr.getResponseHeader('X-HyperCache-Deleted'),
