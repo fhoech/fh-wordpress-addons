@@ -102,6 +102,7 @@ if (array_key_exists("HTTP_IF_MODIFIED_SINCE", $_SERVER)) {
     $if_modified_since = strtotime(preg_replace('/;.*$/', '', $_SERVER["HTTP_IF_MODIFIED_SINCE"]));
     if ($if_modified_since >= $hc_file_time) {
         header($_SERVER['SERVER_PROTOCOL'] . " 304 Not Modified");
+        hyper_cache_headers($hc_file_time, false);
         header('X-HyperCache: 304 Not Modified');
         flush();
         die();
@@ -140,23 +141,7 @@ header('X-HyperCache-File: ' . $hyper_cache_name . hyper_mobile_type() . '.dat')
 
 // It's time to serve the cached page
 
-if (!$hyper_cache_browsercache) {
-    // True if browser caching NOT enabled (default)
-    header('Cache-Control: no-cache, must-revalidate, max-age=0');
-    header('Pragma: no-cache');
-    header('Expires: Wed, 11 Jan 1984 05:00:00 GMT');
-}
-else {
-    $maxage = min($hyper_cache_browsercache_timeout,
-                  $hyper_cache_timeout - $hc_file_age);
-    header('Cache-Control: max-age=' . $maxage);
-    header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $maxage) . " GMT");
-}
-
-// True if user ask to NOT send Last-Modified
-if (!$hyper_cache_lastmodified) {
-    header('Last-Modified: ' . gmdate("D, d M Y H:i:s", $hc_file_time). " GMT");
-}
+hyper_cache_headers($hc_file_time, true);
 
 header('Content-Type: ' . $hyper_data['mime']);
 if (isset($hyper_data['status']) && $hyper_data['status'] == 404) header($_SERVER['SERVER_PROTOCOL'] . " 404 Not Found");
@@ -165,7 +150,6 @@ if (isset($hyper_data['status']) && $hyper_data['status'] == 404) header($_SERVE
 if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false &&
     (($hyper_cache_gzip && !empty($hyper_data['gz'])) || ($hyper_cache_gzip_on_the_fly && function_exists('gzencode')))) {
     header('Content-Encoding: gzip');
-    header('Vary: Accept-Encoding');
     if (!empty($hyper_data['gz'])) {
         echo $hyper_data['gz'];
     }
@@ -211,7 +195,7 @@ function hyper_cache_start($delete=true) {
 
 // Called whenever the page generation is ended
 function hyper_cache_callback($buffer) {
-    global $hyper_cache_notfound, $hyper_cache_stop, $hyper_cache_charset, $hyper_cache_feed, $hyper_cache_home, $hyper_cache_redirects, $hyper_redirect, $hc_file, $hyper_cache_name, $hyper_cache_browsercache, $hyper_cache_browsercache_timeout, $hyper_cache_timeout, $hyper_cache_lastmodified, $hyper_cache_gzip, $hyper_cache_gzip_on_the_fly;
+    global $hyper_cache_notfound, $hyper_cache_stop, $hyper_cache_charset, $hyper_cache_feed, $hyper_cache_home, $hyper_cache_redirects, $hyper_redirect, $hc_file, $hyper_cache_name, $hyper_cache_gzip, $hyper_cache_gzip_on_the_fly;
 
     header('X-HyperCache: 202 Accepted');
 
@@ -276,22 +260,11 @@ function hyper_cache_callback($buffer) {
 
     hyper_cache_write($data);
 
-    if ($hyper_cache_browsercache) {
-        $maxage = min($hyper_cache_browsercache_timeout,
-                      $hyper_cache_timeout - $hc_file_age);
-        header('Cache-Control: max-age=' . $maxage);
-        header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $maxage) . " GMT");
-    }
-
-    // True if user ask to NOT send Last-Modified
-    if (!$hyper_cache_lastmodified) {
-        header('Last-Modified: ' . gmdate("D, d M Y H:i:s", @filemtime($hc_file)). " GMT");
-    }
+    hyper_cache_headers(@filemtime($hc_file), true);
     
     if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false &&
         (($hyper_cache_gzip && !empty($data['gz'])) || ($hyper_cache_gzip_on_the_fly && !empty($data['html']) && function_exists('gzencode')))) {
         header('Content-Encoding: gzip');
-        header('Vary: Accept-Encoding');
         if (empty($data['gz'])) {
             $data['gz'] = gzencode($data['html']);
         }
@@ -353,6 +326,29 @@ function hyper_mobile_type() {
         }
     }
     return '';
+}
+
+function hyper_cache_headers($hc_file_time, $send_last_modified_if_enabled=true) {
+    global $hyper_cache_browsercache, $hyper_cache_browsercache_timeout, $hyper_cache_timeout, $hyper_cache_lastmodified;
+    $hc_file_age = time() - $hc_file_time;
+    if (!$hyper_cache_browsercache) {
+        // True if browser caching NOT enabled (default)
+        header('Cache-Control: no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: Wed, 11 Jan 1984 05:00:00 GMT');
+    }
+    else {
+        $maxage = min($hyper_cache_browsercache_timeout,
+                      $hyper_cache_timeout - $hc_file_age);
+        header('Cache-Control: max-age=' . $maxage);
+        header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $maxage) . " GMT");
+    }
+    // True if user ask to NOT send Last-Modified
+    if ($send_last_modified_if_enabled && !$hyper_cache_lastmodified) {
+        header('Last-Modified: ' . gmdate("D, d M Y H:i:s", $hc_file_time). " GMT");
+    }
+    // Always send Vary
+    header('Vary: Accept-Encoding, Cookie');
 }
 
 function hyper_cache_gzdecode ($data) {
