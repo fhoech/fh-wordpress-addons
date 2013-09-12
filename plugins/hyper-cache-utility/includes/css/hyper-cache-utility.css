@@ -135,8 +135,7 @@
 #hyper-cache-utility th [title] {
 	padding: 4px 7px;
 }
-#hyper-cache-utility .status,
-#hyper-cache-utility .compression {
+#hyper-cache-utility .status {
 	text-align: center;
 }
 #hyper-cache-utility .status span:before {

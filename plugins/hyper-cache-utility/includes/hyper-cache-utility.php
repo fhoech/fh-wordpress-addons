@@ -66,7 +66,7 @@ if (!XHR) {
 						<th class="cache-filesize"><div title="<?php _e('Sort by Size', 'hyper-cache-utility'); ?>"><span><?php _e('Size', 'hyper-cache-utility'); ?></span></div></th>
 						<th class="type"><div title="<?php _e('Sort by Type', 'hyper-cache-utility'); ?>"><span><?php _e('Type', 'hyper-cache-utility'); ?></span></div></th>
 						<th class="content-type"><div title="<?php _e('Sort by Content-Type', 'hyper-cache-utility'); ?>"><span><?php _e('Content-Type', 'hyper-cache-utility'); ?></span></div></th>
-						<th class="compression"><div title="<?php _e('Sort by Compression', 'hyper-cache-utility'); ?>"><span><?php _e('Compression', 'hyper-cache-utility'); ?></span></div></th>
+						<th class="data"><div title="<?php _e('Sort by Data Format', 'hyper-cache-utility'); ?>"><span><?php _e('Data', 'hyper-cache-utility'); ?></span></div></th>
 						<th class="user-agent"><div title="<?php _e('Sort by HTTP User Agent', 'hyper-cache-utility'); ?>"><span><?php _e('User Agent', 'hyper-cache-utility'); ?></span></div></th>
 						<th class="options"></th>
 					</tr>
@@ -130,7 +130,11 @@ foreach ($files as $f) {
 		$rowclasses[] = 'status-' . (isset($data['status']) ? $data['status'] : 'not-applicable');
 		$rowclasses[] = 'type-' . (isset($data['type']) ? $data['type'] : 'not-applicable');
 		$rowclasses[] = 'mime-type-' . (isset($data['mime']) ? str_replace('/', '-', preg_replace('/;.*$/', '', $data['mime'])) : 'not-applicable');
-		$rowclasses[] = 'compression-' . (isset($data['gz']) ? 'gz' : (isset($data['html']) ? 'none' : 'not-applicable'));
+		if (!isset($data['gz']) && !isset($data['html'])) $rowclasses[] = 'data-not-applicable';
+		else {
+			if (isset($data['gz'])) $rowclasses[] = 'data-gz';
+			if (isset($data['html'])) $rowclasses[] = 'data-html';
+		}
 		if ($is_expired && !in_array($filename, $special)) {
 			$expired ++;
 			$rowclasses[] = 'expired';
@@ -157,7 +161,7 @@ foreach ($files as $f) {
 						<td class="type<?php if (!isset($data['type'])) echo ' not-applicable'; ?>"><?php echo isset($data['type']) ? __(ucfirst($data['type']), 'hyper-cache-utility') : '<!-- N/A -->'; ?></td>
 						<td class="mime-type<?php if (!isset($data['mime'])) echo ' not-applicable'; ?>">
 							<?php echo isset($data['mime']) ? preg_replace('/;.*$/', '', $data['mime']) . ' ' . preg_replace('/^.*;\s*charset=/', '', $data['mime']) : '<!-- N/A -->'; ?></td>
-						<td class="compression<?php if (!isset($data['gz']) && !isset($data['html'])) echo ' not-applicable'; ?>"><?php echo isset($data['gz']) ? __('GZIP', 'hyper-cache-utility') : (isset($data['html']) ? __('None') : '<!-- N/A -->'); ?></td>
+						<td class="data<?php if (!isset($data['gz']) && !isset($data['html'])) echo ' not-applicable'; ?>"><?php echo (isset($data['gz']) ? __('GZIP', 'hyper-cache-utility') : '<!-- N/A -->') . (isset($data['gz']) && isset($data['html']) ? ' &amp; ' : '') . (isset($data['html']) ? __('HTML') : '<!-- N/A -->'); ?></td>
 						<td class="user-agent<?php if (!isset($data['user_agent'])) echo ' not-applicable'; ?>"><?php echo isset($data['user_agent']) ? preg_replace('/(\w+:\/\/[\w$%&\/=?@+~#.:-_]+)/', '<a href="$1" target="_blank">$1</a>', htmlspecialchars(get($data['user_agent']), ENT_COMPAT, 'UTF-8')) : '<!-- N/A -->'; ?></td>
 						<td class="options"><button type="submit" name="delete" value="<?php echo $filename; ?>"><?php _e('Delete', 'hyper-cache-utility'); ?></button></td>
 					</tr>
