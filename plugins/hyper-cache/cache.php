@@ -117,7 +117,7 @@ if (!$hyper_data) {
     return;
 }
 
-if ($hyper_data['type'] == 'blog' || $hyper_data['type'] == 'home' || $hyper_data['type'] == 'archive' || $hyper_data['type'] == 'feed') {
+if ($hyper_data['type'] == 'blog' || $hyper_data['type'] == 'home' || $hyper_data['type'] == 'archive' || $hyper_data['type'] == 'feed' || $hyper_data['type'] == 'search') {
 
     $hc_invalidation_archive_file =  @filemtime($hyper_cache_path . '_archives.dat');
     if ($hc_invalidation_archive_file && $hc_file_time < $hc_invalidation_archive_file) {
@@ -237,7 +237,8 @@ function hyper_cache_callback($buffer) {
                 else if (is_attachment()) $data['type'] = 'attachment';
                     else if (is_page()) $data['type'] = 'page';
                         else if (is_404()) $data['type'] = '404';
-                            else $data['type'] = is_singular() ? get_post_type() : 'archive';
+                            else if (is_search()) $data['type'] = 'search';
+                                else $data['type'] = is_singular() ? get_post_type() : 'archive';
     $buffer = trim($buffer);
 
     // Can be a trackback or other things without a body. We do not cache them, WP needs to get those calls.
