@@ -29,7 +29,7 @@ jQuery(function ($) {
 	// Table sorting
 	$('#hyper-cache-utility table').bind('initialized sortEnd', function () {
 		setTimeout(function () {
-			var sort_columns = $('#hyper-cache-utility [class*="tablesorter-sort-column-"]').filter('.tablesorter-headerAsc, .tablesorter-headerDesc');
+			var sort_columns = $('#hyper-cache-utility thead [class*="tablesorter-sort-column-"]').filter('.tablesorter-headerAsc, .tablesorter-headerDesc');
 			$('#hyper-cache-utility th span[data-sort-column]').removeAttr('data-sort-column');
 			if (sort_columns.length > 2) {  // Remember: We have two headers (normal + sticky)
 				sort_columns.each(function () {
@@ -55,7 +55,7 @@ jQuery(function ($) {
 			return a < b ? -1 : (a > b ? 1 : 0);
 		},
 		usNumberFormat: hyper_cache_utility.usNumberFormat,
-		widgets: ['columns', 'resizable', 'saveSort', 'stickyHeaders'],
+		widgets: ['columns', 'filter', 'resizable', 'saveSort', 'stickyHeaders'],
 		widgetOptions: {
 		  columns: $.map(new Array($('#hyper-cache-utility table:first thead tr:first th').length), function (e, i) {
 			  return 'tablesorter-sort-column-' + (i + 1);
