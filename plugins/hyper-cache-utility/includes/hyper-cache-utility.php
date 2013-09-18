@@ -242,6 +242,10 @@ class HyperCacheUtility {
 					if ($prepare_output) {
 						$this -> update_meta($data);
 						$this -> data[] = $data;
+						if (isset($data['uri'])) {
+							if (empty($this -> uris[$data['uri']])) $this -> uris[$data['uri']] = array();
+							$this -> uris[$data['uri']][] = $data['filename'];
+						}
 					}
 				}
 			}
