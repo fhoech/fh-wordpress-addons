@@ -4,11 +4,12 @@
 @keyframes hyper-cache-utility-pulse-color {
   50% { background: #ccc }
 }
-#hyper-cache-utility :focus {
-	outline: none;
+#hyper-cache-utility :focus,
+#hyper-cache-utility :active {
+	outline: none !important;
 }
 #hyper-cache-utility button::-moz-focus-inner {
-	border: 0;
+	border: 0 !important;
 }
 #hyper-cache-utility a {
 	font-weight: 500;
@@ -22,6 +23,7 @@
 	color: #789;
 }
 #hyper-cache-utility a:active,
+#hyper-cache-utility a:focus,
 #hyper-cache-utility a:hover {
 	color: #39c;
 }
