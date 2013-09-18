@@ -84,6 +84,26 @@
 			{/loop}
 		</tbody>
 	</table>
+	<p class="pager">
+		{$page}
+		<button class="first">{$first}</button>
+		<button class="prev">{$prev}</button>
+		<span class="pagedisplay"></span> <!-- this can be any element, including an input -->
+		<button class="next">{$next}</button>
+		<button class="last">{$last}</button>
+		{$entries_per_page}
+		<select class="pagesize">
+			<option value="10">10</option>
+			<option value="15">15</option>
+			<option value="20">20</option>
+			<option value="25">25</option>
+			<option value="30">30</option>
+			<option value="35">35</option>
+			<option value="40">40</option>
+			<option value="45">45</option>
+			<option value="50">50</option>
+		</select>
+	</p>
 	<script>
 		var hyper_cache_invalidation_archives_time = parseInt('{$hc_invalidation_archives_time}'),
 			hyper_cache_invalidation_global_time = parseInt('{$hc_invalidation_global_time}'),
