@@ -22,7 +22,8 @@ function log(msg) {
 
 jQuery(function ($) {
 
-	var offset = $('thead').offset().top,
+	var offset = $('thead').offset(),
+		offsetTop = offset ? offset.top : 0,
 		adminbar_height = $('#wpadminbar').height(),
 		laststate = 'hidden';
 
