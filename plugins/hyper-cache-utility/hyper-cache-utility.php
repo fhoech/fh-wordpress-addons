@@ -37,17 +37,27 @@ function hyper_cache_utility_admin_menu() {
 	add_action( 'load-' . $hook, 'hyper_cache_utility_enqueue_scripts_styles' );  // only load the scripts and stylesheets by hook, if this admin page will be shown
 }
 
+function hyper_cache_utility_enqueue( $what, $handle, $relative_src, $deps=array(), $in_footer=false ) {
+	// By default add file modification time as version parameter
+	$ver = filemtime(dirname(__FILE__) . '/' . $src);
+	// Get URL of src
+	$src = plugins_url( $relative_src , __FILE__ );
+	// Enqueue
+	if ( $what == 'style' ) wp_enqueue_style( $handle, $src, $deps, $ver );
+	else wp_enqueue_script( $handle, $src, $deps, $ver, $in_footer );
+}
+
 function hyper_cache_utility_enqueue_scripts_styles() {
-	wp_enqueue_style( 'hyper-cache-utility-fonts', 'http://fonts.googleapis.com/css?family=Raleway:300,500,700' );
-	wp_enqueue_style( 'hyper-cache-utility-iconfonts', 'http://weloveiconfonts.com/api/?family=fontawesome' );
-	wp_enqueue_style( 'hyper-cache-utility-styles', plugins_url( 'includes/css/hyper-cache-utility.css' , __FILE__ ), array('hyper-cache-utility-fonts', 'hyper-cache-utility-iconfonts') );
-	wp_enqueue_style( 'hyper-cache-utility-styles-dynamic', plugins_url( 'includes/css/hyper-cache-utility.css.php' , __FILE__ ), array('hyper-cache-utility-styles') );
+	wp_enqueue_style( 'hyper-cache-utility-fonts', 'http://fonts.googleapis.com/css?family=Raleway:300,500,700', array(), null );
+	wp_enqueue_style( 'hyper-cache-utility-iconfonts', 'http://weloveiconfonts.com/api/?family=fontawesome', array(), null );
+	hyper_cache_utility_enqueue( 'style', 'hyper-cache-utility-styles', 'includes/css/hyper-cache-utility.css', array('hyper-cache-utility-fonts', 'hyper-cache-utility-iconfonts') );
+	hyper_cache_utility_enqueue( 'style', 'hyper-cache-utility-styles-dynamic', 'includes/css/hyper-cache-utility.css.php', array('hyper-cache-utility-styles') );
 	wp_enqueue_script( 'jquery' );
-	wp_enqueue_script( 'prefixfree', '//cdnjs.cloudflare.com/ajax/libs/prefixfree/1.0.7/prefixfree.min.js', array(), false, false );
-	wp_enqueue_script( 'jquery.tablesorter', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.min.js', array('jquery'), false, true );
-	wp_enqueue_script( 'jquery.tablesorter.widgets', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.widgets.min.js', array('jquery.tablesorter'), false, true );
-	wp_enqueue_script( 'hyper-cache-utility-config', plugins_url( 'includes/js/hyper-cache-utility-config.js.php' , __FILE__ ), array(), false, true );
-	wp_enqueue_script( 'hyper-cache-utility', plugins_url( 'includes/js/hyper-cache-utility.js' , __FILE__ ), array('jquery.tablesorter.widgets', 'hyper-cache-utility-config'), false, true );
+	wp_enqueue_script( 'prefixfree', '//cdnjs.cloudflare.com/ajax/libs/prefixfree/1.0.7/prefixfree.min.js', array(), null, false );
+	wp_enqueue_script( 'jquery.tablesorter', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.min.js', array('jquery'), null, true );
+	wp_enqueue_script( 'jquery.tablesorter.widgets', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.widgets.min.js', array('jquery.tablesorter'), null, true );
+	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility-config', 'includes/js/hyper-cache-utility-config.js.php', array(), true );
+	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility', 'includes/js/hyper-cache-utility.js', array('jquery.tablesorter.widgets', 'hyper-cache-utility-config'), true );
 }
 
 function hyper_cache_utility_management_page() {
