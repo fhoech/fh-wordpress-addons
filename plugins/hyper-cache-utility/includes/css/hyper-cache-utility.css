@@ -25,6 +25,11 @@
 #hyper-cache-utility a:hover {
 	color: #39c;
 }
+#hyper-cache-utility a.back:before {
+	font-family: FontAwesome, sans-serif;
+	content: '\f053';
+	margin-right: .75ex;
+}
 #hyper-cache-utility :focus:active {
 	animation: none;
 }
@@ -39,17 +44,20 @@
 	padding-right: 20px;
 	width: auto;
 }
-#hyper-cache-utility a[class^="delete"] {
+#hyper-cache-utility a[class^="delete"],
+#hyper-cache-utility a[class^="view"] {
 	color: #c00;
 	display: inline-block;
 	padding: 4px 0;
 	white-space: nowrap;
 }
-#hyper-cache-utility td a[class^="delete"] {
+#hyper-cache-utility td a[class^="delete"],
+#hyper-cache-utility td a[class^="view"] {
 	font-size: 0;
 	width: 20px;
 }
-#hyper-cache-utility a[class^="delete"]:before {
+#hyper-cache-utility a[class^="delete"]:before,
+#hyper-cache-utility a[class^="view"]:before {
 	display: inline-block;
 	font-family: FontAwesome, sans-serif;
 	font-size: 18px;
@@ -62,12 +70,19 @@
 #hyper-cache-utility a[class^="delete"]:before {
 	content: '\f014';
 }
+#hyper-cache-utility a[class^="view"]:before {
+	content: '\f002';
+}
 #hyper-cache-utility a[class^="delete"]:active:before,
 #hyper-cache-utility a[class^="delete"]:focus:before,
-#hyper-cache-utility a[class^="delete"]:hover:before {
+#hyper-cache-utility a[class^="delete"]:hover:before,
+#hyper-cache-utility a[class^="view"]:active:before,
+#hyper-cache-utility a[class^="view"]:focus:before,
+#hyper-cache-utility a[class^="view"]:hover:before {
 	transform: scale(1.25) translateY(0);
 }
-#hyper-cache-utility a[class^="delete"] span {
+#hyper-cache-utility a[class^="delete"] span,
+#hyper-cache-utility a[class^="view"] span {
 	display: inline-block;
 }
 #hyper-cache-utility button {

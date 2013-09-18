@@ -1,0 +1,155 @@
+/**
+ * okaidia theme for JavaScript, CSS and HTML
+ * Loosely based on Monokai textmate theme by http://www.monokai.nl/
+ * @author ocodia
+ */
+
+#hyper-cache-utility code {
+	background: transparent;
+}
+
+#hyper-cache-utility code[class*="language-"],
+#hyper-cache-utility pre[class*="language-"] {
+	color: #f8f8f2;
+	text-shadow: 0 1px rgba(0,0,0,0.3);
+	font-family: Consolas, Monaco, 'Andale Mono', monospace;
+	direction: ltr;
+	text-align: left;
+	white-space: pre;
+	word-spacing: normal;
+	
+	-moz-tab-size: 4;
+	-o-tab-size: 4;
+	tab-size: 4;
+	
+	-webkit-hyphens: none;
+	-moz-hyphens: none;
+	-ms-hyphens: none;
+	hyphens: none;
+}
+
+/* Code blocks */
+#hyper-cache-utility pre[class*="language-"] {
+	padding: 1em;
+	margin: .5em 0;
+	overflow: auto;	
+	border-radius: 0.3em;
+}
+
+#hyper-cache-utility :not(pre) > code[class*="language-"],
+#hyper-cache-utility pre[class*="language-"] {
+	background: #272822;
+}
+
+/* Inline code */
+#hyper-cache-utility :not(pre) > code[class*="language-"] {
+	padding: .1em;
+	border-radius: .3em;
+}
+
+#hyper-cache-utility .token.comment,
+#hyper-cache-utility .token.prolog,
+#hyper-cache-utility .token.doctype,
+#hyper-cache-utility .token.cdata {
+	color: slategray;
+}
+
+#hyper-cache-utility .token.punctuation {
+	color: #f8f8f2;
+}
+
+#hyper-cache-utility .namespace {
+	opacity: .7;
+}
+
+#hyper-cache-utility .token.property,
+#hyper-cache-utility .token.tag {
+	color: #f92672;
+}
+
+#hyper-cache-utility .token.boolean,
+#hyper-cache-utility .token.number{
+	color: #ae81ff;
+}
+
+#hyper-cache-utility .token.selector,
+#hyper-cache-utility .token.attr-name,
+#hyper-cache-utility .token.string {
+	color: #a6e22e;
+}
+
+
+#hyper-cache-utility .token.operator,
+#hyper-cache-utility .token.entity,
+#hyper-cache-utility .token.url,
+#hyper-cache-utility .language-css .token.string,
+#hyper-cache-utility .style .token.string {
+	color: #f8f8f2;
+}
+
+#hyper-cache-utility .token.atrule,
+#hyper-cache-utility .token.attr-value
+{
+	color: #e6db74;
+}
+
+
+#hyper-cache-utility .token.keyword{
+color: #66d9ef;
+}
+
+#hyper-cache-utility .token.regex,
+#hyper-cache-utility .token.important {
+	color: #fd971f;
+}
+
+#hyper-cache-utility .token.important {
+	font-weight: bold;
+}
+
+#hyper-cache-utility .token.entity {
+	cursor: help;
+}
+#hyper-cache-utility pre.line-numbers {
+	position: relative;
+	padding-left: 3.8em;
+	counter-reset: linenumber;
+}
+
+#hyper-cache-utility pre.line-numbers > code {
+	position: relative;
+}
+
+#hyper-cache-utility .line-numbers .line-numbers-rows {
+	position: absolute;
+	pointer-events: none;
+	top: 0;
+	font-size: 100%;
+	left: -3.8em;
+	width: 3em; /* works for line-numbers below 1000 lines */
+	letter-spacing: -1px;
+	border-right: 1px solid #999;
+
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+
+}
+
+	#hyper-cache-utility .line-numbers-rows > span {
+		pointer-events: none;
+		display: block;
+		counter-increment: linenumber;
+	}
+
+		#hyper-cache-utility .line-numbers-rows > span:before {
+			content: counter(linenumber);
+			color: #999;
+			display: block;
+			padding-right: 0.8em;
+			text-align: right;
+		}
+#hyper-cache-utility .token a {
+	color: inherit;
+}

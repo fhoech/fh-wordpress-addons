@@ -1,0 +1,30 @@
+<!--[if gte IE 9 ]>
+<section class="gte-ie9" id="hyper-cache-utility">
+<![endif]-->
+<!--[if lt IE 9]><!-->
+<section id="hyper-cache-utility">
+<!--<![endif]-->
+	<header>
+		<h1>{$title}</h1>
+	</header>
+	<div style="overflow: hidden;">
+		<p style="float: right;"><a class="back" href="{function="esc_attr($page_uri)"}">{$go_back}</a></p>
+		<p class="{function="implode(' ', $data.tags)"}">
+			{if="isset($data.status)"}<span class="status" style="border-radius: 7px; display: inline-block; padding: 0 7px;"><abbr title="{$data.status_text}"><span>{$data.status}</span></abbr></span> {/if}{if="isset($data.uri)"}<a href="//{$data.uri}">{$data.uri}</a><br />{/if}
+			{$data.basename}
+			|
+			<time datetime="{function="date('c', $data.filetime)"}">
+				{function="strftime("%Y-%m-%d %H:%M:%S", $data.filetime)"}
+			</time>
+			|
+			{function="number_format_i18n(filesize($data.file) / 1024, 2)"} KiB
+			|
+			<span class="type{if="!isset($data.type)"} not-applicable{/if}">{$data.type}</span>
+			|
+			<span class="mime-type{if="!isset($data.mime)"} not-applicable{/if}">
+				{if="!empty($data.mime)"}{$data.content_type} {$data.charset}{/if}
+			</span>
+		</p>
+	</div>
+	{if="isset($data.html)"}<pre class="language-markup line-numbers"><code>{function="esc_html($data.html)"}</code></pre>{/if}
+</section>

@@ -52,11 +52,13 @@ function hyper_cache_utility_enqueue_scripts_styles() {
 	wp_enqueue_style( 'hyper-cache-utility-iconfonts', 'http://weloveiconfonts.com/api/?family=fontawesome', array(), null );
 	hyper_cache_utility_enqueue( 'style', 'hyper-cache-utility-styles', 'includes/css/hyper-cache-utility.css', array('hyper-cache-utility-fonts', 'hyper-cache-utility-iconfonts') );
 	hyper_cache_utility_enqueue( 'style', 'hyper-cache-utility-styles-dynamic', 'includes/css/hyper-cache-utility.css.php', array('hyper-cache-utility-styles') );
+	hyper_cache_utility_enqueue( 'style', 'pism', 'includes/css/prism.css' );
 	wp_enqueue_script( 'jquery' );
 	wp_enqueue_script( 'prefixfree', '//cdnjs.cloudflare.com/ajax/libs/prefixfree/1.0.7/prefixfree.min.js', array(), null, false );
 	wp_enqueue_script( 'jquery.tablesorter', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.min.js', array('jquery'), null, true );
 	wp_enqueue_script( 'jquery.tablesorter.widgets', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.widgets.min.js', array('jquery.tablesorter'), null, true );
 	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility-config', 'includes/js/hyper-cache-utility-config.js.php', array(), true );
+	hyper_cache_utility_enqueue( 'script', 'prism', 'includes/js/prism.js', array(), true );
 	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility', 'includes/js/hyper-cache-utility.js', array('jquery.tablesorter.widgets', 'hyper-cache-utility-config'), true );
 }
 
