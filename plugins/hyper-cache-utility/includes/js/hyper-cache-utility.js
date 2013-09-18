@@ -22,8 +22,9 @@ function log(msg) {
 
 jQuery(function ($) {
 
-	var offsetTop = $('thead').offset().top,
-		adminbar_height = $('#wpadminbar').height();
+	var offset = $('thead').offset().top,
+		adminbar_height = $('#wpadminbar').height(),
+		laststate = 'hidden';
 
 	// Table sorting
 	$('#hyper-cache-utility table').bind('initialized sortEnd', function () {
@@ -53,7 +54,7 @@ jQuery(function ($) {
 			if (table.config.sortLocaleCompare) return a.localeCompare(b);
 			return a < b ? -1 : (a > b ? 1 : 0);
 		},
-		usNumberFormat: usNumberFormat,
+		usNumberFormat: hyper_cache_utility.usNumberFormat,
 		widgets: ['columns', 'resizable', 'saveSort', 'stickyHeaders'],
 		widgetOptions: {
 		  columns: $.map(new Array($('#hyper-cache-utility table:first thead tr:first th').length), function (e, i) {
@@ -102,8 +103,7 @@ jQuery(function ($) {
 		});
 		if (reset_table_width !== false) $table.width('');
 	};
-	var laststate = 'hidden';
-	$(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll resize', function (e) {
+	if ($('#hyper-cache-utility table.containsStickyHeaders').length) $(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll resize', function (e) {
 		if (e.target == $table[0]) {
 			log(e.type + ' ' + e.target + ' ' + e.currentTarget + ' ' + e.relatedTarget);
 			return;
@@ -144,40 +144,58 @@ jQuery(function ($) {
 	}).removeAttr('title');
 
 	// Ajax form
-	$('#hyper-cache-utility form').ajaxForm({
-		success: function (response, statusText, xhr, $form) {
+	$('#hyper-cache-utility [class^="delete"]').click(function () {
+		$.get(hyper_cache_utility_ajax_uri + '?' + this.href.split(/&/).pop(), function (response, textStatus, jqXHR) {
 			if ((response + '').match(/\S/)) {
 				alert($('<p>' + response + '</p>').text());
-				return;
 			}
-			if (statusText == 'success') {
-				var count = xhr.getResponseHeader('X-HyperCache-Count'),
-					deleted = xhr.getResponseHeader('X-HyperCache-Deleted'),
-					expired = xhr.getResponseHeader('X-HyperCache-Expired-Count'),
-					status301 = xhr.getResponseHeader('X-HyperCache-Status-301-Count'),
-					status404 = xhr.getResponseHeader('X-HyperCache-Status-404-Count');
+			else if (textStatus == 'success') {
+				var count = jqXHR.getResponseHeader('X-HyperCache-Count'),
+					deleted = jqXHR.getResponseHeader('X-HyperCache-Deleted'),
+					expired = jqXHR.getResponseHeader('X-HyperCache-Expired-Count'),
+					status301 = jqXHR.getResponseHeader('X-HyperCache-Status-301-Count'),
+					status404 = jqXHR.getResponseHeader('X-HyperCache-Status-404-Count');
+				if (deleted == 'all')
+					count = expired = status301 = status404 = 0;
+				else if (deleted == 'expired')
+					expired = 0;
+				else if (deleted == 'status-404')
+					status404 = 0;
+				else {
+					count = parseInt($('#hyper-cache-utility .count').text()) - 1;
+					expired = parseInt($('#hyper-cache-utility .expired-count').text());
+					status301 = parseInt($('#hyper-cache-utility .status-301-count').text());
+					status404 = parseInt($('#hyper-cache-utility .status-404-count').text());
+					$('#' + deleted.replace(/=/, '-')).hasClass('expired') && expired --;
+					$('#' + deleted.replace(/=/, '-')).hasClass('status-301') && status301 --;
+					$('#' + deleted.replace(/=/, '-')).hasClass('status-404') && status404 --;
+				}
 				$('#hyper-cache-utility .count').html(count);
 				$('#hyper-cache-utility .expired-count').html(expired);
 				$('#hyper-cache-utility .status-301-count').html(status301);
 				$('#hyper-cache-utility .status-404-count').html(status404);
 				if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').fadeOut();
 				if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').fadeOut();
-				if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table').fadeOut();
+				if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, .pager').fadeOut(function () {
+					var $table = $('#hyper-cache-utility table.hasStickyHeaders');
+					$table.find('tbody tr').remove();
+					$table.trigger('disable.pager').trigger('enable.pager');
+				});
 				else {
 					function callback() {
 						$(this).remove();
 						if (deleted == 'hash=_archives' || deleted == 'hash=_global') {
-							if (deleted == 'hash=_global') hc_invalidation_global_time = 0;
-							else if (deleted == 'hash=_archives') hc_invalidation_archives_time = 0;
+							if (deleted == 'hash=_global') hyper_cache_invalidation_global_time = 0;
+							else if (deleted == 'hash=_archives') hyper_cache_invalidation_archives_time = 0;
 							$('#hyper-cache-utility tbody > tr').each(function () {
 								var $this = $(this),
 									$time = $(this).find('time'),
 									hc_file_time = new Date($time.attr('datetime')) / 1000,
-									hc_file_age = time - hc_file_time;
+									hc_file_age = hyper_cache_utility_time - hc_file_time;
 								if (hc_file_age <= hyper_cache_timeout &&
-									(isNaN(hc_invalidation_global_time) || hc_file_time >= hc_invalidation_global_time) &&
+									(isNaN(hyper_cache_invalidation_global_time) || hc_file_time >= hyper_cache_invalidation_global_time) &&
 									((!$this.hasClass('type-blog') && !$this.hasClass('type-home') && !$this.hasClass('type-archive') && !$this.hasClass('type-feed')) ||
-									 (isNaN(hc_invalidation_archives_time) || hc_file_time >= hc_invalidation_archives_time))) $(this).removeClass('expired');
+									 (isNaN(hyper_cache_invalidation_archives_time) || hc_file_time >= hyper_cache_invalidation_archives_time))) $(this).removeClass('expired');
 							});
 						}
 					};
@@ -185,9 +203,15 @@ jQuery(function ($) {
 						$('#hyper-cache-utility tbody > tr' + (deleted == 'expired' ? '.expired' : '.status-404')).addClass('zoom-out').timeout(callback, 500);
 					else if (deleted != 'all')
 						$('#' + deleted.replace(/=/, '-')).addClass('zoom-out').timeout(callback, 500);
+					$('#hyper-cache-utility table.hasStickyHeaders').timeout(function () {
+						$(this).trigger('disable.pager').trigger('enable.pager');
+					}, 500);
 				}
 			}
-		}
+		}).fail(function (jqXHR, textStatus, thrownError) {
+			alert(thrownError);
+		});
+		return false;
 	});
 
 });

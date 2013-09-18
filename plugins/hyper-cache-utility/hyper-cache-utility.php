@@ -44,16 +44,27 @@ function hyper_cache_utility_enqueue_scripts_styles() {
 	wp_enqueue_style( 'hyper-cache-utility-styles-dynamic', plugins_url( 'includes/css/hyper-cache-utility.css.php' , __FILE__ ), array('hyper-cache-utility-styles') );
 	wp_enqueue_script( 'jquery' );
 	wp_enqueue_script( 'prefixfree', '//cdnjs.cloudflare.com/ajax/libs/prefixfree/1.0.7/prefixfree.min.js', array(), false, false );
-	wp_enqueue_script( 'jquery.form', '//cdnjs.cloudflare.com/ajax/libs/jquery.form/3.32/jquery.form.min.js', array('jquery'), false, true );
 	wp_enqueue_script( 'jquery.tablesorter', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.min.js', array('jquery'), false, true );
 	wp_enqueue_script( 'jquery.tablesorter.widgets', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.widgets.min.js', array('jquery.tablesorter'), false, true );
 	wp_enqueue_script( 'hyper-cache-utility-config', plugins_url( 'includes/js/hyper-cache-utility-config.js.php' , __FILE__ ), array(), false, true );
-	wp_enqueue_script( 'hyper-cache-utility', plugins_url( 'includes/js/hyper-cache-utility.js' , __FILE__ ), array('jquery.form', 'jquery.tablesorter', 'hyper-cache-utility-config'), false, true );
+	wp_enqueue_script( 'hyper-cache-utility', plugins_url( 'includes/js/hyper-cache-utility.js' , __FILE__ ), array('jquery.tablesorter.widgets', 'hyper-cache-utility-config'), false, true );
 }
 
 function hyper_cache_utility_management_page() {
     load_plugin_textdomain( 'hyper-cache-utility', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
-	include( dirname( __FILE__ ) . '/includes/hyper-cache-utility.php' );
+	require( dirname( __FILE__ ) . '/includes/hyper-cache-utility.php' );
+	$debug = is_file(dirname(__FILE__) . '/DEBUG');
+	$delete = HyperCacheUtility :: get($_GET['delete']);
+	$view = HyperCacheUtility :: get($_GET['view']);
+	$hcutil = new HyperCacheUtility($debug);
+	try {
+		$hcutil -> process($delete, !$view);
+		if ($view) $hcutil -> view($view);
+		else $hcutil -> output();
+	}
+	catch (Exception $e) {
+		echo nl2br(esc_html(strip_tags($e)));
+	}
 }
 
 ?>

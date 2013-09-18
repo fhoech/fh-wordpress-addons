@@ -42,22 +42,17 @@
 	padding-right: 20px;
 	width: auto;
 }
-#hyper-cache-utility button {
-	-webkit-appearance: none;
-	background: transparent;
-	background-clip: padding-box;
-	border: 0;
+#hyper-cache-utility a[class^="delete"] {
 	color: #c00;
 	display: inline-block;
-	font-family: Raleway, sans-serif;
-	font-size: 100%;
-	margin: 0;
 	padding: 4px 0;
 	white-space: nowrap;
 }
-#hyper-cache-utility button:before {
-	color: #c00;
-	content: '\f014';
+#hyper-cache-utility td a[class^="delete"] {
+	font-size: 0;
+	width: 20px;
+}
+#hyper-cache-utility a[class^="delete"]:before {
 	display: inline-block;
 	font-family: FontAwesome, sans-serif;
 	font-size: 150%;
@@ -67,17 +62,36 @@
 	transition: transform .125s ease;
 	vertical-align: middle;
 }
-#hyper-cache-utility button:active:before,
-#hyper-cache-utility button:hover:before {
-	transform: scale(1.333) translateY(0);
+#hyper-cache-utility a[class^="delete"]:before {
+	content: '\f014';
 }
-#hyper-cache-utility button:focus:before {
-	animation: hyper-cache-utility-pulse-scale .5s infinite;
+#hyper-cache-utility a[class^="delete"]:active:before,
+#hyper-cache-utility a[class^="delete"]:focus:before,
+#hyper-cache-utility a[class^="delete"]:hover:before {
+	transform: scale(1.25) translateY(0);
+}
+#hyper-cache-utility a[class^="delete"] span {
+	display: inline-block;
+}
+#hyper-cache-utility button {
+	-webkit-appearance: none;
+	background: transparent;
+	background-clip: padding-box;
+	border: 0;
+	font-family: Raleway, sans-serif;
+	font-size: 100%;
+	font-weight: 500;
+	margin: 0;
+	padding: 0;
+}
+#hyper-cache-utility button:not(.disabled):not(:disabled) {
+	cursor: pointer;
 }
 #hyper-cache-utility h1 {
 	font-weight: 300;
 }
 #hyper-cache-utility table {
+	background: #eee;
 	border: 1px solid #ccc;
 	border-collapse: collapse;
 	width: 100%;
@@ -123,6 +137,7 @@
 #hyper-cache-utility td,
 #hyper-cache-utility th {
 	border-left: 1px solid #ccc;
+	border-right: 1px solid #ccc;
 	padding: 4px 7px;
 }
 #hyper-cache-utility th {
@@ -131,8 +146,7 @@
 	padding: 0;
 	white-space: nowrap;
 }
-#hyper-cache-utility th [data-title],
-#hyper-cache-utility th [title] {
+#hyper-cache-utility th {
 	padding: 4px 7px;
 }
 #hyper-cache-utility .status {
@@ -149,9 +163,11 @@
 #hyper-cache-utility .status-200 .status span:before {
 	content: '\f058';
 }
-#hyper-cache-utility .status-200 .status,
-#hyper-cache-utility .status-200 .uri {
+#hyper-cache-utility .status-200 .status {
 	border-color: #090;
+}
+#hyper-cache-utility .status-200 .uri {
+	border-left-color: #090;
 }
 #hyper-cache-utility tr:last-child.status-200 .status {
 	border-bottom: 1px solid #090;
@@ -163,9 +179,11 @@
 #hyper-cache-utility .status-301 .status span:before {
 	content: '\f071';
 }
-#hyper-cache-utility .status-301 .status,
-#hyper-cache-utility .status-301 .uri {
+#hyper-cache-utility .status-301 .status {
 	border-color: #c60;
+}
+#hyper-cache-utility .status-301 .uri {
+	border-left-color: #c60;
 }
 #hyper-cache-utility tr:last-child.status-301 .status {
 	border-bottom: 1px solid #c60;
@@ -177,9 +195,11 @@
 #hyper-cache-utility .status-404 .status span:before {
 	content: '\f057';
 }
-#hyper-cache-utility .status-404 .status,
-#hyper-cache-utility .status-404 .uri {
+#hyper-cache-utility .status-404 .status {
 	border-color: #900;
+}
+#hyper-cache-utility .status-404 .uri {
+	border-left-color: #900;
 }
 #hyper-cache-utility .expired .status span:before {
 	content: '\f017';
@@ -192,8 +212,12 @@
 	white-space: nowrap;
 }
 #hyper-cache-utility .mime-type,
-#hyper-cache-utility .charset {
+#hyper-cache-utility .charset,
+#hyper-cache-utility .type {
 	white-space: nowrap;
+}
+#hyper-cache-utility .uri a {
+	display: inline-block;
 }
 #hyper-cache-utility .uri a span {
 	display: inline-block;
@@ -226,25 +250,36 @@
 #hyper-cache-utility .type-post .type:before {
 	content: '\f016';
 }
+#hyper-cache-utility .type-search .type:before {
+	content: '\f002';
+}
 #hyper-cache-utility .not-applicable {
 	color: #aaa;
+}
+#hyper-cache-utility td.user-agent div div {
+	max-height: 40px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+#hyper-cache-utility td.options {
+	white-space: nowrap;
 }
 #hyper-cache-utility p.options {
 	float: right;
 	margin-top: -38px;
 }
-#hyper-cache-utility p.options button {
+#hyper-cache-utility p.options a {
 	margin-left: 14px;
 }
 /* Pure CSS3 Tooltips */
-#hyper-cache-utility *[data-title]:not(button) {
+#hyper-cache-utility [data-title] {
 	cursor: help;
 	position: relative;
 }
 #hyper-cache-utility a[data-title] {
 	cursor: pointer;
 }
-#hyper-cache-utility *[data-title]:not(button):before {
+#hyper-cache-utility [data-title]:before {
 	/* Tooltip body */
 	background: #333;
 	border-radius: 7px;
@@ -252,7 +287,7 @@
 	color: #fff;
 	content: attr(data-title);
 	font-weight: normal;
-	left: 4px;
+	left: 0;
 	margin-top: 7px;
 	max-width: 960px;
 	min-width: 36px;
@@ -261,7 +296,11 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-#hyper-cache-utility *[data-title]:not(button):after {
+#hyper-cache-utility .user-agent [data-title]:before {
+	height: auto;
+	white-space: normal;
+}
+#hyper-cache-utility [data-title]:after {
 	/* Tooltip arrow */
 	border-left: 7px solid transparent;
 	border-right: 7px solid transparent;
@@ -269,8 +308,8 @@
 	content: "";
 	left: 18px;
 }
-#hyper-cache-utility *[data-title]:not(button):before,
-#hyper-cache-utility *[data-title]:not(button):after {
+#hyper-cache-utility [data-title]:before,
+#hyper-cache-utility [data-title]:after {
 	top: 100%;
 	opacity: 0;
 	pointer-events: none;
@@ -280,13 +319,22 @@
 	visibility: hidden;
 	z-index: 9999;
 }
-#hyper-cache-utility *[data-title]:not(button):hover:after,
-#hyper-cache-utility *[data-title]:not(button):hover:before {
+#hyper-cache-utility [data-title]:hover:after,
+#hyper-cache-utility [data-title]:hover:before {
 	opacity: 1;
 	transform: translateY(0);
 	visibility: visible;
 }
+#hyper-cache-utility .disabled {
+	color: #ccc !important;
+}
 /* jQuery Tablesorter */
+#hyper-cache-utility .tablesorter th {
+	padding: 0;
+}
+#hyper-cache-utility .tablesorter-header-inner {
+	padding: 4px 7px;
+}
 #hyper-cache-utility .tablesorter-header-inner > [data-title] {
 	cursor: default;
 }

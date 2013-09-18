@@ -1,0 +1,94 @@
+<!--[if gte IE 9 ]>
+<section class="gte-ie9" id="hyper-cache-utility">
+<![endif]-->
+<!--[if lt IE 9]><!-->
+<section id="hyper-cache-utility">
+<!--<![endif]-->
+	<header>
+		<h1>{$title}</h1>
+	</header>
+	{if="$deleted > 0"}<p>{$deleted_info}</p>{/if}
+	<p class="info">
+		{$files_info}: <span class="count">{function="count($files) - $deleted"}</span><br />
+		({$files_detail_info})
+	</p>
+	<p class="options">
+		{if="$expired > 0"}<a class="delete-expired" href="{function="esc_attr($page_uri)"}&amp;delete=expired">{$delete_expired}</a>{/if}
+		{if="$status404 > 0"}<a class="delete-status-404" href="{function="esc_attr($page_uri)"}&amp;delete=404">{$delete_404}</a>{/if}
+		{if="count($files) - $deleted > 0"}<a class="delete-all" href="{function="esc_attr($page_uri)"}&amp;delete=all">{$delete_all}</a>{/if}
+	</p>
+	<table>
+		<thead>
+			<tr>
+				<th class="status filter-select"><div title="{$sort_by_status}"><span>{$status}</span></div></th>
+				<th class="uri cache-filename"><div title="{$sort_by_uri}"><span>{$uri_filename}</span></div></th>
+				<th class="cache-filedate"><div title="{$sort_by_date}"><span>{$date}</span></div></th>
+				<th class="cache-filesize"><div title="{$sort_by_size}"><span>{$size}</span></div></th>
+				<th class="type filter-select"><div title="{$sort_by_type}"><span>{$type}</span></div></th>
+				<th class="mime-type filter-select"><div title="{$sort_by_content_type}"><span>{$content_type}</span></div></th>
+				<th class="data filter-select"><div title="{$sort_by_data_format}"><span>{$data_format}</span></div></th>
+				<th class="user-agent"><div title="{$sort_by_user_agent}"><span>{$user_agent}</span></div></th>
+				<th class="options filter-false"></th>
+			</tr>
+		</thead>
+		<tbody>
+			{loop="data"}
+			<tr class="{function="implode(' ', $value.tags)"}" id="hash-{$value.filename}">
+				<td class="status{if="!isset($value.status)"} not-applicable{/if}">
+					{if="isset($value.status)"}<abbr title="{$value.status_text}"><span>{$value.status}</span></abbr>{/if}
+				</td>
+				<td class="uri cache-filename">
+					{if="isset($value.uri)"}
+					<a href="//{function="esc_attr($value.uri)"}" title="{function="esc_attr($value.uri)"}">
+						<span>{function="esc_html($value.uri)"}</span>
+					</a>
+					{/if}
+					{if="isset($value.location)"}
+					→
+					<a href="{function="esc_attr($value.location)"}" title="{function="esc_attr($value.location_text)"}">
+						<span>{function="esc_html($value.location_text)"}</span>
+					</a>
+					{/if}
+					{if="isset($value.uri) || isset($value.location)"}<br />{/if}
+					{$value.basename}
+				</td>
+				<td class="cache-filedate">
+					<time datetime="{function="date('c', $value.filetime)"}">
+						{function="strftime("%Y-%m-%d %H:%M:%S", $value.filetime)"}
+					</time>
+				</td>
+				<td class="cache-filesize">
+					{function="number_format_i18n(filesize($value.file) / 1024, 2)"} KiB
+				</td>
+				<td class="type{if="!isset($value.type)"} not-applicable{/if}">{if="isset($value.type)"}{$value.type_text}{/if}</td>
+				<td class="mime-type{if="!isset($value.mime)"} not-applicable{/if}">
+					{if="isset($value.mime)"}{$value.content_type} {$value.charset}{/if}
+				</td>
+				<td class="data{if="!isset($value.gz) && !isset($value.html)"} not-applicable{/if}">
+					{if="isset($value.gz)"}{$gzip}{/if}
+					{if="isset($value.gz) && isset($value.html)"}&amp;{/if}
+					{if="isset($value.html)"}{$html}{/if}
+				</td>
+				<td class="user-agent{if="!isset($value.user_agent)"} not-applicable{/if}">
+					{if="isset($value.user_agent)"}
+					<div title="{function="esc_attr($value.user_agent)"}">
+						<div>{$value.user_agent_html}</div>
+					</div>
+					{/if}
+				</td>
+				<td class="options">
+					<a class="delete" href="{function="esc_attr($page_uri)"}&amp;delete={$value.filename}">{$delete}</a>
+					{if="isset($value.gz) || isset($value.html)"}<a class="view" href="{function="esc_attr($page_uri)"}&amp;view={$value.filename}">{$view}</a>{/if}
+				</td>
+			</tr>
+			{/loop}
+		</tbody>
+	</table>
+	<script>
+		var hyper_cache_invalidation_archives_time = parseInt('{$hc_invalidation_archives_time}'),
+			hyper_cache_invalidation_global_time = parseInt('{$hc_invalidation_global_time}'),
+			hyper_cache_timeout = parseFloat('{$hc_timeout}'),
+			hyper_cache_utility_time = {$time},
+			hyper_cache_utility_ajax_uri = '{$ajax_uri}';
+	</script>
+</section>

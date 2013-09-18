@@ -9,5 +9,6 @@ __("Feed");
 __("Home");
 __("Page");
 __("Post");
+__("Search");
 
 ?>
