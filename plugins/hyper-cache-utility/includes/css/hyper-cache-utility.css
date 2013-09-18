@@ -426,3 +426,32 @@
 #hyper-cache-utility .tablesorter-filter.disabled {
 	display: none;
 }
+/* jQuery Tablesorter Pager Widget */
+#hyper-cache-utility .pagerSavedHeightSpacer {
+	border-top: 1px solid #ccc;
+}
+#hyper-cache-utility .pager button {
+	font-size: 0;
+	text-align: center;
+	width: 20px;
+}
+#hyper-cache-utility .pager .first:before {
+	font-family: FontAwesome, sans-serif;
+	font-size: 15px;
+	content: '\f100';
+}
+#hyper-cache-utility .pager .prev:before {
+	font-family: FontAwesome, sans-serif;
+	font-size: 15px;
+	content: '\f104';
+}
+#hyper-cache-utility .pager .next:after {
+	font-family: FontAwesome, sans-serif;
+	font-size: 15px;
+	content: '\f105';
+}
+#hyper-cache-utility .pager .last:after {
+	font-family: FontAwesome, sans-serif;
+	font-size: 15px;
+	content: '\f101';
+}
