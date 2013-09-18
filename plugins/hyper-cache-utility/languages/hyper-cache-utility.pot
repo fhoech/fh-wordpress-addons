@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1\n"
 "Report-Msgid-Bugs-To: http://wordpress.org/tag/hyper-cache-utility\n"
-"POT-Creation-Date: 2013-09-12 02:08+0100\n"
+"POT-Creation-Date: 2013-09-18 10:26+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Florian Höch <florian.hoech@gmx.de>\n"
 "Language-Team: \n"
@@ -15,100 +15,41 @@ msgstr ""
 "X-Poedit-Basepath: .\n"
 "X-Poedit-SearchPath-0: ..\n"
 
-#: ../includes/hyper-cache-utility.php:56
-msgid "Hyper Cache Utility"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:63
-msgid "Sort by HTTP Status Code"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:63
-msgid "Status"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:64
-msgid "Sort by URI"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:64
-msgid "URI &amp; Cache Filename"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:65
-msgid "Sort by Date"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:65
-msgid "Date"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:66
-msgid "Sort by Size"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:66
-msgid "Size"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:67
-msgid "Sort by Type"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:67
-msgid "Type"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:68
-msgid "Sort by Content-Type"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:68
-msgid "Content-Type"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:69
-msgid "Sort by Data Format"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:69
-msgid "Data"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:70
-msgid "Sort by HTTP User Agent"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:70
-msgid "User Agent"
-msgstr ""
-
-#: ../includes/hyper-cache-utility.php:146
+#: ../includes/hyper-cache-utility.php:106
 #, php-format
 msgid "HTTP Status Code %u %s"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:146
+#: ../includes/hyper-cache-utility.php:107
 msgid "(Expired)"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:164
+#: ../includes/hyper-cache-utility.php:257
+#: ../includes/hyper-cache-utility.php:395
+msgid "Hyper Cache Utility"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:258
 msgid "GZIP"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:164
+#: ../includes/hyper-cache-utility.php:259
 msgid "HTML"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:166
+#: ../includes/hyper-cache-utility.php:260
 msgid "Delete"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:208
+#: ../includes/hyper-cache-utility.php:261
+msgid "View"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:263
 msgid "Files in cache (valid and expired)"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:208
+#: ../includes/hyper-cache-utility.php:264
 #, php-format
 msgid ""
 "Expired: <span class=\"expired-count\">%u</span>, Not Found: <span class="
@@ -116,20 +57,121 @@ msgid ""
 "count\">%u</span>"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:216
+#: ../includes/hyper-cache-utility.php:265
 msgid "Delete expired"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:224
+#: ../includes/hyper-cache-utility.php:266
 msgid "Delete all with status 404"
 msgstr ""
 
-#: ../includes/hyper-cache-utility.php:232
+#: ../includes/hyper-cache-utility.php:267
 msgid "Delete all"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:268
+msgid "Sort by HTTP Status Code"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:269
+msgid "Status"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:270
+msgid "Sort by URI"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:271
+msgid "URI &amp; Cache Filename"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:272
+msgid "Sort by Date"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:273
+msgid "Date"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:274
+msgid "Sort by Size"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:275
+msgid "Size"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:276
+msgid "Sort by Type"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:277
+msgid "Type"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:278
+msgid "Sort by Content-Type"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:279
+msgid "Content-Type"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:280
+msgid "Sort by Data Format"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:281
+msgid "Data"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:282
+msgid "Sort by HTTP User Agent"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:283
+msgid "User Agent"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:284 ../languages/dummy.php:10
+msgid "Page"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:285
+msgid "First"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:286
+msgid "Previous"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:287
+msgid "Next"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:288
+msgid "Last"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:289
+msgid "Entries per page:"
+msgstr ""
+
+#: ../includes/hyper-cache-utility.php:396
+msgid "Go back"
 msgstr ""
 
 #: ../includes/css/hyper-cache-utility.css.php:13
 msgid "N/A"
+msgstr ""
+
+#: ../includes/js/hyper-cache-utility-config.js.php:17
+msgid ""
+"{page} / {filteredPages} (Entries {startRow} - {endRow} / {filteredRows})"
+msgstr ""
+
+#: ../includes/js/hyper-cache-utility-config.js.php:18
+msgid "Reset"
 msgstr ""
 
 #: ../languages/dummy.php:5
@@ -152,10 +194,10 @@ msgstr ""
 msgid "Home"
 msgstr ""
 
-#: ../languages/dummy.php:10
-msgid "Page"
-msgstr ""
-
 #: ../languages/dummy.php:11
 msgid "Post"
+msgstr ""
+
+#: ../languages/dummy.php:12
+msgid "Search"
 msgstr ""
