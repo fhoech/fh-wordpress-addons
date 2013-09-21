@@ -1,7 +1,9 @@
-jQuery.fn.extend({
+(function ($) {
+
+$.fn.extend({
 	timeout: function (fn, ms) {
 		this.each(function () {
-			this._timeout = setTimeout(jQuery.proxy(fn, this), ms);
+			this._timeout = setTimeout($.proxy(fn, this), ms);
 		});
 		return this;
 	},
@@ -25,7 +27,7 @@ function log(msg) {
 	if (window.console && typeof console.log == 'function') console.log(msg);
 };
 
-function ready($) {
+function ready() {
 
 	var offset = $('thead').offset(),
 		offsetTop = offset ? offset.top : 0,
@@ -260,7 +262,7 @@ function ready($) {
 					$('#hyper-cache-utility *').unbind();
 					if (table) $.tablesorter.addHeaderResizeEvent(table, true);
 					$content.html(responseMatch[1]);
-					ready($);
+					ready();
 					$content.removeClass('zoom-out');
 				}, 500);
 			}
@@ -274,4 +276,6 @@ function ready($) {
 
 document.removeEventListener('DOMContentLoaded', Prism.highlightAll)
 
-jQuery(ready);
+$(ready);
+
+})(jQuery);
