@@ -155,6 +155,14 @@ jQuery(function ($) {
 	
 	$(window).resize();
 
+	// Table column resizing
+	$('#hyper-cache-utility th.uri .tablesorter-resizer').mousedown(function () {
+		$('#hyper-cache-utility tbody td.uri a span').addClass('disabled').css('max-width', '300px');
+	});
+	$('body, #hyper-cache-utility th').mouseup(function () {
+		$('#hyper-cache-utility tbody td.uri a span').removeClass('disabled').css('max-width', $('#hyper-cache-utility tbody td.uri:first').width() + 'px');
+	});
+
 	// Custom CSS title tooltips
 	$('#hyper-cache-utility [title]:not(button)').each(function () {
 		var scrollW = document.documentElement.scrollWidth;

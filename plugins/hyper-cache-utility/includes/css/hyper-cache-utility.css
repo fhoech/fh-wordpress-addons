@@ -235,11 +235,16 @@
 }
 #hyper-cache-utility .uri a span {
 	display: inline-block;
-	max-width: 288px;
+	max-width: 300px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	vertical-align: top;
 	white-space: nowrap;
+}
+#hyper-cache-utility .uri a span.disabled {
+  background: -webkit-linear-gradient(left, #789, transparent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 #hyper-cache-utility .type:before {
 	font-family: FontAwesome, sans-serif;
