@@ -50,7 +50,7 @@
 					</a>
 					{/if}
 					{if="isset($value.uri) || isset($value.location)"}<br />{/if}
-					{$value.basename}
+					<span class="filename">{$value.basename}</span>
 				</td>
 				<td class="cache-filedate">
 					<time datetime="{function="date('c', $value.filetime)"}">
