@@ -8,7 +8,7 @@
 		<h1>{$title}</h1>
 	</header>
 	<div style="overflow: hidden;">
-		<p style="float: right;"><a class="back" href="{function="esc_attr($page_uri)"}">{$go_back}</a></p>
+		<p style="float: right;"><a class="back" href="{function="esc_attr($page_uri)"}" onclick="history.back(); return false;">{$go_back}</a></p>
 		<p class="{function="implode(' ', $data.tags)"}">
 			{if="isset($data.status)"}<span class="status" style="border-radius: 7px; display: inline-block; padding: 0 7px;"><abbr title="{$data.status_text}"><span>{$data.status}</span></abbr></span> {/if}{if="isset($data.uri)"}<a href="//{$data.uri}">{$data.uri}</a><br />{/if}
 			{$data.basename}
