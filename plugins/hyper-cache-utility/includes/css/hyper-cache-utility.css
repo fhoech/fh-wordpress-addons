@@ -301,18 +301,14 @@
 	color: #fff;
 	content: attr(data-title);
 	font-weight: normal;
-	left: 0;
+	left: -40px;
 	margin-top: 7px;
 	max-width: 960px;
-	min-width: 36px;
+	min-width: 80px;
 	overflow: hidden;
 	padding: 4px 7px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-#hyper-cache-utility .data [data-title]:before {
-    left: auto;
-    right: 0;
 }
 #hyper-cache-utility .user-agent [data-title]:before {
 	height: auto;
@@ -324,7 +320,7 @@
 	border-right: 7px solid transparent;
 	border-bottom: 7px solid #333;
 	content: "";
-	left: 18px;
+	left: 0;
 }
 #hyper-cache-utility [data-title]:before,
 #hyper-cache-utility [data-title]:after {
