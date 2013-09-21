@@ -81,7 +81,7 @@
 #hyper-cache-utility a[class^="view"]:active:before,
 #hyper-cache-utility a[class^="view"]:focus:before,
 #hyper-cache-utility a[class^="view"]:hover:before {
-	transform: scale(1.25) translateY(0);
+	transform: translate3d(0, 0, 0) scale(1.25) translateY(0);
 }
 #hyper-cache-utility a[class^="delete"] span,
 #hyper-cache-utility a[class^="view"] span {
@@ -117,7 +117,7 @@
 }
 #hyper-cache-utility .zoom-out {
 	opacity: 0;
-	transform: perspective(600px) rotateX(-45deg) scale(.9);
+	transform: translate3d(0, 0, 0) perspective(600px) rotateX(-45deg) scale(.9);
 }
 #hyper-cache-utility tr:nth-child(odd) {
 	background: #f0f0f0;
@@ -342,7 +342,7 @@
 #hyper-cache-utility [data-title]:hover:after,
 #hyper-cache-utility [data-title]:hover:before {
 	opacity: 1;
-	transform: translateY(0);
+	transform: translate3d(0, 0, 0) translateY(0);
 	visibility: visible;
 }
 #hyper-cache-utility .disabled {
@@ -423,7 +423,7 @@
 #hyper-cache-utility .tablesorter-filter-row button:active:before,
 #hyper-cache-utility .tablesorter-filter-row button:focus:before,
 #hyper-cache-utility .tablesorter-filter-row button:hover:before {
-	transform: scale(1.25) translateY(0);
+	transform: translate3d(0, 0, 0) scale(1.25) translateY(0);
 }
 #hyper-cache-utility .tablesorter-filter {
 	max-width: 98%;
