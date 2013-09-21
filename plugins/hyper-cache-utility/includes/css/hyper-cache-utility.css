@@ -110,13 +110,14 @@
 	border-collapse: collapse;
 	width: 100%;
 }
+#hyper-cache-utility-content,
 #hyper-cache-utility tr {
 	transition: opacity .5s ease, transform .5s ease;
+	transform-origin: 50% 0;
 }
-#hyper-cache-utility tr.zoom-out {
+#hyper-cache-utility .zoom-out {
 	opacity: 0;
 	transform: perspective(600px) rotateX(-45deg) scale(.9);
-	transform-origin: 50% 0;
 }
 #hyper-cache-utility tr:nth-child(odd) {
 	background: #f0f0f0;

@@ -60,7 +60,7 @@ function hyper_cache_utility_enqueue_scripts_styles() {
 	wp_enqueue_script( 'jquery.tablesorter.widgets', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.widgets.min.js', array('jquery.tablesorter'), null, true );
 	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility-config', 'includes/js/hyper-cache-utility-config.js.php', array(), true );
 	hyper_cache_utility_enqueue( 'script', 'prism', 'includes/js/prism.js', array(), true );
-	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility', 'includes/js/hyper-cache-utility.js', array('jquery.tablesorter.pager', 'jquery.tablesorter.widgets', 'hyper-cache-utility-config'), true );
+	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility', 'includes/js/hyper-cache-utility.js', array('jquery.tablesorter.pager', 'jquery.tablesorter.widgets', 'hyper-cache-utility-config', 'prism'), true );
 }
 
 function hyper_cache_utility_management_page() {

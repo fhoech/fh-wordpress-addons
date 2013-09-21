@@ -14,14 +14,19 @@ if (!current_user_can( 'manage_options' )) die('You are not allowed to view this
 
 do_action('wp');  // Polylang: load_textdomains
 
+load_plugin_textdomain( 'hyper-cache-utility', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
+
 require( dirname(__FILE__) . '/includes/hyper-cache-utility.php' );
 
 $debug = is_file(dirname(__FILE__) . '/DEBUG');
 $delete = HyperCacheUtility :: get($_GET['delete']);
+$view = HyperCacheUtility :: get($_GET['view']);
 $hcutil = new HyperCacheUtility($debug);
 try {
-	$hcutil -> process($delete, false);
-	$hcutil -> send_headers();
+	$hcutil -> process($delete, !$delete && !$view);
+	if ($view) $hcutil -> view($view);
+	else if (!$delete) $hcutil -> output();
+	else $hcutil -> send_headers();
 }
 catch (Exception $e) {
 	echo nl2br(esc_html(strip_tags($e)));

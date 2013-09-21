@@ -16,11 +16,16 @@ jQuery.fn.extend({
 	}
 });
 
+function get_query(href, start_index) {
+	var params = href.split(/\?/).pop().split(/&/).slice(start_index).join('&');
+	return params ? '?' + params : '';
+};
+
 function log(msg) {
 	if (window.console && typeof console.log == 'function') console.log(msg);
-}
+};
 
-jQuery(function ($) {
+function ready($) {
 
 	var offset = $('thead').offset(),
 		offsetTop = offset ? offset.top : 0,
@@ -86,6 +91,8 @@ jQuery(function ($) {
 
 	// Fix sticky header position & cell dimensions
 	var $table = $('#hyper-cache-utility table.hasStickyHeaders');
+	log('#hyper-cache-utility table.hasStickyHeaders ' + $table.get(0));
+	if ($table.length) {
 	function fix_table_width() {
 		if ($table[0].style.width) return;
 		var w = $table[0].offsetWidth + 'px';
@@ -122,7 +129,7 @@ jQuery(function ($) {
 		});
 		if (reset_table_width !== false) $table.width('');
 	};
-	if ($('#hyper-cache-utility table.containsStickyHeaders').length) $(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll resize', function (e) {
+	if ($('#hyper-cache-utility table.containsStickyHeaders').length) $(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll.tsSticky resize.tsSticky', function (e) {
 		if (e.target == $table[0]) {
 			log(e.type + ' ' + e.target + ' ' + e.currentTarget + ' ' + e.relatedTarget);
 			return;
@@ -162,6 +169,7 @@ jQuery(function ($) {
 	$('body, #hyper-cache-utility th').mouseup(function () {
 		$('#hyper-cache-utility tbody td.uri a span').removeClass('disabled').css('max-width', $('#hyper-cache-utility tbody td.uri:first').width() + 'px');
 	});
+	}
 
 	// Custom CSS title tooltips
 	$('#hyper-cache-utility [title]:not(button)').each(function () {
@@ -170,9 +178,12 @@ jQuery(function ($) {
 		if (document.documentElement.scrollWidth > scrollW) log('Warning: The following element\'s tooltip exceeds the document\'s scroll width: ' + this.outerHTML);
 	}).removeAttr('title');
 
-	// Ajax form
+	// Ajax
+	$(document).ajaxError(function (jqXHR, textStatus, thrownError) {
+		alert(thrownError);
+	});
 	$('#hyper-cache-utility [class^="delete"]').click(function () {
-		$.get(hyper_cache_utility_ajax_uri + '?' + this.href.split(/&/).pop(), function (response, textStatus, jqXHR) {
+		$.get(hyper_cache_utility_ajax_uri + get_query(this.href, 1), function (response, textStatus, jqXHR) {
 			if ((response + '').match(/\S/)) {
 				alert($('<p>' + response + '</p>').text());
 			}
@@ -235,10 +246,32 @@ jQuery(function ($) {
 					}, 500);
 				}
 			}
-		}).fail(function (jqXHR, textStatus, thrownError) {
-			alert(thrownError);
+		});
+		return false;
+	});
+	$('#hyper-cache-utility .back, #hyper-cache-utility .view').click(function () {
+		$.get(hyper_cache_utility_ajax_uri + get_query(this.href, 1), function (response, textStatus, jqXHR) {
+			var responseMatch = (response + '').match(/<div id="hyper-cache-utility-content">([\S\s]*)<\/div><!-- hyper-cache-utility-content -->/);
+			if (responseMatch) {
+				var $content = $('#hyper-cache-utility-content'),
+					table = $('#hyper-cache-utility-content table.hasStickyHeaders').get(0);
+				$content.addClass('zoom-out').timeout(function () {
+					$(window).unbind('scroll.tsSticky resize.tsSticky');
+					$('#hyper-cache-utility *').unbind();
+					if (table) $.tablesorter.addHeaderResizeEvent(table, true);
+					$content.html(responseMatch[1]);
+					ready($);
+					$content.removeClass('zoom-out');
+				}, 500);
+			}
 		});
 		return false;
 	});
 
-});
+	Prism.highlightElement($('#hyper-cache-utility pre.language-markup code').get(0));
+
+};
+
+document.removeEventListener('DOMContentLoaded', Prism.highlightAll)
+
+jQuery(ready);
