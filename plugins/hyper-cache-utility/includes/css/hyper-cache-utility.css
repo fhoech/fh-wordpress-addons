@@ -310,6 +310,10 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+#hyper-cache-utility .data [data-title]:before {
+    left: auto;
+    right: 0;
+}
 #hyper-cache-utility .user-agent [data-title]:before {
 	height: auto;
 	white-space: normal;
