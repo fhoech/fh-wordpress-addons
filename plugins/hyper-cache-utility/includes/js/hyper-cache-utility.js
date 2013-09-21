@@ -159,7 +159,7 @@ jQuery(function ($) {
 	$('#hyper-cache-utility [title]:not(button)').each(function () {
 		var scrollW = document.documentElement.scrollWidth;
 		$(this).attr('data-title', $(this).attr('title'));
-		if (document.documentElement.scrollWidth > scrollW) alert(this.outerHTML);
+		if (document.documentElement.scrollWidth > scrollW) log('Warning: The following element\'s tooltip exceeds the document\'s scroll width: ' + this.outerHTML);
 	}).removeAttr('title');
 
 	// Ajax form
