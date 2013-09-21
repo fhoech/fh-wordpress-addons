@@ -359,7 +359,7 @@ class HyperCacheUtility {
 		if (!$this -> is_special($data['filename']) && $data['is_expired']) $tags[] = 'expired';
 		$data['tags'] = $tags;
 		$data['status_text'] = $this :: get_status_text($data);
-		if (isset($data['host'])) $data['uri'] = $data['host'] . $data['uri'];
+		if (isset($data['host'])) $data['uri'] = '//' . $data['host'] . $data['uri'];
 		if (isset($data['location']))
 			$data['location_text'] = preg_replace('/^\w+:\/\//', '', $data['location']);
 		$data['basename'] = $data['filename'] . '.dat';
