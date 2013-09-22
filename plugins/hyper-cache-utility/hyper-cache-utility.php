@@ -59,8 +59,9 @@ function hyper_cache_utility_enqueue_scripts_styles() {
 	hyper_cache_utility_enqueue( 'script', 'jquery.tablesorter.pager', 'includes/js/jquery.tablesorter.pager.min.js', array('jquery.tablesorter'), true );
 	wp_enqueue_script( 'jquery.tablesorter.widgets', '//cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.10.8/jquery.tablesorter.widgets.min.js', array('jquery.tablesorter'), null, true );
 	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility-config', 'includes/js/hyper-cache-utility-config.js.php', array(), true );
+	wp_enqueue_script( 'jquery.history', '//cdnjs.cloudflare.com/ajax/libs/history.js/1.8/bundled/html4+html5/jquery.history.min.js', array('jquery'), null, false );
 	hyper_cache_utility_enqueue( 'script', 'prism', 'includes/js/prism.js', array(), true );
-	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility', 'includes/js/hyper-cache-utility.js', array('jquery.tablesorter.pager', 'jquery.tablesorter.widgets', 'hyper-cache-utility-config', 'prism'), true );
+	hyper_cache_utility_enqueue( 'script', 'hyper-cache-utility', 'includes/js/hyper-cache-utility.js', array('jquery.tablesorter.pager', 'jquery.tablesorter.widgets', 'hyper-cache-utility-config', 'jquery.history', 'prism'), true );
 }
 
 function hyper_cache_utility_management_page() {

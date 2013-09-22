@@ -292,7 +292,6 @@ class HyperCacheUtility {
 		$tpl -> assign( 'last', __('Last', 'hyper-cache-utility') );
 		$tpl -> assign( 'entries_per_page', __('Entries per page:', 'hyper-cache-utility') );
 		$tpl -> assign( 'page_uri', 'tools.php?page=hyper-cache-utility/hyper-cache-utility.php' );
-		$tpl -> assign( 'ajax_uri', plugins_url( 'ajax.php' , dirname(__FILE__) ) );
 		$tpl -> assign( 'deleted', $this -> deleted );
 		$tpl -> assign( 'expired', $this -> expired );
 		$tpl -> assign( 'status301', $this -> status301 );

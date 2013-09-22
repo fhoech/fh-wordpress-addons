@@ -105,12 +105,11 @@
 				<option value="50">50</option>
 			</select>
 		</p>
+		<script>
+			var hyper_cache_invalidation_archives_time = parseInt('{$hc_invalidation_archives_time}'),
+				hyper_cache_invalidation_global_time = parseInt('{$hc_invalidation_global_time}'),
+				hyper_cache_timeout = parseFloat('{$hc_timeout}'),
+				hyper_cache_utility_time = {$time};
+		</script>
 	</div><!-- hyper-cache-utility-content -->
 </section>
-<script>
-	var hyper_cache_invalidation_archives_time = parseInt('{$hc_invalidation_archives_time}'),
-		hyper_cache_invalidation_global_time = parseInt('{$hc_invalidation_global_time}'),
-		hyper_cache_timeout = parseFloat('{$hc_timeout}'),
-		hyper_cache_utility_time = {$time},
-		hyper_cache_utility_ajax_uri = '{$ajax_uri}';
-</script>

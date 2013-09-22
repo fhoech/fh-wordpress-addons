@@ -1,5 +1,9 @@
 (function ($) {
 
+	var previous_url = History.getState().url;
+
+	History.replaceState({'content': $('#hyper-cache-utility-content').html()}, document.title, previous_url);
+
 	$.fn.extend({
 		timeout: function (fn, ms) {
 			this.each(function () {
@@ -180,12 +184,12 @@
 			if (document.documentElement.scrollWidth > scrollW) log('Warning: The following element\'s tooltip exceeds the document\'s scroll width: ' + this.outerHTML);
 		}).removeAttr('title');
 
-		// Ajax
+		// Ajax & history
 		$(document).ajaxError(function (jqXHR, textStatus, thrownError) {
 			alert(thrownError);
 		});
 		$('#hyper-cache-utility [class^="delete"]').click(function () {
-			$.get(hyper_cache_utility_ajax_uri + get_query(this.href, 1), function (response, textStatus, jqXHR) {
+			$.get(hyper_cache_utility.ajax_uri + get_query(this.href, 1), function (response, textStatus, jqXHR) {
 				if ((response + '').match(/\S/)) {
 					alert($('<p>' + response + '</p>').text());
 				}
@@ -216,9 +220,16 @@
 					$('#hyper-cache-utility .status-404-count').html(status404);
 					if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').fadeOut();
 					if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').fadeOut();
+					function update_state() {
+						var state = History.getState();
+						state.data.content = state.data.content && state.data.content.replace(/(<p class="info">)[\S\s]*?(<\/p>)/, '$1' + $('#hyper-cache-utility p.info').html() + '$2').replace(/(<tbody(?:\s+[^<]*)?>)[\S\s]*(<\/tbody>)/, '$1' + $('#hyper-cache-utility tbody').html() + '$2');
+						log('update_state');
+						History.replaceState(state.data, state.title, state.url);
+					};
 					if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, .pager').fadeOut(function () {
 						var $table = $('#hyper-cache-utility table.hasStickyHeaders');
 						$table.find('tbody tr').remove();
+						update_state();
 						$table.trigger('disable.pager').trigger('enable.pager');
 					});
 					else {
@@ -238,6 +249,7 @@
 										 (isNaN(hyper_cache_invalidation_archives_time) || hc_file_time >= hyper_cache_invalidation_archives_time))) $(this).removeClass('expired');
 								});
 							}
+							update_state();
 						};
 						if (deleted == 'expired' || deleted == 'status=404')
 							$('#hyper-cache-utility tbody > tr' + (deleted == 'expired' ? '.expired' : '.status-404')).addClass('zoom-out').timeout(callback, 500);
@@ -252,27 +264,65 @@
 			return false;
 		});
 		$('#hyper-cache-utility .back, #hyper-cache-utility .view').click(function () {
-			$.get(hyper_cache_utility_ajax_uri + get_query(this.href, 1), function (response, textStatus, jqXHR) {
-				var responseMatch = (response + '').match(/<div id="hyper-cache-utility-content">([\S\s]*)<\/div><!-- hyper-cache-utility-content -->/);
-				if (responseMatch) {
-					var $content = $('#hyper-cache-utility-content'),
-						table = $('#hyper-cache-utility-content table.hasStickyHeaders').get(0);
-					$content.addClass('zoom-out').timeout(function () {
-						$(window).unbind('scroll.tsSticky resize.tsSticky');
-						$('#hyper-cache-utility *').unbind();
-						if (table) $.tablesorter.addHeaderResizeEvent(table, true);
-						$content.html(responseMatch[1]);
-						ready();
-						$content.removeClass('zoom-out');
-					}, 500);
-				}
-			});
+			History.pushState(null, document.title, this.href);
 			return false;
 		});
 
 		Prism.highlightElement($('#hyper-cache-utility pre.language-markup code').get(0));
 
 	};
+
+	History.Adapter.bind(window, 'statechange', function() {
+		var $content = $('#hyper-cache-utility-content'),
+			state = History.getState(),
+			table = $('#hyper-cache-utility-content table.hasStickyHeaders').get(0);
+		log(previous_url + ' -> ' + state.url);
+		if (state.data.content) {
+			if (state.url != previous_url) {
+				$content.addClass('zoom-out').timeout(function () {
+					var count, expired, status404;
+					$(window).unbind('scroll.tsSticky resize.tsSticky');
+					$('#hyper-cache-utility *').unbind();
+					if (table) $.tablesorter.addHeaderResizeEvent(table, true);
+					if (state.data.content) $content.html(state.data.content);
+					if (state.data.scripts) $.each(state.data.scripts, function(){
+						var $script = $(this),
+							scriptText = $script.text(),
+							scriptNode = document.createElement('script');
+						if ($script.attr('src')) {
+							if (!$script[0].async) scriptNode.async = false;
+							scriptNode.src = $script.attr('src');
+						}
+						scriptNode.appendChild(document.createTextNode(scriptText));
+						$content[0].appendChild(scriptNode);
+					});
+					count = parseInt($('#hyper-cache-utility .count').text());
+					expired = parseInt($('#hyper-cache-utility .expired-count').text());
+					status404 = parseInt($('#hyper-cache-utility .status-404-count').text());
+					if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table').hide();
+					if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').hide();
+					if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').hide();
+					ready();
+					$content.css('opacity', '').removeClass('zoom-out');
+				}, 500);
+				previous_url = state.url;
+			}
+		}
+		else {
+			$content.css('opacity', .5);
+			$.get(hyper_cache_utility.ajax_uri + get_query(state.url, 1), function (response, textStatus, jqXHR) {
+				var $response = $(response.replace(/<(\/)?(script)([\s\>])/g, '<$1div class="$2"$3')),
+					$scripts = $response.find('.script').detach(),
+					content = $response.find('#hyper-cache-utility-content').html();
+				if (content) History.replaceState({'content': content, 'scripts': $scripts.length && $scripts}, document.title, state.url);
+				else {
+					$content.css('opacity', 1);
+					alert('Unexpected data returned from AJAX call');
+				}
+			});
+		}
+
+	});
 
 	document.removeEventListener('DOMContentLoaded', Prism.highlightAll)
 
