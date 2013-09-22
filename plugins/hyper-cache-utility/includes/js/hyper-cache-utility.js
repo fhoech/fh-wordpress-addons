@@ -226,11 +226,11 @@
 						log('update_state');
 						History.replaceState(state.data, state.title, state.url);
 					};
-					if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, .pager').fadeOut(function () {
+					if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, #hyper-cache-utility .pager').fadeOut(function () {
 						var $table = $('#hyper-cache-utility table.hasStickyHeaders');
 						$table.find('tbody tr').remove();
 						update_state();
-						$table.trigger('disable.pager').trigger('enable.pager');
+						$table.trigger('disable.pager');
 					});
 					else {
 						function callback() {
@@ -255,7 +255,7 @@
 							$('#hyper-cache-utility tbody > tr' + (deleted == 'expired' ? '.expired' : '.status-404')).addClass('zoom-out').timeout(callback, 500);
 						else if (deleted != 'all')
 							$('#' + deleted.replace(/=/, '-')).addClass('zoom-out').timeout(callback, 500);
-						$('#hyper-cache-utility table.hasStickyHeaders').timeout(function () {
+						if (count) $('#hyper-cache-utility table.hasStickyHeaders').timeout(function () {
 							$(this).trigger('disable.pager').trigger('enable.pager');
 						}, 500);
 					}
@@ -296,13 +296,13 @@
 						scriptNode.appendChild(document.createTextNode(scriptText));
 						$content[0].appendChild(scriptNode);
 					});
+					ready();
 					count = parseInt($('#hyper-cache-utility .count').text());
 					expired = parseInt($('#hyper-cache-utility .expired-count').text());
 					status404 = parseInt($('#hyper-cache-utility .status-404-count').text());
-					if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table').hide();
+					if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, #hyper-cache-utility .pager').hide();
 					if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').hide();
 					if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').hide();
-					ready();
 					$content.css('opacity', '').removeClass('zoom-out');
 				}, 500);
 				previous_url = state.url;
