@@ -274,47 +274,49 @@
 
 	History.Adapter.bind(window, 'statechange', function() {
 		var $content = $('#hyper-cache-utility-content'),
+			$newcontent,
+			$scripts,
+			count, expired, status404,
 			state = History.getState(),
 			table = $('#hyper-cache-utility-content table.hasStickyHeaders').get(0);
 		log(previous_url + ' -> ' + state.url);
 		if (state.data.content) {
 			if (state.url != previous_url) {
-				$content.addClass('zoom-out').timeout(function () {
-					var count, expired, status404;
-					$(window).unbind('scroll.tsSticky resize.tsSticky');
-					$('#hyper-cache-utility *').unbind();
-					if (table) $.tablesorter.addHeaderResizeEvent(table, true);
-					if (state.data.content) $content.html(state.data.content);
-					if (state.data.scripts) $.each(state.data.scripts, function(){
-						var $script = $(this),
-							scriptText = $script.text(),
-							scriptNode = document.createElement('script');
-						if ($script.attr('src')) {
-							if (!$script[0].async) scriptNode.async = false;
-							scriptNode.src = $script.attr('src');
-						}
-						scriptNode.appendChild(document.createTextNode(scriptText));
-						$content[0].appendChild(scriptNode);
-					});
-					ready();
-					count = parseInt($('#hyper-cache-utility .count').text());
-					expired = parseInt($('#hyper-cache-utility .expired-count').text());
-					status404 = parseInt($('#hyper-cache-utility .status-404-count').text());
-					if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, #hyper-cache-utility .pager').hide();
-					if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').hide();
-					if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').hide();
-					$content.css('opacity', '').removeClass('zoom-out');
-				}, 500);
+				$(window).unbind('scroll.tsSticky resize.tsSticky');
+				$('#hyper-cache-utility *').unbind();
+				if (table) $.tablesorter.addHeaderResizeEvent(table, true);
+				$newcontent = $('<div>' + state.data.content + '</div>');
+				$scripts = $newcontent.find('.script').detach();
+				$content.html($newcontent.html());
+				if ($scripts) $scripts.each(function(){
+					var $script = $(this),
+						scriptText = $script.text(),
+						scriptNode = document.createElement('script');
+					if ($script.attr('src')) {
+						if (!$script[0].async) scriptNode.async = false;
+						scriptNode.src = $script.attr('src');
+					}
+					scriptNode.appendChild(document.createTextNode(scriptText));
+					$content[0].appendChild(scriptNode);
+				});
+				ready();
+				count = parseInt($('#hyper-cache-utility .count').text());
+				expired = parseInt($('#hyper-cache-utility .expired-count').text());
+				status404 = parseInt($('#hyper-cache-utility .status-404-count').text());
+				if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, #hyper-cache-utility .pager').hide();
+				if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').hide();
+				if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').hide();
+				$content.css('opacity', 1);
 				previous_url = state.url;
 			}
 		}
 		else {
 			$content.css('opacity', .5);
 			$.get(hyper_cache_utility.ajax_uri + get_query(state.url, 1), function (response, textStatus, jqXHR) {
-				var $response = $(response.replace(/<(\/)?(script)([\s\>])/g, '<$1div class="$2"$3')),
-					$scripts = $response.find('.script').detach(),
-					content = $response.find('#hyper-cache-utility-content').html();
-				if (content) History.replaceState({'content': content, 'scripts': $scripts.length && $scripts}, document.title, state.url);
+				var content = $(response.replace(/<(\/)?(script)([\s\>])/g, '<$1div class="$2"$3')).find('#hyper-cache-utility-content').html();
+				if (content) $content.css('opacity', 0).timeout(function () {
+					History.replaceState({'content': content}, state.title, state.url);
+				}, 500);
 				else {
 					$content.css('opacity', 1);
 					alert('Unexpected data returned from AJAX call');
