@@ -411,13 +411,14 @@
 }
 #hyper-cache-utility .tablesorter-filter-row button:before {
 	content: '\f0e2';
-	display: inline-block;
+	display: block;
 	font-family: FontAwesome, sans-serif;
 	font-size: 18px;
 	margin-right: 6px;
-	margin-top: -.2ex;
+    position: relative;
 	transform-origin: 50% 50%;
 	transition: transform .125s ease;
+	top: .2ex;
 	vertical-align: middle;
 }
 #hyper-cache-utility .tablesorter-filter-row button:active:before,
