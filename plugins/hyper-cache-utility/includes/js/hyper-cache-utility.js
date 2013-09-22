@@ -190,8 +190,9 @@
 		});
 		$('#hyper-cache-utility [class^="delete"]').click(function () {
 			$.get(hyper_cache_utility.ajax_uri + get_query(this.href, 1), function (response, textStatus, jqXHR) {
+				if (response.responseText) response = response.responseText;
 				if ((response + '').match(/\S/)) {
-					alert($('<p>' + response + '</p>').text());
+					alert('Unexpected data returned from AJAX call:\n' + $('<p>' + response + '</p>').text());
 				}
 				else if (textStatus == 'success') {
 					var count = jqXHR.getResponseHeader('X-HyperCache-Count'),
