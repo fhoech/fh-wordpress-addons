@@ -1,8 +1,10 @@
 (function ($) {
 
 	var previous_url = History.getState().url,
-		cache = {};
+		cache = {},
+		page = 0;
 
+	History.replaceState({'page': page}, document.title, location.href);
 	cache[previous_url] = $('#hyper-cache-utility-content').html();
 
 	$.fn.extend({
@@ -28,8 +30,8 @@
 		return params ? '?' + params : '';
 	};
 
-	function log(msg) {
-		if (window.console && typeof console.log == 'function') console.log(msg);
+	function log() {
+		if (window.console && typeof console.log == 'function') console.log.apply(console, arguments);
 	};
 
 	function ready() {
@@ -94,6 +96,12 @@
 			removeRows: false,
 			// go to page selector - select dropdown that sets the current page
 			cssGoto:   '.gotoPage'
+		}).trigger('pageSet', page + 1).bind('pageMoved', function (e, c) {
+			log('pageMoved ' + page + ' -> ' + c.page);
+			// c.totalPages contains the total number of pages
+			page = c.page;
+			History.pushState({'page': page}, document.title, location.href);
+			$(window).resize();
 		});
 
 		// Fix sticky header position & cell dimensions
@@ -142,14 +150,14 @@
 					return;
 				}
 				if ($(window).scrollTop() + adminbar_height > offsetTop) {
-					$('#hyper-cache-utility table.containsStickyHeaders').css('margin-left', -$(window).scrollLeft() + 'px')
+					$('#hyper-cache-utility table.containsStickyHeaders').css({'left': 'auto', 'margin-left': -$(window).scrollLeft() + 'px'})
 					if (e.type == 'resize' || laststate == 'hidden') {
 						log(e.type + ' ' + e.target);
 						reset_table_dimensions();
 						fix_table_dimensions();
 					}
 					if (laststate == 'hidden') {
-						$('#hyper-cache-utility table.containsStickyHeaders').css({'left': 'auto', 'visibility': 'visible'});
+						$('#hyper-cache-utility table.containsStickyHeaders').css('visibility', 'visible');
 						laststate = 'visible';
 					}
 				}
@@ -166,7 +174,7 @@
 					}
 				}
 			});
-			
+
 			$(window).resize();
 
 			// Table column resizing
@@ -313,26 +321,31 @@
 
 	History.Adapter.bind(window, 'statechange', function() {
 		var $content, state = History.getState();
-		log(previous_url + ' -> ' + state.url);
-		if (cache[state.url]) {
-			if (state.url != previous_url) update_content(state);
+		log('statechange ', state);
+		if (state.url != previous_url) {
+			log(previous_url + ' -> ' + state.url);
+			if (cache[state.url]) update_content(state);
+			else {
+				$content = $('#hyper-cache-utility-content');
+				$content.css('opacity', .5);
+				$.get(hyper_cache_utility.ajax_uri + get_query(state.url, 1), function (response, textStatus, jqXHR) {
+					var content = $(response.replace(/<(\/)?(script)([\s\>])/g, '<$1div class="$2"$3')).find('#hyper-cache-utility-content').html();
+					if (content) $content.css('opacity', 0).timeout(function () {
+						cache[state.url] = content;
+						update_content(state);
+					}, 500);
+					else {
+						$content.css('opacity', 1);
+						alert('Unexpected data returned from AJAX call');
+					}
+				});
+			}
 		}
-		else {
-			$content = $('#hyper-cache-utility-content');
-			$content.css('opacity', .5);
-			$.get(hyper_cache_utility.ajax_uri + get_query(state.url, 1), function (response, textStatus, jqXHR) {
-				var content = $(response.replace(/<(\/)?(script)([\s\>])/g, '<$1div class="$2"$3')).find('#hyper-cache-utility-content').html();
-				if (content) $content.css('opacity', 0).timeout(function () {
-					cache[state.url] = content;
-					update_content(state);
-				}, 500);
-				else {
-					$content.css('opacity', 1);
-					alert('Unexpected data returned from AJAX call');
-				}
-			});
+		else if (state.data.page != null && state.data.page != page) {
+			log('page ' + page + ' -> ' + state.data.page);
+			$('#hyper-cache-utility-content table.hasStickyHeaders').trigger('pageSet', state.data.page + 1);
+			page = state.data.page;
 		}
-
 	});
 
 	document.removeEventListener('DOMContentLoaded', Prism.highlightAll)
