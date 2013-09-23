@@ -1,8 +1,9 @@
 (function ($) {
 
-	var previous_url = History.getState().url;
+	var previous_url = History.getState().url,
+		cache = {};
 
-	History.replaceState({'content': $('#hyper-cache-utility-content').html()}, document.title, previous_url);
+	cache[previous_url] = $('#hyper-cache-utility-content').html();
 
 	$.fn.extend({
 		timeout: function (fn, ms) {
@@ -221,16 +222,15 @@
 					$('#hyper-cache-utility .status-404-count').html(status404);
 					if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').fadeOut();
 					if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').fadeOut();
-					function update_state() {
+					function update_cache() {
+						log('update_cache');
 						var state = History.getState();
-						state.data.content = state.data.content && state.data.content.replace(/(<p class="info">)[\S\s]*?(<\/p>)/, '$1' + $('#hyper-cache-utility p.info').html() + '$2').replace(/(<tbody(?:\s+[^<]*)?>)[\S\s]*(<\/tbody>)/, '$1' + $('#hyper-cache-utility tbody').html() + '$2');
-						log('update_state');
-						History.replaceState(state.data, state.title, state.url);
+						if (cache[state.url]) cache[state.url] = cache[state.url].replace(/(<p class="info">)[\S\s]*?(<\/p>)/, '$1' + $('#hyper-cache-utility p.info').html() + '$2').replace(/(<tbody(?:\s+[^<]*)?>)[\S\s]*(<\/tbody>)/, '$1' + $('#hyper-cache-utility tbody').html() + '$2');
 					};
 					if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, #hyper-cache-utility .pager').fadeOut(function () {
 						var $table = $('#hyper-cache-utility table.hasStickyHeaders');
 						$table.find('tbody tr').remove();
-						update_state();
+						update_cache();
 						$table.trigger('disable.pager');
 					});
 					else {
@@ -250,7 +250,7 @@
 										 (isNaN(hyper_cache_invalidation_archives_time) || hc_file_time >= hyper_cache_invalidation_archives_time))) $(this).removeClass('expired');
 								});
 							}
-							update_state();
+							update_cache();
 						};
 						if (deleted == 'expired' || deleted == 'status=404')
 							$('#hyper-cache-utility tbody > tr' + (deleted == 'expired' ? '.expired' : '.status-404')).addClass('zoom-out').timeout(callback, 500);
@@ -272,51 +272,55 @@
 		Prism.highlightElement($('#hyper-cache-utility pre.language-markup code').get(0));
 
 	};
-
-	History.Adapter.bind(window, 'statechange', function() {
+	
+	function update_content(state) {
 		var $content = $('#hyper-cache-utility-content'),
 			$newcontent,
 			$scripts,
 			count, expired, status404,
-			state = History.getState(),
 			table = $('#hyper-cache-utility-content table.hasStickyHeaders').get(0);
-		log(previous_url + ' -> ' + state.url);
-		if (state.data.content) {
-			if (state.url != previous_url) {
-				$(window).unbind('scroll.tsSticky resize.tsSticky');
-				$('#hyper-cache-utility *').unbind();
-				if (table) $.tablesorter.addHeaderResizeEvent(table, true);
-				$newcontent = $('<div>' + state.data.content + '</div>');
-				$scripts = $newcontent.find('.script').detach();
-				$content.html($newcontent.html());
-				if ($scripts) $scripts.each(function(){
-					var $script = $(this),
-						scriptText = $script.text(),
-						scriptNode = document.createElement('script');
-					if ($script.attr('src')) {
-						if (!$script[0].async) scriptNode.async = false;
-						scriptNode.src = $script.attr('src');
-					}
-					scriptNode.appendChild(document.createTextNode(scriptText));
-					$content[0].appendChild(scriptNode);
-				});
-				ready();
-				count = parseInt($('#hyper-cache-utility .count').text());
-				expired = parseInt($('#hyper-cache-utility .expired-count').text());
-				status404 = parseInt($('#hyper-cache-utility .status-404-count').text());
-				if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, #hyper-cache-utility .pager').hide();
-				if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').hide();
-				if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').hide();
-				$content.css('opacity', 1);
-				previous_url = state.url;
+		$(window).unbind('scroll.tsSticky resize.tsSticky');
+		$('#hyper-cache-utility *').unbind();
+		if (table) $.tablesorter.addHeaderResizeEvent(table, true);
+		$newcontent = $('<div>' + cache[state.url] + '</div>');
+		$scripts = $newcontent.find('.script').detach();
+		$content.html($newcontent.html());
+		if ($scripts) $scripts.each(function(){
+			var $script = $(this),
+				scriptText = $script.text(),
+				scriptNode = document.createElement('script');
+			if ($script.attr('src')) {
+				if (!$script[0].async) scriptNode.async = false;
+				scriptNode.src = $script.attr('src');
 			}
+			scriptNode.appendChild(document.createTextNode(scriptText));
+			$content[0].appendChild(scriptNode);
+		});
+		ready();
+		count = parseInt($('#hyper-cache-utility .count').text());
+		expired = parseInt($('#hyper-cache-utility .expired-count').text());
+		status404 = parseInt($('#hyper-cache-utility .status-404-count').text());
+		if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, #hyper-cache-utility .pager').hide();
+		if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').hide();
+		if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').hide();
+		$content.css('opacity', 1);
+		previous_url = state.url;
+	};
+
+	History.Adapter.bind(window, 'statechange', function() {
+		var $content, state = History.getState();
+		log(previous_url + ' -> ' + state.url);
+		if (cache[state.url]) {
+			if (state.url != previous_url) update_content(state);
 		}
 		else {
+			$content = $('#hyper-cache-utility-content');
 			$content.css('opacity', .5);
 			$.get(hyper_cache_utility.ajax_uri + get_query(state.url, 1), function (response, textStatus, jqXHR) {
 				var content = $(response.replace(/<(\/)?(script)([\s\>])/g, '<$1div class="$2"$3')).find('#hyper-cache-utility-content').html();
 				if (content) $content.css('opacity', 0).timeout(function () {
-					History.replaceState({'content': content}, state.title, state.url);
+					cache[state.url] = content;
+					update_content(state);
 				}, 500);
 				else {
 					$content.css('opacity', 1);
