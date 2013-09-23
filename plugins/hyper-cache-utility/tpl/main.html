@@ -40,8 +40,8 @@
 					</td>
 					<td class="uri cache-filename">
 						{if="isset($value.uri)"}
-						<a href="{function="esc_attr($value.uri)"}" title="{function="esc_attr(ltrim($value.uri, '/'))"}">
-							<span>{function="esc_html(ltrim($value.uri, '/'))"}</span>
+						<a href="{function="esc_attr($value.uri)"}" title="{function="esc_attr(preg_replace('~^//~', '', $value.uri))"}">
+							<span>{function="esc_html(preg_replace('~^//~', '', $value.uri))"}</span>
 						</a>
 						{/if}
 						{if="isset($value.location)"}
