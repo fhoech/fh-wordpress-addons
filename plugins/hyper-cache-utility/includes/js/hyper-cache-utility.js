@@ -264,8 +264,12 @@
 			});
 			return false;
 		});
-		$('#hyper-cache-utility .back, #hyper-cache-utility .view').click(function () {
+		$('#hyper-cache-utility .view').click(function () {
 			History.pushState(null, document.title, this.href);
+			return false;
+		});
+		$('#hyper-cache-utility .back').click(function () {
+			History.back();
 			return false;
 		});
 
