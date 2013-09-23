@@ -173,7 +173,7 @@
 				$('#hyper-cache-utility tbody td.uri a span').addClass('disabled').css('max-width', '300px');
 			});
 			$('body, #hyper-cache-utility th').mouseup(function () {
-				$('#hyper-cache-utility tbody td.uri a span').removeClass('disabled').css('max-width', $('#hyper-cache-utility tbody td.uri:first').width() + 'px');
+				$('#hyper-cache-utility tbody td.uri a span').removeClass('disabled').css('max-width', $('#hyper-cache-utility tbody td.uri:visible:first').width() + 'px');
 			});
 		}
 
