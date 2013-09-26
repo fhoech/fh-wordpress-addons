@@ -47,19 +47,24 @@
 	width: auto;
 }
 #hyper-cache-utility a[class^="delete"],
-#hyper-cache-utility a[class^="view"] {
-	color: #c00;
+#hyper-cache-utility a.view {
 	display: inline-block;
 	padding: 4px 0;
 	white-space: nowrap;
 }
+#hyper-cache-utility a[class^="delete"] {
+	color: #c00;
+}
+#hyper-cache-utility a.view {
+	color: #666;
+}
 #hyper-cache-utility td a[class^="delete"],
-#hyper-cache-utility td a[class^="view"] {
+#hyper-cache-utility td a.view {
 	font-size: 0;
 	width: 20px;
 }
 #hyper-cache-utility a[class^="delete"]:before,
-#hyper-cache-utility a[class^="view"]:before {
+#hyper-cache-utility a.view:before {
 	display: inline-block;
 	font-family: FontAwesome, sans-serif;
 	font-size: 18px;
@@ -72,19 +77,19 @@
 #hyper-cache-utility a[class^="delete"]:before {
 	content: '\f014';
 }
-#hyper-cache-utility a[class^="view"]:before {
+#hyper-cache-utility a.view:before {
 	content: '\f002';
 }
 #hyper-cache-utility a[class^="delete"]:active:before,
 #hyper-cache-utility a[class^="delete"]:focus:before,
 #hyper-cache-utility a[class^="delete"]:hover:before,
-#hyper-cache-utility a[class^="view"]:active:before,
-#hyper-cache-utility a[class^="view"]:focus:before,
-#hyper-cache-utility a[class^="view"]:hover:before {
+#hyper-cache-utility a.view:active:before,
+#hyper-cache-utility a.view:focus:before,
+#hyper-cache-utility a.view:hover:before {
 	transform: translate3d(0, 0, 0) scale(1.25) translateY(0);
 }
 #hyper-cache-utility a[class^="delete"] span,
-#hyper-cache-utility a[class^="view"] span {
+#hyper-cache-utility a.view span {
 	display: inline-block;
 }
 #hyper-cache-utility button {
