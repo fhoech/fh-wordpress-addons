@@ -162,10 +162,11 @@
 				if (reset_table_width !== false) $table.width('');
 			};
 			if ($('#hyper-cache-utility table.containsStickyHeaders').length) $(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll.tsSticky resize.tsSticky', function (e) {
-				if (e.target == $table[0] || $table.is(':hidden')) {
+				if (e.target == $table[0]) {
 					log(e.type + ' ' + e.target + ' ' + e.currentTarget + ' ' + e.relatedTarget);
 					return;
 				}
+				if ($table.is(':hidden')) return;
 				if ($(window).scrollTop() + adminbar_height > offsetTop) {
 					$('#hyper-cache-utility table.containsStickyHeaders').css({'left': 'auto', 'margin-left': -$(window).scrollLeft() + 'px'})
 					if (e.type == 'resize' || laststate == 'hidden') {
