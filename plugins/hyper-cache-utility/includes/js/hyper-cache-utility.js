@@ -22,6 +22,15 @@
 			return this;
 		}
 	});
+	
+	function csstooltips() {
+		// Custom CSS title tooltips
+		$('#hyper-cache-utility [title]:not(button)').each(function () {
+			var scrollW = document.documentElement.scrollWidth;
+			$(this).attr('data-title', $(this).attr('title'));
+			if (document.documentElement.scrollWidth > scrollW) log('Warning: The following element\'s tooltip exceeds the document\'s scroll width: ' + this.outerHTML);
+		}).removeAttr('title');
+	};
 
 	function get_query(href, start_index) {
 		var params = href.split(/\?/).pop().split(/&/).slice(start_index).join('&');
@@ -33,8 +42,13 @@
 	};
 
 	function ready() {
+		// Ajax
+		$(document).ajaxError(function (jqXHR, textStatus, thrownError) {
+			alert(thrownError);
+		});
 		if ($('#hyper-cache-utility .overview').length) mainready();
 		if ($('#hyper-cache-utility .view-single').length) viewready();
+		csstooltips();
 		$('.hyper-cache-utility-content').css('opacity', 1);
 	};
 
@@ -189,17 +203,7 @@
 			});
 		}
 
-		// Custom CSS title tooltips
-		$('#hyper-cache-utility [title]:not(button)').each(function () {
-			var scrollW = document.documentElement.scrollWidth;
-			$(this).attr('data-title', $(this).attr('title'));
-			if (document.documentElement.scrollWidth > scrollW) log('Warning: The following element\'s tooltip exceeds the document\'s scroll width: ' + this.outerHTML);
-		}).removeAttr('title');
-
 		// Ajax & history
-		$(document).ajaxError(function (jqXHR, textStatus, thrownError) {
-			alert(thrownError);
-		});
 		$('#hyper-cache-utility [class^="delete"]').click(function () {
 			$.get(hyper_cache_utility.ajax_uri + get_query(this.href, 1), function (response, textStatus, jqXHR) {
 				if (response.responseText) response = response.responseText;
@@ -310,6 +314,7 @@
 			});
 			if ($newcontent.hasClass('overview')) mainready();
 			if ($newcontent.hasClass('view-single')) viewready($newcontent);
+			csstooltips();
 		}
 		$('[data-uri$="' + state.url + '"]').show().css('opacity', 1);
 		previous_url = state.url;
