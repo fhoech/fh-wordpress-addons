@@ -180,7 +180,7 @@
 	background: rgba(51, 204, 0, .666);
 	color: #060;
 }
-#hyper-cache-utility .status-200.expired .status {
+#hyper-cache-utility tr.status-200.expired .status {
 	color: rgba(0, 102, 0, .5);
 }
 #hyper-cache-utility .status-200 .status span:before {
@@ -199,7 +199,7 @@
 	background: rgba(255, 153, 0, .666);
 	color: #930;
 }
-#hyper-cache-utility .status-301.expired .status {
+#hyper-cache-utility tr.status-301.expired .status {
 	color: rgba(153, 51, 0, .5);
 }
 #hyper-cache-utility .status-301 .status span:before {
@@ -218,7 +218,7 @@
 	background: rgba(204, 0, 0, .666);
 	color: #fff;
 }
-#hyper-cache-utility .status-404.expired .status {
+#hyper-cache-utility tr.status-404.expired .status {
 	color: rgba(255, 255, 255, .5);
 }
 #hyper-cache-utility .status-404 .status span:before {
@@ -230,24 +230,24 @@
 #hyper-cache-utility .status-404 .uri {
 	border-left-color: #900;
 }
-#hyper-cache-utility .expired {
+#hyper-cache-utility tr.expired {
 	background-image: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.015625), rgba(0, 0, 0, 0.015625) 10px, rgba(255, 255, 255, 0.25) 10px, rgba(255, 255, 255, 0.25) 20px);
 }
 #hyper-cache-utility .expired .status {
 	background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, 0.125) 10px, rgba(255, 255, 255, 0.125) 20px);
 }
-#hyper-cache-utility .expired td {
+#hyper-cache-utility tr.expired td {
 	color: rgba(51, 51, 51, .5);
 }
-#hyper-cache-utility .expired :not(.options) a:link {
+#hyper-cache-utility tr.expired :not(.options) a:link {
 	color: rgba(51, 102, 153, .5);
 }
 #hyper-cache-utility .expired :not(.options) a:visited {
 	color: rgba(119, 136, 153, .5);
 }
-#hyper-cache-utility .expired :not(.options) a:active,
-#hyper-cache-utility .expired :not(.options) a:focus,
-#hyper-cache-utility .expired :not(.options) a:hover {
+#hyper-cache-utility tr.expired :not(.options) a:active,
+#hyper-cache-utility tr.expired :not(.options) a:focus,
+#hyper-cache-utility tr.expired :not(.options) a:hover {
 	color: rgba(51, 153, 204, .5);
 }
 #hyper-cache-utility .expired .status span:before {
