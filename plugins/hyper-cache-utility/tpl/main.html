@@ -7,7 +7,7 @@
 	<header>
 		<h1>{$title}</h1>
 	</header>
-	<div id="hyper-cache-utility-content">
+	<div class="hyper-cache-utility-content overview" data-uri="{function="esc_attr($page_uri)"}">
 		{if="$deleted > 0"}<p>{$deleted_info}</p>{/if}
 		<p class="info">
 			{$files_info}: <span class="count">{function="count($files) - $deleted"}</span><br />

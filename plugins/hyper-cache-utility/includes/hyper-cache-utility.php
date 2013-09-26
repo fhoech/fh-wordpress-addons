@@ -16,6 +16,7 @@ class HyperCacheUtility {
 	public $hc_cache_path;
 	public $hc_timeout;
 	public $last_deleted_filename = '';
+	public $page_uri;
 	protected $special = array('_archives', '_global');
 	public $status301 = 0;
 	public $status404 = 0;
@@ -116,6 +117,8 @@ class HyperCacheUtility {
 	 */
 	public function init($debug=NULL) {
 		if ($debug !== NULL) $this -> debug = $debug;
+
+		$this -> page_uri = admin_url( 'tools.php?page=hyper-cache-utility/hyper-cache-utility.php' );
 
 		// Get Hyper Cache configuration from advanced-cache.php
 		$advanced_cache = WP_CONTENT_DIR . '/advanced-cache.php';
@@ -291,7 +294,7 @@ class HyperCacheUtility {
 		$tpl -> assign( 'next', __('Next', 'hyper-cache-utility') );
 		$tpl -> assign( 'last', __('Last', 'hyper-cache-utility') );
 		$tpl -> assign( 'entries_per_page', __('Entries per page:', 'hyper-cache-utility') );
-		$tpl -> assign( 'page_uri', 'tools.php?page=hyper-cache-utility/hyper-cache-utility.php' );
+		$tpl -> assign( 'page_uri', $this -> page_uri );
 		$tpl -> assign( 'deleted', $this -> deleted );
 		$tpl -> assign( 'expired', $this -> expired );
 		$tpl -> assign( 'status301', $this -> status301 );
@@ -397,7 +400,7 @@ class HyperCacheUtility {
 		$tpl = new RainTPL;
 		$tpl -> assign( 'title', __('Hyper Cache Utility', 'hyper-cache-utility') );
 		$tpl -> assign( 'go_back', __('Go back') );
-		$tpl -> assign( 'page_uri', 'tools.php?page=hyper-cache-utility/hyper-cache-utility.php' );
+		$tpl -> assign( 'page_uri', $this -> page_uri );
 		$tpl -> assign( 'data', $data );
 
 		$tpl -> draw( 'view' );

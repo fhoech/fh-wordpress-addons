@@ -1,11 +1,9 @@
 (function ($) {
 
 	var previous_url = History.getState().url,
-		cache = {},
 		page = 0;
 
 	History.replaceState({'page': page}, document.title, location.href);
-	cache[previous_url] = $('#hyper-cache-utility-content').html();
 
 	$.fn.extend({
 		timeout: function (fn, ms) {
@@ -35,7 +33,11 @@
 	};
 
 	function ready() {
+		if ($('#hyper-cache-utility .overview').length) mainready();
+		if ($('#hyper-cache-utility .view-single').length) viewready();
+	};
 
+	function mainready() {
 		var offset = $('thead').offset(),
 			offsetTop = offset ? offset.top : 0,
 			adminbar_height = $('#wpadminbar').height(),
@@ -145,7 +147,7 @@
 				if (reset_table_width !== false) $table.width('');
 			};
 			if ($('#hyper-cache-utility table.containsStickyHeaders').length) $(window).unbind('scroll.tsSticky resize.tsSticky').bind('scroll.tsSticky resize.tsSticky', function (e) {
-				if (e.target == $table[0]) {
+				if (e.target == $table[0] || $table.is(':hidden')) {
 					log(e.type + ' ' + e.target + ' ' + e.currentTarget + ' ' + e.relatedTarget);
 					return;
 				}
@@ -179,10 +181,10 @@
 
 			// Table column resizing
 			$('#hyper-cache-utility th.uri .tablesorter-resizer').mousedown(function () {
-				$('#hyper-cache-utility tbody td.uri a span').addClass('disabled').css('max-width', '300px');
+				$('#hyper-cache-utility tbody:visible td.uri a span').addClass('disabled').css('max-width', '300px');
 			});
 			$('body, #hyper-cache-utility th').mouseup(function () {
-				$('#hyper-cache-utility tbody td.uri a span').removeClass('disabled').css('max-width', $('#hyper-cache-utility tbody td.uri:visible:first').width() + 'px');
+				$('#hyper-cache-utility tbody:visible td.uri a span').removeClass('disabled').css('max-width', $('#hyper-cache-utility tbody td.uri:visible:first').width() + 'px');
 			});
 		}
 
@@ -230,15 +232,9 @@
 					$('#hyper-cache-utility .status-404-count').html(status404);
 					if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').fadeOut();
 					if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').fadeOut();
-					function update_cache() {
-						log('update_cache');
-						var state = History.getState();
-						if (cache[state.url]) cache[state.url] = cache[state.url].replace(/(<p class="info">)[\S\s]*?(<\/p>)/, '$1' + $('#hyper-cache-utility p.info').html() + '$2').replace(/(<tbody(?:\s+[^<]*)?>)[\S\s]*(<\/tbody>)/, '$1' + $('#hyper-cache-utility tbody').html() + '$2');
-					};
 					if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, #hyper-cache-utility .pager').fadeOut(function () {
 						var $table = $('#hyper-cache-utility table.hasStickyHeaders');
 						$table.find('tbody tr').remove();
-						update_cache();
 						$table.trigger('disable.pager');
 					});
 					else {
@@ -258,7 +254,6 @@
 										 (isNaN(hyper_cache_invalidation_archives_time) || hc_file_time >= hyper_cache_invalidation_archives_time))) $(this).removeClass('expired');
 								});
 							}
-							update_cache();
 						};
 						if (deleted == 'expired' || deleted == 'status=404')
 							$('#hyper-cache-utility tbody > tr' + (deleted == 'expired' ? '.expired' : '.status-404')).addClass('zoom-out').timeout(callback, 500);
@@ -276,46 +271,46 @@
 			History.pushState(null, document.title, this.href);
 			return false;
 		});
-		$('#hyper-cache-utility .back').click(function () {
-			History.back();
-			return false;
-		});
-
-		Prism.highlightElement($('#hyper-cache-utility pre.language-markup code').get(0));
 
 	};
 	
-	function update_content(state) {
-		var $content = $('#hyper-cache-utility-content'),
-			$newcontent,
-			$scripts,
-			count, expired, status404,
-			table = $('#hyper-cache-utility-content table.hasStickyHeaders').get(0);
-		$(window).unbind('scroll.tsSticky resize.tsSticky');
-		$('#hyper-cache-utility *').unbind();
-		if (table) $.tablesorter.addHeaderResizeEvent(table, true);
-		$newcontent = $('<div>' + cache[state.url] + '</div>');
-		$scripts = $newcontent.find('.script').detach();
-		$content.html($newcontent.html());
-		if ($scripts) $scripts.each(function(){
-			var $script = $(this),
-				scriptText = $script.text(),
-				scriptNode = document.createElement('script');
-			if ($script.attr('src')) {
-				if (!$script[0].async) scriptNode.async = false;
-				scriptNode.src = $script.attr('src');
-			}
-			scriptNode.appendChild(document.createTextNode(scriptText));
-			$content[0].appendChild(scriptNode);
+	function viewready($contentelement) {
+		if (!$contentelement) $contentelement = $('#hyper-cache-utility .view-single');
+		$contentelement.find('.back').click(function () {
+			if (history.length > 1) History.back();
+			else History.pushState(null, document.title, this.href);
+			return false;
 		});
-		ready();
-		count = parseInt($('#hyper-cache-utility .count').text());
-		expired = parseInt($('#hyper-cache-utility .expired-count').text());
-		status404 = parseInt($('#hyper-cache-utility .status-404-count').text());
-		if (!parseInt(count)) $('#hyper-cache-utility .delete-all, #hyper-cache-utility table, #hyper-cache-utility .pager').hide();
-		if (!parseInt(expired)) $('#hyper-cache-utility .delete-expired').hide();
-		if (!parseInt(status404)) $('#hyper-cache-utility .delete-status-404').hide();
-		$content.css('opacity', 1);
+
+		Prism.highlightElement($contentelement.find('pre.language-markup code').get(0));
+	};
+	
+	function update_content(state, newcontent) {
+		var $newcontent,
+			$scripts;
+		$('.hyper-cache-utility-content:visible').hide();
+		if (newcontent) {
+			if ($('#hyper-cache-utility .view-single').length == 5)
+				$('#hyper-cache-utility .view-single:first').remove();  // Keep at most 5
+			$newcontent = $(newcontent);
+			$newcontent.css('opacity', 0);
+			$scripts = $newcontent.find('.script').detach();
+			$('#hyper-cache-utility').append($newcontent);
+			if ($scripts) $scripts.each(function(){
+				var $script = $(this),
+					scriptText = $script.text(),
+					scriptNode = document.createElement('script');
+				if ($script.attr('src')) {
+					if (!$script[0].async) scriptNode.async = false;
+					scriptNode.src = $script.attr('src');
+				}
+				scriptNode.appendChild(document.createTextNode(scriptText));
+				$('[data-uri$="' + state.url + '"]')[0].appendChild(scriptNode);
+			});
+			if ($newcontent.hasClass('overview')) mainready();
+			if ($newcontent.hasClass('view-single')) viewready($newcontent);
+		}
+		$('[data-uri$="' + state.url + '"]').show().css('opacity', 1);
 		previous_url = state.url;
 	};
 
@@ -324,15 +319,14 @@
 		log('statechange ', state);
 		if (state.url != previous_url) {
 			log(previous_url + ' -> ' + state.url);
-			if (cache[state.url]) update_content(state);
+			if ($('[data-uri$="' + state.url + '"]').length) update_content(state);
 			else {
-				$content = $('#hyper-cache-utility-content');
+				$content = $('.hyper-cache-utility-content:visible');
 				$content.css('opacity', .5);
 				$.get(hyper_cache_utility.ajax_uri + get_query(state.url, 1), function (response, textStatus, jqXHR) {
-					var content = $(response.replace(/<(\/)?(script)([\s\>])/g, '<$1div class="$2"$3')).find('#hyper-cache-utility-content').html();
+					var content = response.replace(/<(script)(\s+[^<]*|>)/g, '<div class="$2"$3').replace(/<\/(script)\s*>/g, '</div>').match(/<div class="hyper-cache-utility-content[\S\s]*<\/div><!-- hyper-cache-utility-content -->/);
 					if (content) $content.css('opacity', 0).timeout(function () {
-						cache[state.url] = content;
-						update_content(state);
+						update_content(state, content[0]);
 					}, 500);
 					else {
 						$content.css('opacity', 1);
@@ -343,7 +337,7 @@
 		}
 		else if (state.data.page != null && state.data.page != page) {
 			log('page ' + page + ' -> ' + state.data.page);
-			$('#hyper-cache-utility-content table.hasStickyHeaders').trigger('pageSet', state.data.page + 1);
+			$('.hyper-cache-utility-content table.hasStickyHeaders').trigger('pageSet', state.data.page + 1);
 			page = state.data.page;
 		}
 	});

@@ -115,7 +115,7 @@
 	border-collapse: collapse;
 	width: 100%;
 }
-#hyper-cache-utility-content,
+.hyper-cache-utility-content,
 #hyper-cache-utility tr {
 	transition: opacity .5s ease, transform .5s ease;
 	transform-origin: 50% 0;
