@@ -35,6 +35,7 @@
 	function ready() {
 		if ($('#hyper-cache-utility .overview').length) mainready();
 		if ($('#hyper-cache-utility .view-single').length) viewready();
+		$('.hyper-cache-utility-content').css('opacity', 1);
 	};
 
 	function mainready() {

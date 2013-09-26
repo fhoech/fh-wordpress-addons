@@ -120,6 +120,9 @@
 	transition: opacity .5s ease, transform .5s ease;
 	transform-origin: 50% 0;
 }
+.js .hyper-cache-utility-content {
+	opacity: 0;
+}
 #hyper-cache-utility .zoom-out {
 	opacity: 0 !important;
 	transform: translate3d(0, 0, 0) perspective(600px) rotateX(-45deg) scale(.9);
