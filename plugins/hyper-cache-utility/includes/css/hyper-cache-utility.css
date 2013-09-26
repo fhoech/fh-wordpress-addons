@@ -160,6 +160,9 @@
 	border-right: 1px solid #ccc;
 	padding: 4px 7px;
 }
+#hyper-cache-utility td {
+	height: 40px;
+}
 #hyper-cache-utility th {
 	font-weight: 700;
 	text-align: left;
