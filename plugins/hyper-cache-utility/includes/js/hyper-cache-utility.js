@@ -43,7 +43,7 @@
 
 	function ready() {
 		// Ajax
-		$(document).ajaxError(function (jqXHR, textStatus, thrownError) {
+		$(document).ajaxError(function (event, jqXHR, ajaxSettings, thrownError) {
 			alert(thrownError);
 		});
 		if ($('#hyper-cache-utility .overview').length) mainready();
