@@ -273,6 +273,7 @@
 						}, 500);
 					}
 				}
+			}).always(function () {
 				$elements.removeClass('busy');
 			});
 			return false;
