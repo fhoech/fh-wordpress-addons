@@ -274,7 +274,9 @@
 					}
 				}
 			}).always(function () {
-				$elements.removeClass('busy');
+				$elements.timeout(function () {
+					$(this).removeClass('busy');
+				}, 1000);
 			});
 			return false;
 		});
