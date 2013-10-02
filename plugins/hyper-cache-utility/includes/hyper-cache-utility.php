@@ -339,7 +339,7 @@ class HyperCacheUtility {
 	/**
 	 * Send headers informing about number of deleted/expired/301/404 files.
 	 */
-	public function send_headers() {
+	public function send_headers($delete=NULL) {
 		header('X-HyperCache-Count: ' . (count($this -> files) - $this -> deleted));
 		if ($this -> deleted > 0) header('X-HyperCache-Deleted: ' . ($this -> deleted == count($this -> files) ? 'all' : ($this -> deleted > 1 ? ($delete == 'expired' ? 'expired' : 'status=404') : 'hash=' . $this -> last_deleted_filename)));
 		header('X-HyperCache-Expired-Count: ' . $this -> expired);

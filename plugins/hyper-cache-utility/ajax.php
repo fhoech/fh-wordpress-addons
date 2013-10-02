@@ -26,7 +26,7 @@ try {
 	$hcutil -> process($delete, !$delete && !$view);
 	if ($view) $hcutil -> view($view);
 	else if (!$delete) $hcutil -> output();
-	else $hcutil -> send_headers();
+	else $hcutil -> send_headers($delete);
 }
 catch (Exception $e) {
 	echo nl2br(esc_html(strip_tags($e)));
