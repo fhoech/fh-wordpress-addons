@@ -236,11 +236,26 @@
 #hyper-cache-utility .status-404 .uri {
 	border-left-color: #900;
 }
+#hyper-cache-utility tr.busy,
 #hyper-cache-utility tr.expired {
 	background-image: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.015625), rgba(0, 0, 0, 0.015625) 10px, rgba(255, 255, 255, 0.25) 10px, rgba(255, 255, 255, 0.25) 20px);
+	background-size: 56px 56px;
 }
+#hyper-cache-utility .busy .status,
 #hyper-cache-utility .expired .status {
 	background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, 0.125) 10px, rgba(255, 255, 255, 0.125) 20px);
+	background-size: 56px 56px;
+}
+@keyframes hyper-cache-utility-busy {
+	100% {
+		background-position: 56px 0;
+	}
+}
+#hyper-cache-utility tr.busy {
+	animation: hyper-cache-utility-busy 3s linear infinite;
+}
+#hyper-cache-utility tr.busy .status {
+	animation: hyper-cache-utility-busy 3s linear infinite;
 }
 #hyper-cache-utility tr.expired td {
 	color: rgba(51, 51, 51, .5);
