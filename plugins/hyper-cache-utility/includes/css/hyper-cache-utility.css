@@ -86,7 +86,7 @@
 #hyper-cache-utility a.view:active:before,
 #hyper-cache-utility a.view:focus:before,
 #hyper-cache-utility a.view:hover:before {
-	transform: translate3d(0, 0, 0) scale(1.25) translateY(0);
+	transform: scale(1.25) translateY(0);
 }
 #hyper-cache-utility a[class^="delete"] span,
 #hyper-cache-utility a.view span {
@@ -463,7 +463,7 @@
 #hyper-cache-utility .tablesorter-filter-row button:active:before,
 #hyper-cache-utility .tablesorter-filter-row button:focus:before,
 #hyper-cache-utility .tablesorter-filter-row button:hover:before {
-	transform: translate3d(0, 0, 0) scale(1.25) translateY(0);
+	transform: scale(1.25) translateY(0);
 }
 #hyper-cache-utility .tablesorter-filter {
 	max-width: 98%;
