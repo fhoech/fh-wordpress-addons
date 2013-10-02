@@ -48,8 +48,8 @@ function hyper_cache_utility_enqueue( $what, $handle, $relative_src, $deps=array
 }
 
 function hyper_cache_utility_enqueue_scripts_styles() {
-	wp_enqueue_style( 'hyper-cache-utility-fonts', 'http://fonts.googleapis.com/css?family=Raleway:300,500,700', array(), null );
-	wp_enqueue_style( 'hyper-cache-utility-iconfonts', 'http://weloveiconfonts.com/api/?family=fontawesome', array(), null );
+	wp_enqueue_style( 'hyper-cache-utility-fonts', '//fonts.googleapis.com/css?family=Raleway:300,500,700', array(), null );
+	wp_enqueue_style( 'hyper-cache-utility-iconfonts', '//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.css', array(), null );
 	hyper_cache_utility_enqueue( 'style', 'hyper-cache-utility-styles', 'includes/css/hyper-cache-utility.css', array('hyper-cache-utility-fonts', 'hyper-cache-utility-iconfonts') );
 	hyper_cache_utility_enqueue( 'style', 'hyper-cache-utility-styles-dynamic', 'includes/css/hyper-cache-utility.css.php', array('hyper-cache-utility-styles') );
 	hyper_cache_utility_enqueue( 'style', 'pism', 'includes/css/prism.css' );
