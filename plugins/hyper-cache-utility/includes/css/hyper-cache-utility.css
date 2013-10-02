@@ -263,12 +263,11 @@
 	border-bottom: 1px solid #900;
 }
 #hyper-cache-utility .cache-filedate,
-#hyper-cache-utility .cache-filesize {
-	white-space: nowrap;
-}
+#hyper-cache-utility .cache-filesize,
 #hyper-cache-utility .mime-type,
 #hyper-cache-utility .charset,
-#hyper-cache-utility .type {
+#hyper-cache-utility .type,
+#hyper-cache-utility .data {
 	white-space: nowrap;
 }
 #hyper-cache-utility .uri a {
