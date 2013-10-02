@@ -206,6 +206,9 @@
 
 		// Ajax & history
 		$('#hyper-cache-utility [class^="delete"]').click(function () {
+			var $elements = $(this).parents('tr').add(this);
+			if ($elements.hasClass('busy')) return false;
+			$elements.addClass('busy');
 			$.get(hyper_cache_utility.ajax_uri + get_query(this.href, 1), function (response, textStatus, jqXHR) {
 				if (response.responseText) response = response.responseText;
 				if ((response + '').match(/\S/)) {
@@ -270,6 +273,7 @@
 						}, 500);
 					}
 				}
+				$elements.removeClass('busy');
 			});
 			return false;
 		});
