@@ -137,17 +137,20 @@ add_shortcode('seven_columns_last', 'column_seven_columns_last');
 
 // Column: Eight Columns (16 Column Layout)
 function column_eight_columns_first($atts, $content=null) {
-   return '<div class="eight columns alpha">' . do_shortcode($content) . '</div>';
+   return '<div class="eight columns one-half column alpha">' . do_shortcode($content) . '</div>';
 }
 function column_eight_columns($atts, $content=null) {
-   return '<div class="eight columns">' . do_shortcode($content) . '</div>';
+   return '<div class="eight columns one-half column">' . do_shortcode($content) . '</div>';
 }
 function column_eight_columns_last($atts, $content=null) {
-   return '<div class="eight columns omega">' . do_shortcode($content) . '</div>';
+   return '<div class="eight columns one-half column omega">' . do_shortcode($content) . '</div>';
 }
 add_shortcode('eight_columns_first', 'column_eight_columns_first');
 add_shortcode('eight_columns', 'column_eight_columns');
 add_shortcode('eight_columns_last', 'column_eight_columns_last');
+add_shortcode('one_half_first', 'column_eight_columns_first');
+add_shortcode('one_half', 'column_eight_columns');
+add_shortcode('one_half_last', 'column_eight_columns_last');
 
 // Column: Nine Columns (16 Column Layout)
 function column_nine_columns_first($atts, $content=null) {
