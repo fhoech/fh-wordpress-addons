@@ -3,6 +3,12 @@
 Plugin name: FH Protect E-Mail
 */
 
+if (!function_exists('__')) {
+	function __( $text, $domain='default' ) {
+		return _( $text );
+	}
+}
+
 if (!class_exists('FH_virtual_post')) {
 
 	class FH_virtual_post {
@@ -101,7 +107,7 @@ class FH_protect_email {
 	private function _protect_email_callback($match) {
 		$fakerecipient = $this :: _alpha(sprintf('%x', crc32($match[2] . $match[1])));
 		$fakedomain = $this :: _alpha(sprintf('%x', crc32($match[1] . $match[2])));
-		return '<span class="fhpe" data-a="' . strrev($match[3]) . '" data-b="' . strrev($match[2]) . '" data-c="' . strrev($match[1]) . '"><span class="fhpe">noreply@' . $match[2] . '.' . $match[3] . '</span></span>';
+		return '<span class="fhpe" data-a="' . strrev($match[3]) . '" data-b="' . strrev($match[2]) . '" data-c="' . strrev($match[1]) . '"><span class="fhpe">' . __( 'Email' ) . '</span></span>';
 	}
 
 	private function  _protect_mailto_callback($match) {
