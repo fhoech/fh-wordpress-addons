@@ -39,7 +39,7 @@ function hyper_cache_utility_admin_menu() {
 
 function hyper_cache_utility_enqueue( $what, $handle, $relative_src, $deps=array(), $in_footer=false ) {
 	// By default add file modification time as version parameter
-	$ver = filemtime(dirname(__FILE__) . '/' . $src);
+	$ver = filemtime(dirname(__FILE__) . '/' . $relative_src);
 	// Get URL of src
 	$src = plugins_url( $relative_src , __FILE__ );
 	// Enqueue
