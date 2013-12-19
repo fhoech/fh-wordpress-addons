@@ -47,15 +47,16 @@ function fh_custom_gallery_shortcode($attr) {
 	extract(shortcode_atts(array(
 		'order'      => 'ASC',
 		'orderby'    => 'menu_order ID',
-		'id'         => $post->ID,
+		'id'         => $post ? $post->ID : 0,
 		'itemtag'    => 'li',
 		'icontag'    => 'p',
 		'captiontag' => 'p',
 		'columns'    => 3,
 		'size'       => 'thumbnail',
 		'include'    => '',
-		'exclude'    => ''
-	), $attr));
+		'exclude'    => '',
+		'link'       => ''
+	), $attr, 'gallery'));
 
 	$id = intval($id);
 	if ( 'RAND' == $order )
@@ -120,20 +121,31 @@ function fh_custom_gallery_shortcode($attr) {
 			#{$selector} .gallery-caption {
 				margin-left: 0;
 			}
-		</style>
-		<!-- see gallery_shortcode() in wp-includes/media.php -->";
+			/* see gallery_shortcode() in wp-includes/media.php */
+		</style>";
 	$size_class = sanitize_html_class( $size );
 	$gallery_div = "<ul id='$selector' class='gallery galleryid-{$id} gallery-columns-{$columns} gallery-size-{$size_class}'>";
 	$output = apply_filters( 'gallery_style', $gallery_style . "\n\t\t" . $gallery_div );
 
 	$i = 0;
 	foreach ( $attachments as $id => $attachment ) {
-		$link = isset($attr['link']) && 'file' == $attr['link'] ? wp_get_attachment_link($id, $size, false, false) : wp_get_attachment_link($id, $size, true, false);
+		if ( ! empty( $link ) && 'file' === $link )
+			$image_output = wp_get_attachment_link( $id, $size, false, false );
+		elseif ( ! empty( $link ) && 'none' === $link )
+			$image_output = wp_get_attachment_image( $id, $size, false );
+		else
+			$image_output = wp_get_attachment_link( $id, $size, true, false );
+
+		$image_meta  = wp_get_attachment_metadata( $id );
+
+		$orientation = '';
+		if ( isset( $image_meta['height'], $image_meta['width'] ) )
+			$orientation = ( $image_meta['height'] > $image_meta['width'] ) ? 'portrait' : 'landscape';
 
 		$output .= "<{$itemtag} class='gallery-item'>";
 		$output .= "
-			<{$icontag} class='gallery-icon'>
-				$link
+			<{$icontag} class='gallery-icon {$orientation}'>
+				$image_output
 			</{$icontag}>";
 		if ( $captiontag && trim($attachment->post_excerpt) ) {
 			$output .= "
@@ -147,6 +159,7 @@ function fh_custom_gallery_shortcode($attr) {
 	}
 
 	$output .= "
+			
 		</ul>\n";
 
 	return $output;
