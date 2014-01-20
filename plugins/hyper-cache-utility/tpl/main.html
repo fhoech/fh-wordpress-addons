@@ -15,6 +15,7 @@
 		</p>
 		<p class="options">
 			{if="$expired > 0"}<a class="delete-expired" href="{function="esc_attr($page_uri)"}&amp;delete=expired">{$delete_expired}</a>{/if}
+			{if="$status301 > 0"}<a class="delete-status-301" href="{function="esc_attr($page_uri)"}&amp;delete=301">{$delete_301}</a>{/if}
 			{if="$status404 > 0"}<a class="delete-status-404" href="{function="esc_attr($page_uri)"}&amp;delete=404">{$delete_404}</a>{/if}
 			{if="count($files) - $deleted > 0"}<a class="delete-all" href="{function="esc_attr($page_uri)"}&amp;delete=all">{$delete_all}</a>{/if}
 		</p>

@@ -211,7 +211,7 @@ class HyperCacheUtility {
 			// skip processing of all other files
 			$this -> delete($delete);
 		}
-		else if ( !$is_valid_filename && !in_array( $delete, array(false, 'all', 'expired', 404) ) ) {
+		else if ( !$is_valid_filename && !in_array( $delete, array(false, 'all', 'expired', 301, 404) ) ) {
 			throw new Exception('Invalid value for \'delete\' parameter: ' . $delete);
 		}
 		else {
@@ -232,7 +232,8 @@ class HyperCacheUtility {
 				$should_delete = $delete == 'all' || $delete == $filename;
 				if (!$should_delete) {
 					$data = $this -> get_data($file);
-					$should_delete = (($delete == 404 && $this :: get($data['status']) == 404) ||
+					$should_delete = (($delete == 301 && $this :: get($data['status']) == 301) ||
+									  ($delete == 404 && $this :: get($data['status']) == 404) ||
 									  ($delete == 'expired' && $data['is_expired']));
 				}
 				if ($should_delete) {
@@ -270,6 +271,7 @@ class HyperCacheUtility {
 		$tpl -> assign( 'files_info', __('Files in cache (valid and expired)', 'hyper-cache-utility') );
 		$tpl -> assign( 'files_detail_info', sprintf(__('Expired: <span class="expired-count">%u</span>, Not Found: <span class="status-404-count">%u</span>, Moved Permanently: <span class="status-301-count">%u</span>', 'hyper-cache-utility'), $this -> expired, $this -> status404, $this -> status301) );
 		$tpl -> assign( 'delete_expired', __('Delete expired', 'hyper-cache-utility') );
+		$tpl -> assign( 'delete_301', __('Delete all with status 301', 'hyper-cache-utility') );
 		$tpl -> assign( 'delete_404', __('Delete all with status 404', 'hyper-cache-utility') );
 		$tpl -> assign( 'delete_all', __('Delete all', 'hyper-cache-utility') );
 		$tpl -> assign( 'sort_by_status', __('Sort by HTTP Status Code', 'hyper-cache-utility') );
