@@ -232,6 +232,8 @@ class HyperCacheUtility {
 				$should_delete = $delete == 'all' || $delete == $filename;
 				if (!$should_delete) {
 					$data = $this -> get_data($file);
+					if (isset($data['html'])) $data['html'] = 1;
+					if (isset($data['gz'])) $data['gz'] = 1;
 					$should_delete = (($delete == 301 && $this :: get($data['status']) == 301) ||
 									  ($delete == 404 && $this :: get($data['status']) == 404) ||
 									  ($delete == 'expired' && $data['is_expired']));
