@@ -9,10 +9,10 @@ header('X-HyperCache-Version: 999.2.9.1.4');
 // If no-cache header support is enabled and the browser explicitly requests a fresh page, do not cache
 if ($hyper_cache_nocache &&
     ((!empty($_SERVER['HTTP_CACHE_CONTROL']) && $_SERVER['HTTP_CACHE_CONTROL'] == 'no-cache') ||
-     (!empty($_SERVER['HTTP_PRAGMA']) && $_SERVER['HTTP_PRAGMA'] == 'no-cache'))) return hyper_cache_exit();
+     (!empty($_SERVER['HTTP_PRAGMA']) && $_SERVER['HTTP_PRAGMA'] == 'no-cache'))) return hyper_cache_exit(false);
 
 // Do not cache post request (comments, plugins and so on)
-if ($_SERVER["REQUEST_METHOD"] == 'POST') return hyper_cache_exit();
+if ($_SERVER["REQUEST_METHOD"] == 'POST') return hyper_cache_exit(false);
 
 // Try to avoid enabling the cache if sessions are managed with request parameters and a session is active
 if (defined('SID') && SID != '') return hyper_cache_exit();
@@ -22,7 +22,7 @@ $hyper_qs = strpos($hyper_uri, '?');
 
 if ($hyper_qs !== false) {
     if ($hyper_cache_strip_qs) $hyper_uri = substr($hyper_uri, 0, $hyper_qs);
-    else if (!$hyper_cache_cache_qs) return hyper_cache_exit();
+    else if (!$hyper_cache_cache_qs) return hyper_cache_exit(false);
 }
 
 if (strpos($hyper_uri, 'robots.txt') !== false || strpos($hyper_uri, 'sitemap.xml') !== false) return hyper_cache_exit();
@@ -378,10 +378,11 @@ function hyper_cache_gzdecode ($data) {
     return $unpacked;
 }
 
-function hyper_cache_exit() {
-    global $hyper_cache_gzip_on_the_fly;
+function hyper_cache_exit($allow_browsercache=true) {
+    global $hyper_cache_browsercache, $hyper_cache_gzip_on_the_fly;
 
-    header('X-HyperCache: 0');
+    if (!$hyper_cache_browsercache || !$allow_browsercache) header('X-HyperCache: 0');
+    else hyper_cache_headers(time(), false);
 
     if ($hyper_cache_gzip_on_the_fly && extension_loaded('zlib')) ob_start('ob_gzhandler');
     return false;

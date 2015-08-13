@@ -458,4 +458,19 @@ function hyper_generate_config(&$options)
 
     return $buffer;
 }
+
+function hyper_cache_remove_nocache_headers($headers) {
+    return array();
+}
+
+// Allow browxer caching if enabled
+if ($_SERVER['REQUEST_METHOD'] != 'POST' && empty($_SERVER['QUERY_STRING'])) {
+    $hyper_options = get_option('hyper');
+    if (empty($options['nocache']) ||
+        ((!empty($_SERVER['HTTP_CACHE_CONTROL']) && $_SERVER['HTTP_CACHE_CONTROL'] == 'no-cache') ||
+         (!empty($_SERVER['HTTP_PRAGMA']) && $_SERVER['HTTP_PRAGMA'] == 'no-cache')) &&
+        !empty($hyper_options['browsercache']))
+        add_filter('nocache_headers', 'hyper_cache_remove_nocache_headers');
+}
+
 ?>
