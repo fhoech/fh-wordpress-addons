@@ -1,6 +1,12 @@
 <?php
 /*
 Plugin name: FH Add Slug Body Class
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_add_slug_body_class.php
+Description: Add slug to body HTML 'class' attribute
+Version: $Id:$
+Author: Florian Höch
+Author URI: http://hoech.net
+License: GPL3
 */
 
 function fh_add_slug_body_class($classes) {

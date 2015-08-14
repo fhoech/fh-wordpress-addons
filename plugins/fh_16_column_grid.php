@@ -1,6 +1,12 @@
 <?php
 /*
 Plugin name: FH 16 Column Grid
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_16_column_grid.php
+Description: 16 column grid via shortcodes (see plugin source)
+Version: $Id:$
+Author: Florian Höch
+Author URI: http://hoech.net
+License: GPL3
 */
 
 // Row (just a container, can be used to e.g. clear floats)

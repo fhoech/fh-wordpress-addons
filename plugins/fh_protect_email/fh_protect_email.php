@@ -1,6 +1,12 @@
 <?php
 /*
 Plugin name: FH Protect E-Mail
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_protect_email/fh_protect_email.php
+Description: Protect email addresses from spambots.
+Version: $Id:$
+Author: Florian Höch
+Author URI: http://hoech.net
+License: GPL3
 */
 
 if (!function_exists('__')) {

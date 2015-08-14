@@ -1,6 +1,12 @@
 <?php
 /*
 Plugin name: FH Custom Gallery Shortcode
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_custom_gallery_shortcode.php
+Description: Customize the gallery shortcode HTML output
+Version: $Id:$
+Author: Florian Höch
+Author URI: http://hoech.net
+License: GPL3
 */
 
 /**

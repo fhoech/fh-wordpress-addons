@@ -1,6 +1,12 @@
 <?php
 /*
 Plugin name: FH Cleanup HTML
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_cleanup_html.php
+Description: Remove a bit of cruft from post HTML.
+Version: $Id:$
+Author: Florian Höch
+Author URI: http://hoech.net
+License: GPL3
 */
 
 function fh_cleanup_html($html){
