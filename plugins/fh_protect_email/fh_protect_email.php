@@ -106,7 +106,7 @@ class FH_protect_email {
 			}
 			add_action( 'wp', array( &$this, 'wp_enqueue_css_js' ) );
 			add_action( 'wp_head', array( &$this, 'wp_meta_key' ) );
-			add_filter( 'the_content', array( &$this, 'protect_email' ) );
+			add_filter( 'the_content', array( &$this, 'protect_email' ), 99 );
 		}
 	}
 
