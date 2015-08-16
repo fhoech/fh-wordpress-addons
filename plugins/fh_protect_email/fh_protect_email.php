@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin name: FH Protect E-Mail
-Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_protect_email/fh_protect_email.php
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_protect_email/
 Description: Protect email addresses from spambots.
 Version: $Id:$
 Author: Florian Höch

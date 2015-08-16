@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Hyper Cache Utility
-Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/hyper-cache-utility/hyper-cache-utility.php
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/hyper-cache-utility/
 Description: Hyper Cache Utility is an add-on for the Hyper Cache plugin. It allows viewing of the cache files metadata and clearing of cache files.
 Version: $Id:$
 Text Domain: hyper-cache-utility
