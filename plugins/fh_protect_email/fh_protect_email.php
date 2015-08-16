@@ -135,11 +135,31 @@ class FH_protect_email {
 		return implode('', $alpha);
 	}
 
+	public static function str_replace_first($search, $replace, $subject) {
+		$pos = strpos($subject, $search);
+		if ($pos !== false) {
+			$subject = substr_replace($subject, $replace, $pos, strlen($search));
+		}
+		return $subject;
+	}
+
 	public function protect_email($html) {
 		$html = preg_replace_callback('/href=([\'"])mailto:(.+?@.+?)\\1/i', array( &$this, '_protect_mailto_callback'), $html);
 		$namepattern = '\w+(?:[+-.]\w+)*';
 		$topleveldomainpattern = '[A-Za-z]+';
+		if (preg_match_all('/<select[^>]*>.*?<\/select>|<textarea[^>]*>.*?<\/textarea>|<[^>]+>/is', $html, $matches)) {
+			// Protect HTML tags
+			foreach ($matches[0] as $index => $match) {
+				$html = $this :: str_replace_first($match, "\0$index\0", $html);
+			}
+		}
 		$html = preg_replace_callback('/(' . $namepattern . ')@(' . $namepattern . ')\.(' . $topleveldomainpattern . ')/', array( &$this, '_protect_email_callback'), $html);
+		if (!empty($matches)) {
+			// Restore HTML tags
+			foreach ($matches[0] as $index => $match) {
+				$html = $this :: str_replace_first("\0$index\0", $match, $html);
+			}
+		}
 		return $html;
 	}
 	
