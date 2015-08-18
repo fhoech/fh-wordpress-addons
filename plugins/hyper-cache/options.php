@@ -2,7 +2,7 @@
 
 $options = get_option('hyper');
 
-if (!$options['notranslation'])
+if (!isset($options['notranslation']))
 {
     $plugin_dir = basename(dirname(__FILE__));
     load_plugin_textdomain('hyper-cache', 'wp-content/plugins/' . $plugin_dir, $plugin_dir);
@@ -230,7 +230,7 @@ else
 <tr valign="top">
     <th><?php _e('Disable cache for commenters', 'hyper-cache'); ?></th>
     <td>
-        <input type="checkbox" name="options[comment]" value="1" <?php echo $options['comment']?'checked':''; ?>/>
+        <input type="checkbox" name="options[comment]" value="1" <?php echo isset($options['comment'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('When users leave comments, WordPress show pages with their comments even if in moderation
         (and not visible to others) and pre-fills the comment form.', 'hyper-cache'); ?>
@@ -244,7 +244,7 @@ else
 <tr valign="top">
     <th><?php _e('Feeds caching', 'hyper-cache'); ?></th>
     <td>
-        <input type="checkbox" name="options[feed]" value="1" <?php echo $options['feed']?'checked':''; ?>/>
+        <input type="checkbox" name="options[feed]" value="1" <?php echo isset($options['feed'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('When enabled the blog feeds will be cache as well.', 'hyper-cache'); ?>
         <?php _e('Usually this options has to be left unchecked but if your blog is rather static,
@@ -256,7 +256,7 @@ else
 <tr valign="top">
     <th><?php _e('Allow browser caching', 'hyper-cache'); ?></th>
     <td>
-        <input type="checkbox" name="options[browsercache]" value="1" <?php echo $options['browsercache']?'checked':''; ?>/>
+        <input type="checkbox" name="options[browsercache]" value="1" <?php echo isset($options['browsercache'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('Allow browser caching.','hyper-cache'); ?>
         </div>
@@ -286,7 +286,7 @@ else
 <tr valign="top">
     <th><?php _e('WordPress Mobile Pack', 'hyper-cache'); ?></th>
     <td>
-        <input type="checkbox" name="options[plugin_mobile_pack]" value="1" <?php echo $options['plugin_mobile_pack']?'checked':''; ?>/>
+        <input type="checkbox" name="options[plugin_mobile_pack]" value="1" <?php echo isset($options['plugin_mobile_pack'])?'checked':''; ?>/>
         <div class="hints">
            <?php _e('Enbale integration with <a href="http://wordpress.org/extend/plugins/wordpress-mobile-pack/">WordPress Mobile Pack</a> plugin. If you have that plugin, Hyper Cache use it to detect mobile devices and caches saparately
     the different pages generated.', 'hyper-cache'); ?>
@@ -296,7 +296,7 @@ else
 <tr valign="top">
     <th><?php _e('Detect mobile devices', 'hyper-cache'); ?></th>
     <td>
-        <input type="checkbox" name="options[mobile]" value="1" <?php echo $options['mobile']?'checked':''; ?>/>
+        <input type="checkbox" name="options[mobile]" value="1" <?php echo isset($options['mobile'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('When enabled mobile devices will be detected and the cached page stored under different name.', 'hyper-cache'); ?>
         <?php _e('This makes blogs with different themes for mobile devices to work correctly.', 'hyper-cache'); ?>
