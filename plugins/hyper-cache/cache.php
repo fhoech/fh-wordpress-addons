@@ -4,7 +4,7 @@ global $hyper_cache_stop;
 
 $hyper_cache_stop = false;
 
-header('X-HyperCache-Version: 999.2.9.1.4');
+header('X-HyperCache-Version: 999.2.9.1.6-$Id:$');
 
 // If no-cache header support is enabled and the browser explicitly requests a fresh page, do not cache
 if ($hyper_cache_nocache &&
@@ -14,16 +14,19 @@ if ($hyper_cache_nocache &&
 // Do not cache post request (comments, plugins and so on)
 if ($_SERVER["REQUEST_METHOD"] == 'POST') return hyper_cache_exit(false);
 
-// Try to avoid enabling the cache if sessions are managed with request parameters and a session is active
-if (defined('SID') && SID != '') return hyper_cache_exit();
-
 $hyper_uri = $_SERVER['REQUEST_URI'];
 $hyper_qs = strpos($hyper_uri, '?');
+
+// Do not cache WP pages, even if those calls typically don't go throught this script
+if (strpos($hyper_uri, '/wp-') !== false) return hyper_cache_exit(false);
 
 if ($hyper_qs !== false) {
     if ($hyper_cache_strip_qs) $hyper_uri = substr($hyper_uri, 0, $hyper_qs);
     else if (!$hyper_cache_cache_qs) return hyper_cache_exit(false);
 }
+
+// Try to avoid enabling the cache if sessions are managed with request parameters and a session is active
+if (defined('SID') && SID != '') return hyper_cache_exit();
 
 if (strpos($hyper_uri, 'robots.txt') !== false || strpos($hyper_uri, 'sitemap.xml') !== false) return hyper_cache_exit();
 
@@ -65,9 +68,6 @@ foreach ($_COOKIE as $n=>$v) {
         return hyper_cache_exit();
     }
 }
-
-// Do not cache WP pages, even if those calls typically don't go throught this script
-if (strpos($hyper_uri, '/wp-') !== false) return hyper_cache_exit(false);
 
 // Multisite
 if (function_exists('is_multisite') && is_multisite() && strpos($hyper_uri, '/files/') !== false) return hyper_cache_exit();
@@ -398,7 +398,12 @@ function hyper_cache_etag($hash) {
 }
 
 function hyper_cache_output($buffer) {
-    global $hyper_cache_gzip_on_the_fly;
+    global $hyper_cache_gzip_on_the_fly, $hyper_cache_browsercache_timeout;
+    header('Vary: Accept-Encoding, Cookie');
+    header('Cache-Control: private, max-age=' . $hyper_cache_browsercache_timeout);
+    header('Pragma: private');
+    header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $hyper_cache_browsercache_timeout) . " GMT");
+    header('X-HyperCache-Browsercache: true');
     if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false &&
         $hyper_cache_gzip_on_the_fly && !empty($buffer) && function_exists('gzencode')) {
         $buffer = gzencode($buffer);
@@ -414,6 +419,6 @@ function hyper_cache_exit($allow_browsercache=true) {
 
     if (!$hyper_cache_browsercache || !$allow_browsercache) header('X-HyperCache: 0');
 
-    ob_start('hyper_cache_output');
+    if ($allow_browsercache) ob_start('hyper_cache_output');
     return false;
 }

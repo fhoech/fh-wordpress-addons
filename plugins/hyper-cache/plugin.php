@@ -3,7 +3,7 @@
 Plugin Name: Hyper Cache
 Plugin URI: http://www.satollo.net/plugins/hyper-cache
 Description: Hyper Cache is a cache system for WordPress to improve it's perfomances and save resources. <a href="http://www.satollo.net/plugins/hyper-cache" target="_blank">Hyper Cache official page</a>. To manually upgrade remember the sequence: deactivate, update, reactivate.
-Version: 999.2.9.1.4
+Version: 999.2.9.1.6-$Id:$
 Text Domain: hyper-cache
 Author: Stefano Lissa
 Author URI: http://www.satollo.net
@@ -457,29 +457,6 @@ function hyper_generate_config(&$options)
     $buffer .= '?>';
 
     return $buffer;
-}
-
-function hyper_cache_override_nocache_headers($headers) {
-    return array();
-}
-
-// Allow browser caching if enabled
-if ($_SERVER['REQUEST_METHOD'] != 'POST' && empty($_SERVER['QUERY_STRING'])) {
-    $hyper_options = get_option('hyper');
-    if ((empty($hyper_options['nocache']) ||
-         ((empty($_SERVER['HTTP_CACHE_CONTROL']) || $_SERVER['HTTP_CACHE_CONTROL'] != 'no-cache') &&
-          (empty($_SERVER['HTTP_PRAGMA']) || $_SERVER['HTTP_PRAGMA'] != 'no-cache'))) &&
-        !empty($hyper_options['browsercache']))
-        header('Vary: Accept-Encoding, Cookie');
-        if (function_exists('header_unset')) {
-            header_remove('Cache-Control');
-            header_remove('Pragma');
-        }
-        else header('Pragma:');
-        header('Cache-Control: private, max-age=' . $hyper_options['browsercache_timeout']*60);
-        header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $hyper_options['browsercache_timeout']*60) . " GMT");
-        header('X-HyperCache-Browsercache: true');
-        add_filter('nocache_headers', 'hyper_cache_override_nocache_headers');
 }
 
 ?>
