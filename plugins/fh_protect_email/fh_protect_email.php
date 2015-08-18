@@ -147,7 +147,7 @@ class FH_protect_email {
 		$html = preg_replace_callback('/href=([\'"])mailto:(.+?@.+?)\\1/i', array( &$this, '_protect_mailto_callback'), $html);
 		$namepattern = '\w+(?:[+-.]\w+)*';
 		$topleveldomainpattern = '[A-Za-z]+';
-		if (preg_match_all('/<select[^>]*>.*?<\/select>|<textarea[^>]*>.*?<\/textarea>|<[^>]+>/is', $html, $matches)) {
+		if (preg_match_all('/<!--.*?-->|<script[^>]*>.*?<\/script>|<select[^>]*>.*?<\/select>|<textarea[^>]*>.*?<\/textarea>|<[^>]+>/is', $html, $matches)) {
 			// Protect HTML tags
 			foreach ($matches[0] as $index => $match) {
 				$html = $this :: str_replace_first($match, "\0$index\0", $html);
