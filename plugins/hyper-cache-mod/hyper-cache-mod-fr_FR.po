@@ -3,7 +3,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Hyper Cache FR\n"
-"Report-Msgid-Bugs-To: http://wordpress.org/tag/hyper-cache\n"
+"Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2012-01-25 22:02:42+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -23,8 +23,8 @@ msgid "<p><strong>Options saved BUT not active because Hyper Cache was not able 
 msgstr "<p><strong>Les options ont été enregistrées MAIS non actives, car Hyper Cache n'est pas capable de mettre à jour le fichier wp-content/advanced-cache.php (est-il accessible en écriture ?).</strong></p>"
 
 #: options.php:109
-msgid "<p><strong>Hyper Cache was not able to create the folder \"wp-content/cache/hyper-cache\". Make it manually setting permissions to 777.</strong></p>"
-msgstr "<p><strong>Hyper Cache n'est pas capable de créer le dossier \"wp-content/cache/hyper-cache\". Mettez manuellement les permissions en CHMOD 777.</strong></p>"
+msgid "<p><strong>Hyper Cache was not able to create the folder \"wp-content/cache/hyper-cache-mod\". Make it manually setting permissions to 777.</strong></p>"
+msgstr "<p><strong>Hyper Cache n'est pas capable de créer le dossier \"wp-content/cache/hyper-cache-mod\". Mettez manuellement les permissions en CHMOD 777.</strong></p>"
 
 #: options.php:114
 msgid "You can find more details about configurations and working mode on <a href=\"%s\">Hyper Cache official page</a>."

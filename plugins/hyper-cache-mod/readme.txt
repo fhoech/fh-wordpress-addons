@@ -84,6 +84,16 @@ No screenshots are available.
 
 == Changelog ==
 
+= 2.9.1.6 Mod 2015-08-18 =
+
+* Additional post types invalidation (blog, feed, search)
+* Optionally store uncompressed pages as well
+* Fix feed caching
+* Send diagnostic X-HyperCache headers
+* Better browser caching support with ETag handling
+* Fix some dynamic admin pages not displaying correctly (e.g. plugin update
+  progress, theme customizer) when Hyper Cache activated
+
 = 2.9.1.6 =
 
 * Fixed some debug noticies

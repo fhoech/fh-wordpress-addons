@@ -5,13 +5,13 @@ $options = get_option('hyper');
 if (!isset($options['notranslation']))
 {
     $plugin_dir = basename(dirname(__FILE__));
-    load_plugin_textdomain('hyper-cache', 'wp-content/plugins/' . $plugin_dir, $plugin_dir);
+    load_plugin_textdomain('hyper-cache-mod', 'wp-content/plugins/' . $plugin_dir, $plugin_dir);
 }
 
 
 if (isset($_POST['clean']))
 {
-    hyper_delete_path(WP_CONTENT_DIR . '/cache/hyper-cache');
+    hyper_delete_path(WP_CONTENT_DIR . '/cache/hyper-cache-mod');
 }
 
 $error = false;
@@ -23,7 +23,7 @@ if (isset($_POST['save']))
 
     if ($options['gzip'] != $tmp['gzip'])
     {
-        hyper_delete_path(WP_CONTENT_DIR . '/cache/hyper-cache');
+        hyper_delete_path(WP_CONTENT_DIR . '/cache/hyper-cache-mod');
     }
 
     $options = $tmp;
@@ -52,8 +52,8 @@ if (isset($_POST['save']))
     // When the cache does not expire
     if ($options['expire_type'] == 'none')
     {
-        @unlink(WP_CONTENT_DIR . '/cache/hyper-cache/_global.dat');
-        @unlink(WP_CONTENT_DIR . '/cache/hyper-cache/_archives.dat');
+        @unlink(WP_CONTENT_DIR . '/cache/hyper-cache-mod/_global.dat');
+        @unlink(WP_CONTENT_DIR . '/cache/hyper-cache-mod/_archives.dat');
     }
 } 
 else 
@@ -122,11 +122,11 @@ else
 
 <?php if (!defined('WP_CACHE') || !WP_CACHE) { ?>
 <div class="error">
-    <?php _e('You must add to the file wp-config.php (at its beginning after the &lt;?php) the line of code: <code>define(\'WP_CACHE\', true);</code>.', 'hyper-cache'); ?>
+    <?php _e('You must add to the file wp-config.php (at its beginning after the &lt;?php) the line of code: <code>define(\'WP_CACHE\', true);</code>.', 'hyper-cache-mod'); ?>
 </div>
 <?php } ?>
 
-<h2>Hyper Cache</h2>
+<h2>Hyper Cache 2.9.1.6 Mod</h2>
 
 <h3>Contributors</h3>
 
@@ -139,18 +139,18 @@ else
 <?php
     if ($error)
     {
-        echo __('<p><strong>Options saved BUT not active because Hyper Cache was not able to update the file wp-content/advanced-cache.php (is it writable?).</strong></p>', 'hyper-cache');
+        echo __('<p><strong>Options saved BUT not active because Hyper Cache was not able to update the file wp-content/advanced-cache.php (is it writable?).</strong></p>', 'hyper-cache-mod');
     }
 ?>
 <?php
-    if (!wp_mkdir_p(WP_CONTENT_DIR . '/cache/hyper-cache'))
+    if (!wp_mkdir_p(WP_CONTENT_DIR . '/cache/hyper-cache-mod'))
     {
-        echo __('<p><strong>Hyper Cache was not able to create the folder "wp-content/cache/hyper-cache". Make it manually setting permissions to 777.</strong></p>', 'hyper-cache');
+        echo __('<p><strong>Hyper Cache was not able to create the folder "wp-content/cache/hyper-cache-mod". Make it manually setting permissions to 777.</strong></p>', 'hyper-cache-mod');
     }
 ?>
 
 <p>
-    <?php printf(__('You can find more details about configurations and working mode on <a href="%s">Hyper Cache official page</a>.', 'hyper-cache'), 'http://www.satollo.net/plugins/hyper-cache'); ?>
+    <?php printf(__('You can find more details about configurations and working mode on <a href="%s">Hyper Cache official page</a>.', 'hyper-cache-mod'), 'http://www.satollo.net/plugins/hyper-cache'); ?>
 </p>
 
 
@@ -159,120 +159,120 @@ else
 <?php wp_nonce_field(); ?>
 
 <p class="submit">
-    <input class="button" type="submit" name="clean" value="<?php _e('Clear cache', 'hyper-cache'); ?>">
+    <input class="button" type="submit" name="clean" value="<?php _e('Clear cache', 'hyper-cache-mod'); ?>">
 </p>
 
-<h3><?php _e('Cache status', 'hyper-cache'); ?></h3>
+<h3><?php _e('Cache status', 'hyper-cache-mod'); ?></h3>
 <table class="form-table">
 <tr valign="top">
-    <th><?php _e('Files in cache (valid and expired)', 'hyper-cache'); ?></th>
+    <th><?php _e('Files in cache (valid and expired)', 'hyper-cache-mod'); ?></th>
     <td><?php echo hyper_count(); ?></td>
 </tr>
 <tr valign="top">
-    <th><?php _e('Cleaning process', 'hyper-cache'); ?></th>
+    <th><?php _e('Cleaning process', 'hyper-cache-mod'); ?></th>
     <td>
-        <?php _e('Next run on: ', 'hyper-cache'); ?>
+        <?php _e('Next run on: ', 'hyper-cache-mod'); ?>
         <?php
         $next_scheduled = wp_next_scheduled('hyper_clean');
         if (empty($next_scheduled)) echo '? (read below)';
         else echo gmdate(get_option('date_format') . ' ' . get_option('time_format'), $next_scheduled + get_option('gmt_offset')*3600);
         ?>
         <div class="hints">
-			<?php _e('The cleaning process runs hourly and it\'s ok to run it hourly: that grant you an efficient cache. If above there is not a valid next run time, wait 10 seconds and reenter this panel. If nothing change, try to deactivate and reactivate Hyper Cache.', 'hyper-cache'); ?>
+			<?php _e('The cleaning process runs hourly and it\'s ok to run it hourly: that grant you an efficient cache. If above there is not a valid next run time, wait 10 seconds and reenter this panel. If nothing change, try to deactivate and reactivate Hyper Cache.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 </table>
 
 
-<h3><?php _e('Configuration', 'hyper-cache'); ?></h3>
+<h3><?php _e('Configuration', 'hyper-cache-mod'); ?></h3>
 
 <table class="form-table">
 
 <tr valign="top">
-    <th><?php _e('Cached pages timeout', 'hyper-cache'); ?></th>
+    <th><?php _e('Cached pages timeout', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="text" size="5" name="options[timeout]" value="<?php echo htmlspecialchars($options['timeout']); ?>"/>
-        (<?php _e('minutes', 'hyper-cache'); ?>)
+        (<?php _e('minutes', 'hyper-cache-mod'); ?>)
         <div class="hints">
         <?php _e('Minutes a cached page is valid and served to users. A zero value means a cached page is
-        valid forever.', 'hyper-cache'); ?>
+        valid forever.', 'hyper-cache-mod'); ?>
         <?php _e('If a cached page is older than specified value (expired) it is no more used and
-        will be regenerated on next request of it.', 'hyper-cache'); ?>
-        <?php _e('720 minutes is half a day, 1440 is a full day and so on.', 'hyper-cache'); ?>
+        will be regenerated on next request of it.', 'hyper-cache-mod'); ?>
+        <?php _e('720 minutes is half a day, 1440 is a full day and so on.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Cache invalidation mode', 'hyper-cache'); ?></th>
+    <th><?php _e('Cache invalidation mode', 'hyper-cache-mod'); ?></th>
     <td>
         <select name="options[expire_type]">
-            <option value="all" <?php echo ($options['expire_type'] == 'all')?'selected':''; ?>><?php _e('All cached pages', 'hyper-cache'); ?></option>
-            <option value="post" <?php echo ($options['expire_type'] == 'post')?'selected':''; ?>><?php _e('Only modified posts', 'hyper-cache'); ?></option>
-            <!--<option value="post_strictly" <?php echo ($options['expire_type'] == 'post_strictly')?'selected':''; ?>><?php _e('Only modified pages', 'hyper-cache'); ?></option>-->
-            <option value="none" <?php echo ($options['expire_type'] == 'none')?'selected':''; ?>><?php _e('Nothing', 'hyper-cache'); ?></option>
+            <option value="all" <?php echo ($options['expire_type'] == 'all')?'selected':''; ?>><?php _e('All cached pages', 'hyper-cache-mod'); ?></option>
+            <option value="post" <?php echo ($options['expire_type'] == 'post')?'selected':''; ?>><?php _e('Only modified posts', 'hyper-cache-mod'); ?></option>
+            <!--<option value="post_strictly" <?php echo ($options['expire_type'] == 'post_strictly')?'selected':''; ?>><?php _e('Only modified pages', 'hyper-cache-mod'); ?></option>-->
+            <option value="none" <?php echo ($options['expire_type'] == 'none')?'selected':''; ?>><?php _e('Nothing', 'hyper-cache-mod'); ?></option>
         </select>
         <br />
         <input type="checkbox" name="options[archive]" value="1" <?php echo $options['archive']?'checked':''; ?>/>
-        <?php _e('Invalidate home, archives, categories on single post invalidation', 'hyper-cache'); ?>
+        <?php _e('Invalidate home, archives, categories, feeds, searches on single post invalidation', 'hyper-cache-mod'); ?>
         <br />
         <div class="hints">
-        <?php _e('"Invalidation" is the process of deleting cached pages when they are no more valid.', 'hyper-cache'); ?>
+        <?php _e('"Invalidation" is the process of deleting cached pages when they are no more valid.', 'hyper-cache-mod'); ?>
         <?php _e('Invalidation process is started when blog contents are modified (new post, post update, new comment,...) so
-        one or more cached pages need to be refreshed to get that new content.', 'hyper-cache'); ?>
+        one or more cached pages need to be refreshed to get that new content.', 'hyper-cache-mod'); ?>
         <?php _e('A new comment submission or a comment moderation is considered like a post modification
-        where the post is the one the comment is relative to.', 'hyper-cache'); ?>
+        where the post is the one the comment is relative to.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Disable cache for commenters', 'hyper-cache'); ?></th>
+    <th><?php _e('Disable cache for commenters', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[comment]" value="1" <?php echo isset($options['comment'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('When users leave comments, WordPress show pages with their comments even if in moderation
-        (and not visible to others) and pre-fills the comment form.', 'hyper-cache'); ?>
-        <?php _e('If you want to keep those features, enable this option.', 'hyper-cache'); ?>
-        <?php _e('The caching system will be less efficient but the blog more usable.', 'hyper-cache'); ?>
+        (and not visible to others) and pre-fills the comment form.', 'hyper-cache-mod'); ?>
+        <?php _e('If you want to keep those features, enable this option.', 'hyper-cache-mod'); ?>
+        <?php _e('The caching system will be less efficient but the blog more usable.', 'hyper-cache-mod'); ?>
         </div>
 
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Feeds caching', 'hyper-cache'); ?></th>
+    <th><?php _e('Feeds caching', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[feed]" value="1" <?php echo isset($options['feed'])?'checked':''; ?>/>
         <div class="hints">
-        <?php _e('When enabled the blog feeds will be cache as well.', 'hyper-cache'); ?>
+        <?php _e('When enabled the blog feeds will be cache as well.', 'hyper-cache-mod'); ?>
         <?php _e('Usually this options has to be left unchecked but if your blog is rather static,
-        you can enable it and have a bit more efficiency', 'hyper-cache'); ?>
+        you can enable it and have a bit more efficiency', 'hyper-cache-mod'); ?>
         </div>
     </td>    
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Allow browser caching', 'hyper-cache'); ?></th>
+    <th><?php _e('Allow browser caching', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[browsercache]" value="1" <?php echo isset($options['browsercache'])?'checked':''; ?>/>
         <div class="hints">
-        <?php _e('Allow browser caching.','hyper-cache'); ?>
+        <?php _e('Allow browser caching.','hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Browser cache timeout', 'hyper-cache'); ?></th>
+    <th><?php _e('Browser cache timeout', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="text" size="5" name="options[browsercache_timeout]" value="<?php echo htmlspecialchars($options['browsercache_timeout']); ?>"/>
-        (<?php _e('minutes', 'hyper-cache'); ?>)
+        (<?php _e('minutes', 'hyper-cache-mod'); ?>)
         <div class="hints">
-        <?php _e('Minutes a page in the browser cache is valid. A zero value effectively disables browser caching.', 'hyper-cache'); ?>
+        <?php _e('Minutes a page in the browser cache is valid. A zero value effectively disables browser caching.', 'hyper-cache-mod'); ?>
         <?php _e('If a cached page is older than specified value (expired) it is no more used and
-        will be requested from the server.', 'hyper-cache'); ?>
-        <?php _e('720 minutes is half a day, 1440 is a full day and so on.', 'hyper-cache'); ?>
+        will be requested from the server.', 'hyper-cache-mod'); ?>
+        <?php _e('720 minutes is half a day, 1440 is a full day and so on.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
@@ -281,36 +281,36 @@ else
     <input class="button" type="submit" name="save" value="<?php _e('Update'); ?>">
 </p>
 
-<h3><?php _e('Configuration for mobile devices', 'hyper-cache'); ?></h3>
+<h3><?php _e('Configuration for mobile devices', 'hyper-cache-mod'); ?></h3>
 <table class="form-table">
 <tr valign="top">
-    <th><?php _e('WordPress Mobile Pack', 'hyper-cache'); ?></th>
+    <th><?php _e('WordPress Mobile Pack', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[plugin_mobile_pack]" value="1" <?php echo isset($options['plugin_mobile_pack'])?'checked':''; ?>/>
         <div class="hints">
            <?php _e('Enbale integration with <a href="http://wordpress.org/extend/plugins/wordpress-mobile-pack/">WordPress Mobile Pack</a> plugin. If you have that plugin, Hyper Cache use it to detect mobile devices and caches saparately
-    the different pages generated.', 'hyper-cache'); ?>
+    the different pages generated.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 <tr valign="top">
-    <th><?php _e('Detect mobile devices', 'hyper-cache'); ?></th>
+    <th><?php _e('Detect mobile devices', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[mobile]" value="1" <?php echo isset($options['mobile'])?'checked':''; ?>/>
         <div class="hints">
-        <?php _e('When enabled mobile devices will be detected and the cached page stored under different name.', 'hyper-cache'); ?>
-        <?php _e('This makes blogs with different themes for mobile devices to work correctly.', 'hyper-cache'); ?>
+        <?php _e('When enabled mobile devices will be detected and the cached page stored under different name.', 'hyper-cache-mod'); ?>
+        <?php _e('This makes blogs with different themes for mobile devices to work correctly.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Mobile agent list', 'hyper-cache'); ?></th>
+    <th><?php _e('Mobile agent list', 'hyper-cache-mod'); ?></th>
     <td>
         <textarea wrap="off" rows="4" cols="70" name="options[mobile_agents]"><?php echo htmlspecialchars($options['mobile_agents']); ?></textarea>
         <div class="hints">
-        <?php _e('One per line mobile agents to check for when a page is requested.', 'hyper-cache'); ?>
-        <?php _e('The mobile agent string is matched against the agent a device is sending to the server.', 'hyper-cache'); ?>
+        <?php _e('One per line mobile agents to check for when a page is requested.', 'hyper-cache-mod'); ?>
+        <?php _e('The mobile agent string is matched against the agent a device is sending to the server.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
@@ -320,67 +320,67 @@ else
 </p>
 
 
-<h3><?php _e('Compression', 'hyper-cache'); ?></h3>
+<h3><?php _e('Compression', 'hyper-cache-mod'); ?></h3>
 
 <?php if (!function_exists('gzencode') || !function_exists('gzinflate')) { ?>
 
-<p><?php _e('Your hosting space has not the "gzencode" or "gzinflate" function, so no compression options are available.', 'hyper-cache'); ?></p>
+<p><?php _e('Your hosting space has not the "gzencode" or "gzinflate" function, so no compression options are available.', 'hyper-cache-mod'); ?></p>
 
 <?php } else { ?>
 
 <table class="form-table">
 <tr valign="top">
-    <th><?php _e('Store compressed pages', 'hyper-cache'); ?></th>
+    <th><?php _e('Store compressed pages', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[store_compressed]" value="1" <?php echo $options['store_compressed']?'checked':''; ?>
             onchange="jQuery('input[name=&quot;options[gzip]&quot;], input[name=&quot;options[store_uncompressed]&quot;]').attr('disabled', !this.checked)" />
         <div class="hints">
-        <?php _e('Enable this option to minimize disk space usage and make sending of compressed pages possible with the option below.', 'hyper-cache'); ?>
-        <?php _e('The cache will be a little less performant.', 'hyper-cache'); ?>
-        <?php _e('Leave the options disabled if you note malfunctions, like blank pages.', 'hyper-cache'); ?>
+        <?php _e('Enable this option to minimize disk space usage and make sending of compressed pages possible with the option below.', 'hyper-cache-mod'); ?>
+        <?php _e('The cache will be a little less performant.', 'hyper-cache-mod'); ?>
+        <?php _e('Leave the options disabled if you note malfunctions, like blank pages.', 'hyper-cache-mod'); ?>
         <br />
-        <?php _e('If you enable this option, the option below will be available as well.', 'hyper-cache'); ?>
+        <?php _e('If you enable this option, the option below will be available as well.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Also store uncompressed pages', 'hyper-cache'); ?></th>
+    <th><?php _e('Also store uncompressed pages', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[store_uncompressed]" value="1" <?php echo $options['store_uncompressed']||!$options['store_compressed']?'checked':''; ?>
             <?php echo $options['store_compressed']?'':'disabled'; ?> />
         <div class="hints">
-        <?php _e('Enable this option to also store uncompressed pages for user agents that do not support compression.', 'hyper-cache'); ?>
-        <?php _e('The cache will be a little more performant for those user agents, but server disk space usage will increase.', 'hyper-cache'); ?>
-        <?php _e('Leave this option disabled if you want pages to be decompressed on-the-fly for those user agents (but decompressing may cost a little server CPU each time).', 'hyper-cache'); ?>
+        <?php _e('Enable this option to also store uncompressed pages for user agents that do not support compression.', 'hyper-cache-mod'); ?>
+        <?php _e('The cache will be a little more performant for those user agents, but server disk space usage will increase.', 'hyper-cache-mod'); ?>
+        <?php _e('Leave this option disabled if you want pages to be decompressed on-the-fly for those user agents (but decompressing may cost a little server CPU each time).', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Send compressed pages', 'hyper-cache'); ?></th>
+    <th><?php _e('Send compressed pages', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[gzip]" value="1" <?php echo $options['gzip']?'checked':''; ?>
             <?php echo $options['store_compressed']?'':'disabled'; ?> />
         <div class="hints">
-        <?php _e('When possible (i.e. if the browser accepts compression and the page was cached compressed) the page will be sent compressed to save bandwidth.', 'hyper-cache'); ?>
+        <?php _e('When possible (i.e. if the browser accepts compression and the page was cached compressed) the page will be sent compressed to save bandwidth.', 'hyper-cache-mod'); ?>
         <?php _e('Only the textual part of a page can be compressed, not images, so a photo
-        blog will consume a lot of bandwidth even with compression enabled.', 'hyper-cache'); ?>
-        <?php _e('Leave the options disabled if you note malfunctions, like blank pages.', 'hyper-cache'); ?>
+        blog will consume a lot of bandwidth even with compression enabled.', 'hyper-cache-mod'); ?>
+        <?php _e('Leave the options disabled if you note malfunctions, like blank pages.', 'hyper-cache-mod'); ?>
         <br />
-        <?php _e('If you enable this option, the option below will be available as well.', 'hyper-cache'); ?>
+        <?php _e('If you enable this option, the option below will be available as well.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('On-the-fly compression', 'hyper-cache'); ?></th>
+    <th><?php _e('On-the-fly compression', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[gzip_on_the_fly]" value="1" <?php echo $options['gzip_on_the_fly']?'checked':''; ?> />
         <div class="hints">
-        <?php _e('When possible (i.e. if the browser accepts compression) use on-the-fly compression to save bandwidth when sending pages which are not compressed.', 'hyper-cache'); ?>
-        <?php _e('Serving of such pages will be a little less performant.', 'hyper-cache'); ?>
-        <?php _e('Leave the options disabled if you note malfunctions, like blank pages.', 'hyper-cache'); ?>
+        <?php _e('When possible (i.e. if the browser accepts compression) use on-the-fly compression to save bandwidth when sending pages which are not compressed.', 'hyper-cache-mod'); ?>
+        <?php _e('Serving of such pages will be a little less performant.', 'hyper-cache-mod'); ?>
+        <?php _e('Leave the options disabled if you note malfunctions, like blank pages.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
@@ -391,114 +391,114 @@ else
 <?php } ?>
 
 
-<h3><?php _e('Advanced options', 'hyper-cache'); ?></h3>
+<h3><?php _e('Advanced options', 'hyper-cache-mod'); ?></h3>
 
 <table class="form-table">
 <tr valign="top">
-    <th><?php _e('Translation', 'hyper-cache'); ?></th>
+    <th><?php _e('Translation', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[notranslation]" value="1" <?php echo $options['notranslation']?'checked':''; ?>/>
         <div class="hints">
-        <?php _e('DO NOT show this panel translated.', 'hyper-cache'); ?>
+        <?php _e('DO NOT show this panel translated.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Disable Last-Modified header', 'hyper-cache'); ?></th>
+    <th><?php _e('Disable Last-Modified header', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[lastmodified]" value="1" <?php echo $options['lastmodified']?'checked':''; ?>/>
         <div class="hints">
-        <?php _e('Disable some HTTP headers (Last-Modified) which improve performances but some one is reporting they create problems which some hosting configurations.','hyper-cache'); ?>
+        <?php _e('Disable some HTTP headers (Last-Modified) which improve performances but some one is reporting they create problems which some hosting configurations.','hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Disable home caching', 'hyper-cache'); ?></th>
+    <th><?php _e('Disable home caching', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[home]" value="1" <?php echo $options['home']?'checked':''; ?>/>
         <div class="hints">
-        <?php _e('DO NOT cache the home page so it is always fresh.','hyper-cache'); ?>
+        <?php _e('DO NOT cache the home page so it is always fresh.','hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Redirect caching', 'hyper-cache'); ?></th>
+    <th><?php _e('Redirect caching', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[redirects]" value="1" <?php echo $options['redirects']?'checked':''; ?>/>
         <br />
-        <?php _e('Cache WordPress redirects.', 'hyper-cache'); ?>
-        <?php _e('WordPress sometime sends back redirects that can be cached to avoid further processing time.', 'hyper-cache'); ?>
+        <?php _e('Cache WordPress redirects.', 'hyper-cache-mod'); ?>
+        <?php _e('WordPress sometime sends back redirects that can be cached to avoid further processing time.', 'hyper-cache-mod'); ?>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Page not found caching (HTTP 404)', 'hyper-cache'); ?></th>
+    <th><?php _e('Page not found caching (HTTP 404)', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[notfound]" value="1" <?php echo $options['notfound']?'checked':''; ?>/>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Strip query string', 'hyper-cache'); ?></th>
+    <th><?php _e('Strip query string', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[strip_qs]" value="1" <?php echo $options['strip_qs']?'checked':''; ?>/>
         <div class="hints">
            <?php _e('This is a really special case, usually you have to kept it disabled. When enabled, URL with query string will be
     reduced removing the query string. So the URL http://www.domain.com/post-title and
     http://www.domain.com/post-title?a=b&amp;c=d are cached as a single page.<br />
-    Setting this option disable the next one.', 'hyper-cache'); ?>
+    Setting this option disable the next one.', 'hyper-cache-mod'); ?>
           <br />
         <?php _e('<strong>Many plugins can stop to work correctly with this option enabled
-        (eg. my <a href="http://www.satollo.net/plugins/newsletter">Newsletter plugin</a>)</strong>', 'hyper-cache'); ?>
+        (eg. my <a href="http://www.satollo.net/plugins/newsletter">Newsletter plugin</a>)</strong>', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('URL with parameters', 'hyper-cache'); ?></th>
+    <th><?php _e('URL with parameters', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[cache_qs]" value="1" <?php echo $options['cache_qs']?'checked':''; ?>/>
         <div class="hints">
-        <?php _e('Cache requests with query string (parameters).', 'hyper-cache'); ?>
-        <?php _e('This option has to be enabled for blogs which have post URLs with a question mark on them.', 'hyper-cache'); ?>
+        <?php _e('Cache requests with query string (parameters).', 'hyper-cache-mod'); ?>
+        <?php _e('This option has to be enabled for blogs which have post URLs with a question mark on them.', 'hyper-cache-mod'); ?>
         <?php _e('This option is disabled by default because there is plugins which use
-        URL parameter to perform specific action that cannot be cached', 'hyper-cache'); ?>
+        URL parameter to perform specific action that cannot be cached', 'hyper-cache-mod'); ?>
         <?php _e('For who is using search engines friendly permalink format is safe to
-        leave this option disabled, no performances will be lost.', 'hyper-cache'); ?>
+        leave this option disabled, no performances will be lost.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Allow browser to bypass cache', 'hyper-cache'); ?></th>
+    <th><?php _e('Allow browser to bypass cache', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="checkbox" name="options[nocache]" value="1" <?php echo $options['nocache']?'checked':''; ?>/>
         <div class="hints">
-        <?php _e('Do not use cache if browser sends no-cache header (e.g. on explicit page reload).','hyper-cache'); ?>
+        <?php _e('Do not use cache if browser sends no-cache header (e.g. on explicit page reload).','hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 </table>
 
 
-<h3><?php _e('Filters', 'hyper-cache'); ?></h3>
+<h3><?php _e('Filters', 'hyper-cache-mod'); ?></h3>
 <p>
     <?php _e('Here you can: exclude pages and posts from the cache, specifying their address (URI); disable Hyper Cache for specific
-    User Agents (browsers, bot, mobile devices, ...); disable the cache for users that have specific cookies.', 'hyper-cache'); ?>
+    User Agents (browsers, bot, mobile devices, ...); disable the cache for users that have specific cookies.', 'hyper-cache-mod'); ?>
 </p>
 
 <table class="form-table">
 <tr valign="top">
-    <th><?php _e('URI to reject', 'hyper-cache'); ?></th>
+    <th><?php _e('URI to reject', 'hyper-cache-mod'); ?></th>
     <td>
         <textarea wrap="off" rows="5" cols="70" name="options[reject]"><?php echo htmlspecialchars($options['reject']); ?></textarea>
         <div class="hints">
-        <?php _e('Write one URI per line, each URI has to start with a slash.', 'hyper-cache'); ?>
-        <?php _e('A specified URI will match the requested URI if the latter starts with the former.', 'hyper-cache'); ?>
-        <?php _e('If you want to specify a stric matching, surround the URI with double quotes.', 'hyper-cache'); ?>
+        <?php _e('Write one URI per line, each URI has to start with a slash.', 'hyper-cache-mod'); ?>
+        <?php _e('A specified URI will match the requested URI if the latter starts with the former.', 'hyper-cache-mod'); ?>
+        <?php _e('If you want to specify a stric matching, surround the URI with double quotes.', 'hyper-cache-mod'); ?>
 
         <?php
         $languages = get_option('gltr_preferred_languages');
@@ -518,27 +518,27 @@ else
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Agents to reject', 'hyper-cache'); ?></th>
+    <th><?php _e('Agents to reject', 'hyper-cache-mod'); ?></th>
     <td>
         <textarea wrap="off" rows="5" cols="70" name="options[reject_agents]"><?php echo htmlspecialchars($options['reject_agents']); ?></textarea>
         <div class="hints">
-        <?php _e('Write one agent per line.', 'hyper-cache'); ?>
-        <?php _e('A specified agent will match the client agent if the latter contains the former. The matching is case insensitive.', 'hyper-cache'); ?>
+        <?php _e('Write one agent per line.', 'hyper-cache-mod'); ?>
+        <?php _e('A specified agent will match the client agent if the latter contains the former. The matching is case insensitive.', 'hyper-cache-mod'); ?>
         </div>
     </td>
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Cookies matching', 'hyper-cache'); ?></th>
+    <th><?php _e('Cookies matching', 'hyper-cache-mod'); ?></th>
     <td>
         <textarea wrap="off" rows="5" cols="70" name="options[reject_cookies]"><?php echo htmlspecialchars($options['reject_cookies']); ?></textarea>
         <div class="hints">
-        <?php _e('Write one cookie name per line.', 'hyper-cache'); ?>
-        <?php _e('When a specified cookie will match one of the cookie names sent bby the client the cache stops.', 'hyper-cache'); ?>
+        <?php _e('Write one cookie name per line.', 'hyper-cache-mod'); ?>
+        <?php _e('When a specified cookie will match one of the cookie names sent bby the client the cache stops.', 'hyper-cache-mod'); ?>
         <?php if (defined('FBC_APP_KEY_OPTION')) { ?>
         <br />
         <?php _e('It seems you have Facebook Connect plugin installed. Add this cookie name to make it works
-        with Hyper Cache:', 'hyper-cache'); ?>
+        with Hyper Cache:', 'hyper-cache-mod'); ?>
         <br />
         <strong><?php echo get_option(FBC_APP_KEY_OPTION); ?>_user</strong>
         <?php } ?>

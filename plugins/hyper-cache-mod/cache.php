@@ -4,7 +4,7 @@ global $hyper_cache_stop;
 
 $hyper_cache_stop = false;
 
-header('X-HyperCache-Version: 999.2.9.1.6-$Id:$');
+header('X-HyperCache-Version: 2.9.1.6-Mod-$Id:$');
 
 // If no-cache header support is enabled and the browser explicitly requests a fresh page, do not cache
 if ($hyper_cache_nocache &&

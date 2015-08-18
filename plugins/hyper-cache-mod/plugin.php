@@ -1,11 +1,11 @@
 <?php
 /*
-Plugin Name: Hyper Cache
-Plugin URI: http://www.satollo.net/plugins/hyper-cache
+Plugin Name: Hyper Cache 2.9.1.6 Mod
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/hyper-cache-mod
 Description: Hyper Cache is a cache system for WordPress to improve it's perfomances and save resources. <a href="http://www.satollo.net/plugins/hyper-cache" target="_blank">Hyper Cache official page</a>. To manually upgrade remember the sequence: deactivate, update, reactivate.
-Version: 999.2.9.1.6-$Id:$
-Text Domain: hyper-cache
-Author: Stefano Lissa
+Version: 2.9.1.6-Mod-$Id:$
+Text Domain: hyper-cache-mod
+Author: Stefano Lissa, Florian Höch (Mod)
 Author URI: http://www.satollo.net
 Disclaimer: Use at your own risk. No warranty expressed or implied is provided.
 
@@ -61,7 +61,7 @@ function hyper_activate()
     @fwrite($file, $buffer);
     @fclose($file);
 
-    wp_mkdir_p(WP_CONTENT_DIR . '/cache/hyper-cache');
+    wp_mkdir_p(WP_CONTENT_DIR . '/cache/hyper-cache-mod');
 
     wp_schedule_event(time()+300, 'hourly', 'hyper_clean');
 }
@@ -70,7 +70,7 @@ add_action('hyper_clean', 'hyper_clean');
 function hyper_clean()
 {
     // Latest global invalidation (may be false)
-    $invalidation_time = @filemtime(WP_CONTENT_DIR . '/cache/hyper-cache/_global.dat');
+    $invalidation_time = @filemtime(WP_CONTENT_DIR . '/cache/hyper-cache-mod/_global.dat');
 
     hyper_log('start cleaning');
 
@@ -79,7 +79,7 @@ function hyper_clean()
     $timeout = $options['timeout']*60;
     if ($timeout == 0) return;
 
-    $path = WP_CONTENT_DIR . '/cache/hyper-cache';
+    $path = WP_CONTENT_DIR . '/cache/hyper-cache-mod';
     $time = time();
 
     $handle = @opendir($path);
@@ -121,10 +121,10 @@ function hyper_deactivate()
 add_action('admin_menu', 'hyper_admin_menu');
 function hyper_admin_menu()
 {
-    add_options_page('Hyper Cache', 'Hyper Cache', 'manage_options', 'hyper-cache/options.php');
+    add_options_page('Hyper Cache 2.9.1.6 Mod', 'Hyper Cache 2.9.1.6 Mod', 'manage_options', 'hyper-cache-mod/options.php');
 }
 
-// Completely invalidate the cache. The hyper-cache directory is renamed
+// Completely invalidate the cache. The hyper-cache-mod directory is renamed
 // with a random name and re-created to be immediately available to the cache
 // system. Then the renamed directory is removed.
 // If the cache has been already invalidated, the function doesn't anything.
@@ -140,7 +140,7 @@ function hyper_cache_invalidate()
         return;
     }
 
-    if (!@touch(WP_CONTENT_DIR . '/cache/hyper-cache/_global.dat'))
+    if (!@touch(WP_CONTENT_DIR . '/cache/hyper-cache-mod/_global.dat'))
     {
         hyper_log("hyper_cache_invalidate> Unable to touch cache/_global.dat");
     }
@@ -148,7 +148,7 @@ function hyper_cache_invalidate()
     {
         hyper_log("hyper_cache_invalidate> Touched cache/_global.dat");
     }
-    @unlink(WP_CONTENT_DIR . '/cache/hyper-cache/_archives.dat');
+    @unlink(WP_CONTENT_DIR . '/cache/hyper-cache-mod/_archives.dat');
     $hyper_invalidated = true;
 
 }
@@ -191,7 +191,7 @@ function hyper_cache_invalidate_post($post_id)
         $file = md5($link);
         hyper_log('File basename to invalidate ' . $file);
 
-        $path = WP_CONTENT_DIR . '/cache/hyper-cache';
+        $path = WP_CONTENT_DIR . '/cache/hyper-cache-mod';
         $handle = @opendir($path);
         if ($handle)
         {
@@ -219,7 +219,7 @@ function hyper_cache_invalidate_post($post_id)
 
             hyper_log("hyper_cache_invalidate_post(" . $post_id . ")> Archive invalidation required");
 
-            if (!@touch(WP_CONTENT_DIR . '/cache/hyper-cache/_archives.dat'))
+            if (!@touch(WP_CONTENT_DIR . '/cache/hyper-cache-mod/_archives.dat'))
             {
                 hyper_log("hyper_cache_invalidate_post(" . $post_id . ")> Unable to touch cache/_archives.dat");
             }
@@ -263,8 +263,8 @@ function hyper_delete_path($path)
 function hyper_count()
 {
     $count = 0;
-    //if (!is_dir(ABSPATH . 'wp-content/hyper-cache')) return 0;
-    if ($handle = @opendir(WP_CONTENT_DIR . '/cache/hyper-cache'))
+    //if (!is_dir(ABSPATH . 'wp-content/hyper-cache-mod')) return 0;
+    if ($handle = @opendir(WP_CONTENT_DIR . '/cache/hyper-cache-mod'))
     {
         while ($file = readdir($handle))
         {
@@ -317,7 +317,7 @@ function hyper_generate_config(&$options)
     $browsercache_timeout = $options['browsercache_timeout']*60;
 
     $buffer = "<?php\n";
-    $buffer .= '$hyper_cache_path = \'' . WP_CONTENT_DIR . '/cache/hyper-cache/\'' . ";\n";
+    $buffer .= '$hyper_cache_path = \'' . WP_CONTENT_DIR . '/cache/hyper-cache-mod/\'' . ";\n";
     $buffer .= '$hyper_cache_charset = "' . get_option('blog_charset') . '"' . ";\n";
     // Collect statistics
     //$buffer .= '$hyper_cache_stats = ' . (isset($options['stats'])?'true':'false') . ";\n";
@@ -453,7 +453,7 @@ function hyper_generate_config(&$options)
         }
     }
     
-    $buffer .= "include(WP_CONTENT_DIR . '/plugins/hyper-cache/cache.php');\n";
+    $buffer .= "include(WP_CONTENT_DIR . '/plugins/hyper-cache-mod/cache.php');\n";
     $buffer .= '?>';
 
     return $buffer;

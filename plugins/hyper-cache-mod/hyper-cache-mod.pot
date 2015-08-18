@@ -3,7 +3,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version:  \n"
-"Report-Msgid-Bugs-To: http://wordpress.org/tag/hyper-cache\n"
+"Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2012-01-25 22:02:42+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -27,7 +27,7 @@ msgstr ""
 #: options.php:109
 msgid ""
 "<p><strong>Hyper Cache was not able to create the folder \"wp-content/cache/"
-"hyper-cache\". Make it manually setting permissions to 777.</strong></p>"
+"hyper-cache-mod\". Make it manually setting permissions to 777.</strong></p>"
 msgstr ""
 
 #: options.php:114
