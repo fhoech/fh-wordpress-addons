@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin name: FH Protect E-Mail
-Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_protect_email/
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fhpe/
 Description: Protect email addresses from spambots.
 Version: $Id:$
 Author: Florian Höch
@@ -39,6 +39,7 @@ if (!class_exists('FH_virtual_post')) {
 			$this -> type = isset($args['type']) ? $args['type'] : 'post';
 
 			add_filter( 'the_posts', array(&$this, 'virtual_post') );
+			add_action( 'send_headers', 'nocache_headers' );
 		}
 
 		public function virtual_post($posts) {
@@ -92,47 +93,97 @@ if (!class_exists('FH_virtual_post')) {
 
 class FH_protect_email {
 
+	private $uri;
 	private $key;
+	private $charset;
+	private $ip;
+	private $ua;
+	private $ts;
 
 	public function __construct() {
-		session_start();
-		if (empty($_SESSION['fhpe_key']))
-			$this -> key = $_SESSION['fhpe_key'] = uniqid(rand());
-		else $this -> key = $_SESSION['fhpe_key'];
-		if (function_exists('add_action')) {
-			if (!empty($_GET['fhpe'])) {
-				add_action( 'init', array( &$this, 'wp_init' ), 1 );
-				add_action( 'pre_get_posts', array( &$this, 'wp_pre_get_posts' ) );
-			}
+		$uri = $_SERVER['REQUEST_URI'];
+		$query_string_pos = strpos($uri, '?');
+		if ($query_string_pos !== false) $uri = substr($uri, 0, $query_string_pos);
+		$this -> uri = $_SERVER['HTTP_HOST'] . $uri;
+		$this -> key = sprintf('%x', crc32($this -> uri));
+		$this -> charset = get_bloginfo('charset');
+		if (!empty($_GET['fhpe'])) {
+			$this -> ip = $this :: get_ip();
+			$this -> ua = $_SERVER['HTTP_USER_AGENT'];
+			$this -> ts = date('Y-m-d H:') . strval(floor(intval(date('i')) / 5) * 5);
+			// Prepare a math question
+			$this -> check_x = $this -> reduce($this -> key . $this -> ip . $this -> ts);
+			$this -> check_y = $this -> reduce($this -> key . $this -> ua . $this -> ts);
+			add_action( 'init', array( &$this, 'wp_init' ), 1 );
+			add_action( 'pre_get_posts', array( &$this, 'wp_pre_get_posts' ) );
+		}
+		else {
 			add_action( 'wp', array( &$this, 'wp_enqueue_css_js' ) );
-			add_action( 'wp_head', array( &$this, 'wp_meta_key' ) );
-			add_filter( 'the_content', array( &$this, 'protect_email' ), 99 );
+			add_action( 'wp_footer', array( &$this, 'wp_footer' ) );
+			add_action( 'wp_head', array( &$this, 'buffer_start' ) );
 		}
 	}
 
 	private function _protect_email_callback($match) {
-		$fakerecipient = $this :: _alpha(sprintf('%x', crc32($match[2] . $match[1])));
-		$fakedomain = $this :: _alpha(sprintf('%x', crc32($match[1] . $match[2])));
 		return '<span class="fhpe" data-a="' . strrev($match[3]) . '" data-b="' . strrev($match[2]) . '" data-c="' . strrev($match[1]) . '"><span class="fhpe">' . __( 'Email' ) . '</span></span>';
 	}
 
 	private function  _protect_mailto_callback($match) {
-		return 'href="?fhpe=' . rawurlencode($this :: base64_encrypt(html_entity_decode($match[2], ENT_QUOTES, get_bloginfo('charset')), $this -> key)) . '" rel="nofollow"';
+		return 'href="?fhpe=' . rawurlencode($this :: base64_encrypt(html_entity_decode(rawurldecode($match[2]), ENT_QUOTES, $this -> charset), $this -> key)) . '" rel="nofollow"';
+	}
+
+	public static function get_ip() {
+		if (getenv('HTTP_CLIENT_IP'))
+			$forwarded_elements = getenv('HTTP_CLIENT_IP');
+		elseif (getenv('HTTP_X_FORWARDED_FOR'))
+			$forwarded_elements = getenv('HTTP_X_FORWARDED_FOR');
+		elseif (getenv('HTTP_X_FORWARDED'))
+			$forwarded_elements = getenv('HTTP_X_FORWARDED');
+		elseif (getenv('HTTP_FORWARDED_FOR'))
+			$forwarded_elements = getenv('HTTP_FORWARDED_FOR');
+		elseif (getenv('HTTP_FORWARDED'))
+			$forwarded_elements = getenv('HTTP_FORWARDED');
+
+		if (!empty($forwarded_elements)) {
+			$forwarded_elements = explode(',', $forwarded_elements);
+			foreach ($forwarded_elements as $forwarded_element) {
+				$forwarded_pairs = explode(';', $forwarded_element);
+				foreach ($forwarded_pairs as $forwarded_pair) {
+					$forwarded_pair = explode('=', $forwarded_pair, 2);
+					$node = trim(array_pop($forwarded_pair), " \t\n\r\0\x0B\"");
+					if (substr($node, 0, 1) == '[') {
+						// IPv6 with or without port
+						$ip = substr($node, 1, strpos($node, ']') - 1);
+					}
+					else {
+						// IPv4 with or without port, IPv6 without port
+						$ip = $node;
+						$node = explode(':', $node);
+						if (substr_count($node[0], '.') == 3) $ip = $node[0]; // IPv4
+					}
+					if (!empty($ip) && $ip != 'unknown') break 2;
+				}
+			}
+		}
+		if (empty($ip) || $ip == 'unknown')
+			$ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown';
+		return $ip;
+	}
+
+	public function buffer_start() {
+		ob_start(array( &$this, 'protect_email' ));
+		echo '<!-- fhpe start -->';
 	}
 
 	/**
-	 * Convert alphanumeric string to alpha-only string.
+	 * Reduce string to single digit unsigned number.
 	 *
 	 * @param string $str String to convert.
-	 * @return string $alpha The alpha-only string.
+	 * @return int $reduced The single digit number.
 	 */
-	private static function _alpha($str) {
-		$alpha = [];
-		for ($i = 0; $i < strlen($str); $i ++) {
-			if (is_numeric($str[$i])) $alpha[] = chr(intval($str[$i]) + 97);
-			else $alpha[] = $str[$i];
-		}
-		return implode('', $alpha);
+	public static function reduce($str) {
+		$hash = strval(abs(crc32($str)));
+		return round(sqrt(intval($hash[0] . $hash[strlen($hash) - 1])));
 	}
 
 	public static function str_replace_first($search, $replace, $subject) {
@@ -147,8 +198,8 @@ class FH_protect_email {
 		$html = preg_replace_callback('/href=([\'"])mailto:(.+?@.+?)\\1/i', array( &$this, '_protect_mailto_callback'), $html);
 		$namepattern = '\w+(?:[+-.]\w+)*';
 		$topleveldomainpattern = '[A-Za-z]+';
-		if (preg_match_all('/<!--.*?-->|<script[^>]*>.*?<\/script>|<select[^>]*>.*?<\/select>|<textarea[^>]*>.*?<\/textarea>|<[^>]+>/is', $html, $matches)) {
-			// Protect HTML tags
+		if (preg_match_all('/^.*?<body[^>]*>|<\/body>.*?$|<!--.*?-->|<script[^>]*>.*?<\/script>|<select[^>]*>.*?<\/select>|<style[^>]*>.*?<\/style>|<textarea[^>]*>.*?<\/textarea>|<[^>]+>/is', $html, $matches)) {
+			// Protect HTML tags and everything before <body> as well as after </body>
 			foreach ($matches[0] as $index => $match) {
 				$html = $this :: str_replace_first($match, "\0$index\0", $html);
 			}
@@ -160,6 +211,7 @@ class FH_protect_email {
 				$html = $this :: str_replace_first("\0$index\0", $match, $html);
 			}
 		}
+		$html .= '<!-- fhpe end -->';
 		return $html;
 	}
 	
@@ -181,31 +233,21 @@ class FH_protect_email {
 	}
 
 	public function wp_enqueue_css_js() {
-		$this :: wp_enqueue( 'fh_protect_email.css' );
-		$this :: wp_enqueue( 'fh_protect_email.js', array(), true );
+		$this :: wp_enqueue( 'fhpe.css' );
+		$this :: wp_enqueue( 'fhpe.js', array('jquery'), true );
 	}
 
 	public function wp_init() {
-		if ( !isset($_SESSION['fh_protect_email_check_x']) ||
-			 !isset($_POST['product']) ||
-			 $_POST['product'] != $_SESSION['fh_protect_email_check_x'] * $_SESSION['fh_protect_email_check_y'] ) {
-			// Prepare a math question
-			$x = rand(1, 10);
-			do { $y = rand(1, 10); } while ($x == $y);
-			$_SESSION['fh_protect_email_check_x'] = $x;
-			$_SESSION['fh_protect_email_check_y'] = $y;
-		}
 		if ( isset($_POST['product']) &&
-			 $_POST['product'] == $_SESSION['fh_protect_email_check_x'] * $_SESSION['fh_protect_email_check_y'] ) {
+			 $_POST['product'] == $this -> check_x * $this -> check_y ) {
 			$email = $this :: base64_decrypt($_GET['fhpe'], $this -> key);
 			add_action( 'wp_head', array( &$this, 'wp_redirect_mailto' ) );
-			remove_filter( 'the_content', array( &$this, 'protect_email' ) );
 			new FH_virtual_post(
 				array(
 					'slug' => 'fh-protect-email',
-					'title' => 'E-Mail',
+					'title' => __( 'Email' ),
 					'type' => 'page',
-					'content' => '<p><a href="mailto:' . $this :: wp_mailto_encode($email) . '">' . htmlspecialchars(preg_replace('/(?:\?.*)?$/', '', $email), ENT_QUOTES, get_bloginfo('charset')) . '</a></p>'
+					'content' => '<p><a href="mailto:' . $this :: wp_mailto_encode($email) . '">' . htmlspecialchars(preg_replace('/(?:\?.*)?$/', '', $email), ENT_QUOTES, $this -> charset) . '</a></p>'
 				)
 			);
 		}
@@ -213,19 +255,19 @@ class FH_protect_email {
 			new FH_virtual_post(
 				array(
 					'slug' => 'fh-protect-email-form',
-					'title' => 'E-Mail',
+					'title' => __( 'Email' ),
 					'type' => 'page',
-					'content' => '<form action="' . $_SERVER['REQUEST_URI'] . '" method="post">	<p><label for="product">' . $_SESSION['fh_protect_email_check_x'] . ' * ' . $_SESSION['fh_protect_email_check_y'] . ' = </label><input type="number" size="2" maxlength="2" name="product" id="product" /> <input type="submit" /></p></form>'
+					'content' => '<form action="' . $_SERVER['REQUEST_URI'] . '" method="post"><fieldset><legend>' . __( 'Anti-Spam' ) . '</legend><p><label for="product">' . $this -> check_x . ' × ' . $this -> check_y . ' = </label><input type="number" size="3" maxlength="3" name="product" id="product" /> <input type="submit" /></p></fieldset></form>'
 				)
 			);
 	}
 	
-	public function wp_meta_key() {
-		echo '<meta data-fhpe="' . strrev($this -> key) . '" />';
+	public function wp_footer() {
+		echo '<script data-fhpe="' . strrev($this -> key) . '"></script>';
 	}
 	
 	public function wp_pre_get_posts() {
-		$this :: wp_email_form();
+		$this -> wp_email_form();
 	}
 	
 	public function wp_redirect_mailto() {
@@ -245,10 +287,10 @@ class FH_protect_email {
 		else wp_enqueue_style( $handle, $src, $deps, $ver );
 	}
 	
-	public static function wp_email_form() {
+	public function wp_email_form() {
 		global $wp;
 		if ( isset($_POST['product']) &&
-			 $_POST['product'] == $_SESSION['fh_protect_email_check_x'] * $_SESSION['fh_protect_email_check_y'] ) {
+			 $_POST['product'] == $this -> check_x * $this -> check_y ) {
 			$wp -> request = 'fh-protect-email';
 		}
 		else {
@@ -257,11 +299,11 @@ class FH_protect_email {
 	}
 	
 	public static function wp_mailto_encode($email) {
-		return str_replace(' ', '%20', htmlspecialchars($email, ENT_QUOTES, get_bloginfo('charset')));
+		return rawurlencode($email);
 	}
 
 }
 
-$fh_protect_email = new FH_protect_email();
+if ( ! is_admin() ) $fh_protect_email = new FH_protect_email();
 
 ?>
