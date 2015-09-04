@@ -50,8 +50,9 @@ if ($hyper_cache_reject_agents !== false) {
 // Do nested cycles in this order, usually no cookies are specified
 if ($hyper_cache_reject_cookies !== false) {
     foreach ($hyper_cache_reject_cookies as $hyper_c) {
+        $hyper_c = explode('=', $hyper_c);
         foreach ($_COOKIE as $n=>$v) {
-            if (substr($n, 0, strlen($hyper_c)) == $hyper_c) return hyper_cache_exit();
+            if (substr($n, 0, strlen($hyper_c[0])) == $hyper_c[0] && isset($hyper_c[1]) ? $v == $hyper_c[1] : true) return hyper_cache_exit();
         }
     }
 }
