@@ -9,41 +9,41 @@ header('X-HyperCache-Version: 2.9.1.6-Mod-$Id:$');
 // If no-cache header support is enabled and the browser explicitly requests a fresh page, do not cache
 if ($hyper_cache_nocache &&
     ((!empty($_SERVER['HTTP_CACHE_CONTROL']) && $_SERVER['HTTP_CACHE_CONTROL'] == 'no-cache') ||
-     (!empty($_SERVER['HTTP_PRAGMA']) && $_SERVER['HTTP_PRAGMA'] == 'no-cache'))) return hyper_cache_exit(false);
+     (!empty($_SERVER['HTTP_PRAGMA']) && $_SERVER['HTTP_PRAGMA'] == 'no-cache'))) return hyper_cache_exit(false, 'Cache-Control=no-cache');
 
 // Do not cache post request (comments, plugins and so on)
-if ($_SERVER["REQUEST_METHOD"] == 'POST') return hyper_cache_exit(false);
+if ($_SERVER["REQUEST_METHOD"] == 'POST') return hyper_cache_exit(false, 'Request-Method=POST');
 
 $hyper_uri = $_SERVER['REQUEST_URI'];
 $hyper_qs = strpos($hyper_uri, '?');
 
 // Do not cache WP pages, even if those calls typically don't go throught this script
-if (strpos($hyper_uri, '/wp-') !== false) return hyper_cache_exit(false);
+if (strpos($hyper_uri, '/wp-') !== false) return hyper_cache_exit(false, 'Request-URI*=/wp-');
 
 if ($hyper_qs !== false) {
     if ($hyper_cache_strip_qs) $hyper_uri = substr($hyper_uri, 0, $hyper_qs);
-    else if (!$hyper_cache_cache_qs) return hyper_cache_exit(false);
+    else if (!$hyper_cache_cache_qs) return hyper_cache_exit(false, 'Query-String');
 }
 
 // Try to avoid enabling the cache if sessions are managed with request parameters and a session is active
-if (defined('SID') && SID != '') return hyper_cache_exit();
+if (defined('SID') && SID != '') return hyper_cache_exit(true, 'SID');
 
-if (strpos($hyper_uri, 'robots.txt') !== false || strpos($hyper_uri, 'sitemap.xml') !== false) return hyper_cache_exit();
+if (strpos($hyper_uri, 'robots.txt') !== false || strpos($hyper_uri, 'sitemap.xml') !== false) return hyper_cache_exit(true, 'Request-URI*=robots.txt|sitemap.xml');
 
 // Checks for rejected url
 if ($hyper_cache_reject !== false) {
     foreach($hyper_cache_reject as $uri) {
         if (substr($uri, 0, 1) == '"') {
-            if ($uri == '"' . $hyper_uri . '"') return hyper_cache_exit();
+            if ($uri == '"' . $hyper_uri . '"') return hyper_cache_exit(true, 'Request-URI="' . $uri . '"');
         }
-        if (substr($hyper_uri, 0, strlen($uri)) == $uri) return hyper_cache_exit();
+        if (substr($hyper_uri, 0, strlen($uri)) == $uri) return hyper_cache_exit(true, 'Request-URI^="' . $uri . '"');
     }
 }
 
 if ($hyper_cache_reject_agents !== false) {
     $hyper_agent = strtolower($_SERVER['HTTP_USER_AGENT']);
     foreach ($hyper_cache_reject_agents as $hyper_a) {
-        if (strpos($hyper_agent, $hyper_a) !== false) return hyper_cache_exit();
+        if (strpos($hyper_agent, $hyper_a) !== false) return hyper_cache_exit(true, 'User-Agent*="' . $hyper_a . '"');
     }
 }
 
@@ -52,7 +52,7 @@ if ($hyper_cache_reject_cookies !== false) {
     foreach ($hyper_cache_reject_cookies as $hyper_c) {
         $hyper_c = explode('=', $hyper_c);
         foreach ($_COOKIE as $n=>$v) {
-            if (substr($n, 0, strlen($hyper_c[0])) == $hyper_c[0] && (isset($hyper_c[1]) ? $v == $hyper_c[1] : true)) return hyper_cache_exit();
+            if (substr($n, 0, strlen($hyper_c[0])) == $hyper_c[0] && (isset($hyper_c[1]) ? $v == $hyper_c[1] : true)) return hyper_cache_exit(true, 'Cookie*=^"' . implode('=', $hyper_c) . '"');
         }
     }
 }
@@ -61,17 +61,17 @@ if ($hyper_cache_reject_cookies !== false) {
 
 foreach ($_COOKIE as $n=>$v) {
 // If it's required to bypass the cache when the visitor is a commenter, stop.
-    if ($hyper_cache_comment && substr($n, 0, 15) == 'comment_author_') return hyper_cache_exit();
+    if ($hyper_cache_comment && substr($n, 0, 15) == 'comment_author_') return hyper_cache_exit(true, 'Cookie*=^comment_author_');
 
     // Skip cache if user is logged in
     // wp 2.5 and wp 2.3 have different cookie prefix, skip cache if a post password cookie is present, also
     if (substr($n, 0, 14) == 'wordpressuser_' || substr($n, 0, 20) == 'wordpress_logged_in_' || substr($n, 0, 12) == 'wp-postpass_') {
-        return hyper_cache_exit();
+        return hyper_cache_exit(true, 'Cookie*=^"' . $n . '"');
     }
 }
 
 // Multisite
-if (function_exists('is_multisite') && is_multisite() && strpos($hyper_uri, '/files/') !== false) return hyper_cache_exit();
+if (function_exists('is_multisite') && is_multisite() && strpos($hyper_uri, '/files/') !== false) return hyper_cache_exit(true, 'is_multisite, Request-URI*=/files/');
 
 // Prefix host, and for wordpress 'pretty URLs' strip trailing slash (e.g. '/my-post/' -> 'my-site.com/my-post')
 $hyper_uri = $_SERVER['HTTP_HOST'] . $hyper_uri;
@@ -342,12 +342,14 @@ function hyper_cache_headers($hc_file_time, $send_last_modified_if_enabled=true,
         header('Cache-Control: no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
         header('Expires: Wed, 11 Jan 1984 05:00:00 GMT');
+        header('X-HyperCache-Cache-Control: no-cache, must-revalidate, max-age=0');
     }
     else {
-        $maxage = min($hyper_cache_browsercache_timeout,
-                      $hyper_cache_timeout - $hc_file_age);
-        header('Cache-Control: max-age=' . $maxage);
-        header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $maxage) . " GMT");
+        $private = function_exists('is_user_logged_in') && is_user_logged_in() ? 'private, ' : '';
+        header('Cache-Control: ' . $private . 'max-age=' . $hyper_cache_browsercache_timeout);
+        if (!empty($private)) header('Pragma: private');
+        header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $hyper_cache_browsercache_timeout) . " GMT");
+        header('X-HyperCache-Cache-Control: ' . $private . 'max-age=' . $hyper_cache_browsercache_timeout);
         if ($hash && hyper_cache_etag($hash) == 304) {
             flush();
             die();
@@ -386,7 +388,7 @@ function hyper_cache_gzdecode ($data) {
 }
 
 function hyper_cache_etag($hash) {
-    $etag = '"' . sprintf('%x', $hash) . '"';
+    $etag = '"hypercache-' . sprintf('%x', $hash) . '"';
     header('ETag: ' . $etag);
     if (isset($_SERVER['HTTP_IF_NONE_MATCH']) &&
         ($_SERVER['HTTP_IF_NONE_MATCH'] == "*" ||
@@ -399,12 +401,8 @@ function hyper_cache_etag($hash) {
 }
 
 function hyper_cache_output($buffer) {
-    global $hyper_cache_gzip_on_the_fly, $hyper_cache_browsercache_timeout;
-    header('Vary: Accept-Encoding, Cookie');
-    header('Cache-Control: private, max-age=' . $hyper_cache_browsercache_timeout);
-    header('Pragma: private');
-    header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $hyper_cache_browsercache_timeout) . " GMT");
-    header('X-HyperCache-Browsercache: true');
+    global $hyper_cache_gzip_on_the_fly;
+    hyper_cache_headers(0, false, false);
     if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false &&
         $hyper_cache_gzip_on_the_fly && !empty($buffer) && function_exists('gzencode')) {
         $buffer = gzencode($buffer);
@@ -415,10 +413,8 @@ function hyper_cache_output($buffer) {
     return $buffer;
 }
 
-function hyper_cache_exit($allow_browsercache=true) {
-    global $hyper_cache_browsercache;
-
-    if (!$hyper_cache_browsercache || !$allow_browsercache) header('X-HyperCache: 0');
+function hyper_cache_exit($allow_browsercache=true, $reason='') {
+    header('X-HyperCache-Bypass-Reason: ' . $reason);
 
     if ($allow_browsercache) ob_start('hyper_cache_output');
     return false;
