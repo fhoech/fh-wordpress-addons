@@ -67,41 +67,41 @@ function hyper_activate()
 }
 
 add_action('hyper_clean', 'hyper_clean');
-function hyper_clean()
+function hyper_clean($path=null, &$invalidation_time=null, &$time=null, &$timeout=null)
 {
-    // Latest global invalidation (may be false)
-    $invalidation_time = @filemtime(WP_CONTENT_DIR . '/cache/hyper-cache-mod/_global.dat');
+    if ($path == null) {
+        // Latest global invalidation (may be false)
+        $invalidation_time = @filemtime(WP_CONTENT_DIR . '/cache/hyper-cache-mod/_global.dat');
 
-    hyper_log('start cleaning');
+        hyper_log('start cleaning');
 
-    $options = get_option('hyper');
+        $options = get_option('hyper');
 
-    $timeout = $options['timeout']*60;
-    if ($timeout == 0) return;
+        $timeout = $options['timeout']*60;
+        if ($timeout == 0) return;
 
-    $path = WP_CONTENT_DIR . '/cache/hyper-cache-mod';
-    $time = time();
+        $path = WP_CONTENT_DIR . '/cache/hyper-cache-mod/';
+        $time = time();
 
-    $handle = @opendir($path);
-    if (!$handle) {
-        hyper_log('unable to open cache dir');
-        return;
+        $stack = 0;
     }
 
-    while ($file = readdir($handle)) {
-        if ($file == '.' || $file == '..' || $file[0] == '_') continue;
-
-        hyper_log('checking ' . $file . ' for cleaning');
-        $t = @filemtime($path . '/' . $file);
-        hyper_log('file time ' . $t);
-        if ($time - $t > $timeout || ($invalidation_time && $t < $invalidation_time)) {
-            @unlink($path . '/' . $file);
-            hyper_log('cleaned ' . $file);
+    $files = glob($path . '*', GLOB_MARK);
+    foreach ($files as &$file) {
+        if (substr($file, -1) == '/')
+            hyper_clean($file, $invalidation_time, $time, $timeout);
+        else {
+            hyper_log('checking ' . $file . ' for cleaning');
+            $t = @filemtime($file);
+            hyper_log('file time ' . $t);
+            if ($time - $t > $timeout || ($invalidation_time && $t < $invalidation_time)) {
+                @unlink($file);
+                hyper_log('cleaned ' . $file);
+            }
         }
     }
-    closedir($handle);
 
-    hyper_log('end cleaning');
+    if (isset($stack)) hyper_log('end cleaning');
 }
 
 register_deactivation_hook(__FILE__, 'hyper_deactivate');
@@ -183,21 +183,25 @@ function hyper_cache_invalidate_post($post_id)
 
         $link = get_permalink($post_id);
         hyper_log('Permalink to invalidate ' . $link);
-        // Remove 'http://', and for wordpress 'pretty URLs' strip trailing slash (e.g. 'http://my-site.com/my-post/' -> 'my-site.com/my-post')
-        // The latter ensures existing cache files are still used if a wordpress admin just adds/removes a trailing slash to/from the permalink format
-        //$link = substr($link, 7);
-        $link = preg_replace( '~^.*?://~', '', $link );
-        hyper_log('Corrected permalink to invalidate ' . $link);
-        $file = md5($link);
-        hyper_log('File basename to invalidate ' . $file);
 
-        $path = WP_CONTENT_DIR . '/cache/hyper-cache-mod';
+        $parts = parse_url($link);
+        $hyper_cache_name = $parts['host'] . hyper_cache_sanitize_uri($parts['path']);
+        if (substr($hyper_cache_name, -1) == '/') $hyper_cache_name .= 'index';
+        if (!empty($parts['query']) && !isset($options['strip_qs']) && isset($options['cache_qs'])) {
+            parse_str($parts['query'], $hyper_query);
+            ksort($hyper_query);
+            if (substr($hyper_cache_name, -1) != '/') $hyper_cache_name .= '/';
+            $hyper_cache_name .= http_build_query($hyper_query, '', '/', PHP_QUERY_RFC3986);
+        }
+        hyper_log('File basename to invalidate ' . $hyper_cache_name);
+
+        $path = WP_CONTENT_DIR . '/cache/hyper-cache-mod/' . dirname($hyper_cache_name);
         $handle = @opendir($path);
         if ($handle)
         {
             while ($f = readdir($handle))
             {
-                if (substr($f, 0, 32) == $file)
+                if (substr($f, -4) == '.dat')
                 {
                     if (unlink($path . '/' . $f)) {
                         hyper_log('Deleted ' . $path . '/' . $f);
@@ -241,39 +245,33 @@ function hyper_cache_invalidate_post($post_id)
 
 
 // Completely remove a directory and it's content.
-function hyper_delete_path($path)
+function hyper_delete_path($path=null)
 {
     if ($path == null) return;
-    $handle = @opendir($path);
-    if ($handle)
-    {
-        while ($file = readdir($handle))
-        {
-            if ($file != '.' && $file != '..')
-            {
-                @unlink($path . '/' . $file);
-            }
+    $files = glob($path . '*', GLOB_MARK);
+    foreach ($files as &$file) {
+        if (substr($file, -1) == '/')
+            hyper_delete_path($file);
+        else {
+            @unlink($file);
         }
-        closedir($handle);
     }
 }
 
 // Counts the number of file in to the hyper cache directory to give an idea of
 // the number of pages cached.
-function hyper_count()
+function hyper_count($path=null)
 {
     $count = 0;
     //if (!is_dir(ABSPATH . 'wp-content/hyper-cache-mod')) return 0;
-    if ($handle = @opendir(WP_CONTENT_DIR . '/cache/hyper-cache-mod'))
-    {
-        while ($file = readdir($handle))
-        {
-            if ($file != '.' && $file != '..')
-            {
-                $count++;
-            }
+    if ($path == null) $path = WP_CONTENT_DIR . '/cache/hyper-cache-mod/';
+    $files = glob($path . '*', GLOB_MARK);
+    foreach ($files as &$file) {
+        if (substr($file, -1) == '/')
+            $count += hyper_count($file);
+        else {
+            $count++;
         }
-        closedir($handle);
     }
     return $count;
 }
@@ -457,6 +455,18 @@ function hyper_generate_config(&$options)
     $buffer .= '?>';
 
     return $buffer;
+}
+
+if (!function_exists('hyper_cache_sanitize_uri')) {
+    function hyper_cache_sanitize_uri($uri) {
+        $uri = preg_replace('/[^a-zA-Z0-9\/\-_!$%&()=+~\';,.]+/', '_', $uri);
+        $uri = preg_replace('/\/\/+/', '/', $uri);
+        $uri = preg_replace('/\.\.+/', '.', $uri);
+        if (empty($uri) || $uri[0] != '/') {
+            $uri = '/' . $uri;
+        }
+        return $uri;
+    }
 }
 
 ?>

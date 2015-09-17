@@ -73,12 +73,19 @@ foreach ($_COOKIE as $n=>$v) {
 // Multisite
 if (function_exists('is_multisite') && is_multisite() && strpos($hyper_uri, '/files/') !== false) return hyper_cache_exit(true, 'is_multisite, Request-URI*=/files/');
 
-// Prefix host, and for wordpress 'pretty URLs' strip trailing slash (e.g. '/my-post/' -> 'my-site.com/my-post')
-$hyper_uri = $_SERVER['HTTP_HOST'] . $hyper_uri;
-
+if ($hyper_qs !== false && !$hyper_cache_strip_qs) $hyper_uri = substr($hyper_uri, 0, $hyper_qs);
 // The name of the file with html and other data
-$hyper_cache_name = md5($hyper_uri);
-$hc_file = $hyper_cache_path . $hyper_cache_name . hyper_mobile_type() . '.dat';
+// Prefix host
+$hyper_cache_name = strtolower($_SERVER['HTTP_HOST']) . hyper_cache_sanitize_uri($hyper_uri);
+if (substr($hyper_cache_name, -1) == '/') $hyper_cache_name .= 'index';
+if ($hyper_qs !== false && !$hyper_cache_strip_qs) {
+    parse_str($_SERVER['QUERY_STRING'], $hyper_query);
+    ksort($hyper_query);
+    if (substr($hyper_cache_name, -1) != '/') $hyper_cache_name .= '/';
+    $hyper_cache_name .= http_build_query($hyper_query, '', '/', PHP_QUERY_RFC3986);
+}
+$hyper_cache_name .= hyper_mobile_type() . '.dat';
+$hc_file = $hyper_cache_path . $hyper_cache_name;
 
 if (!file_exists($hc_file)) {
     hyper_cache_start(false);
@@ -137,7 +144,7 @@ if (!empty($hyper_data['location'])) {
     die();
 }
 
-header('X-HyperCache-File: ' . $hyper_cache_name . hyper_mobile_type() . '.dat');
+header('X-HyperCache-File: ' . $hyper_cache_name);
 
 // It's time to serve the cached page
 
@@ -290,12 +297,14 @@ function hyper_cache_write(&$data) {
         $data['hash'] = crc32($data['gz']);
     }
     else if (!empty($data['html'])) $data['hash'] = crc32($data['html']);
+    $hc_dir = dirname($hc_file);
+    if (!is_dir($hc_dir)) wp_mkdir_p($hc_dir);
     $file = fopen($hc_file, 'w');
     fwrite($file, serialize($data));
     fclose($file);
 
     header('X-HyperCache: 201 Created');
-    header('X-HyperCache-File: ' . $hyper_cache_name . hyper_mobile_type() . '.dat');
+    header('X-HyperCache-File: ' . $hyper_cache_name);
 }
 
 function hyper_mobile_type() {
@@ -308,9 +317,9 @@ function hyper_mobile_type() {
             if (!$is_mobile) return '';
             include_once ABSPATH . 'wp-content/plugins/wordpress-mobile-pack/themes/mobile_pack_base/group_detection.php';
             if (function_exists('group_detection')) {
-                return 'mobile' . group_detection();
+                return '-mobile-' . group_detection();
             }
-            else return 'mobile';
+            else return '-mobile';
         }
     }
 
@@ -321,15 +330,25 @@ function hyper_mobile_type() {
         foreach ($hyper_cache_mobile_agents as $hyper_a) {
             if (strpos($hyper_agent, $hyper_a) !== false) {
                 if (strpos($hyper_agent, 'iphone') || strpos($hyper_agent, 'ipod')) {
-                    return 'iphone';
+                    return '-iphone';
                 }
                 else {
-                    return 'pda';
+                    return '-pda';
                 }
             }
         }
     }
     return '';
+}
+
+function hyper_cache_sanitize_uri($uri) {
+    $uri = preg_replace('/[^a-zA-Z0-9\/\-_!$%&()=+~\';,.]+/', '_', $uri);
+    $uri = preg_replace('/\/\/+/', '/', $uri);
+    $uri = preg_replace('/\.\.+/', '.', $uri);
+    if (empty($uri) || $uri[0] != '/') {
+        $uri = '/' . $uri;
+    }
+    return $uri;
 }
 
 function hyper_cache_headers($hc_file_time, $send_last_modified_if_enabled=true, $hash=false) {

@@ -11,7 +11,7 @@ if (!isset($options['notranslation']))
 
 if (isset($_POST['clean']))
 {
-    hyper_delete_path(WP_CONTENT_DIR . '/cache/hyper-cache-mod');
+    hyper_delete_path(WP_CONTENT_DIR . '/cache/hyper-cache-mod/');
 }
 
 $error = false;
@@ -23,7 +23,7 @@ if (isset($_POST['save']))
 
     if ($options['gzip'] != $tmp['gzip'])
     {
-        hyper_delete_path(WP_CONTENT_DIR . '/cache/hyper-cache-mod');
+        hyper_delete_path(WP_CONTENT_DIR . '/cache/hyper-cache-mod/');
     }
 
     $options = $tmp;
@@ -214,7 +214,7 @@ else
             <option value="none" <?php echo ($options['expire_type'] == 'none')?'selected':''; ?>><?php _e('Nothing', 'hyper-cache-mod'); ?></option>
         </select>
         <br />
-        <input type="checkbox" name="options[archive]" value="1" <?php echo $options['archive']?'checked':''; ?>/>
+        <input type="checkbox" name="options[archive]" value="1" <?php echo !empty($options['archive'])?'checked':''; ?>/>
         <?php _e('Invalidate home, archives, categories, feeds, searches on single post invalidation', 'hyper-cache-mod'); ?>
         <br />
         <div class="hints">
@@ -332,7 +332,7 @@ else
 <tr valign="top">
     <th><?php _e('Store compressed pages', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[store_compressed]" value="1" <?php echo $options['store_compressed']?'checked':''; ?>
+        <input type="checkbox" name="options[store_compressed]" value="1" <?php echo !empty($options['store_compressed'])?'checked':''; ?>
             onchange="jQuery('input[name=&quot;options[gzip]&quot;], input[name=&quot;options[store_uncompressed]&quot;]').attr('disabled', !this.checked)" />
         <div class="hints">
         <?php _e('Enable this option to minimize disk space usage and make sending of compressed pages possible with the option below.', 'hyper-cache-mod'); ?>
@@ -347,7 +347,7 @@ else
 <tr valign="top">
     <th><?php _e('Also store uncompressed pages', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[store_uncompressed]" value="1" <?php echo $options['store_uncompressed']||!$options['store_compressed']?'checked':''; ?>
+        <input type="checkbox" name="options[store_uncompressed]" value="1" <?php echo !empty($options['store_uncompressed'])||empty($options['store_compressed'])?'checked':''; ?>
             <?php echo $options['store_compressed']?'':'disabled'; ?> />
         <div class="hints">
         <?php _e('Enable this option to also store uncompressed pages for user agents that do not support compression.', 'hyper-cache-mod'); ?>
@@ -360,7 +360,7 @@ else
 <tr valign="top">
     <th><?php _e('Send compressed pages', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[gzip]" value="1" <?php echo $options['gzip']?'checked':''; ?>
+        <input type="checkbox" name="options[gzip]" value="1" <?php echo !empty($options['gzip'])?'checked':''; ?>
             <?php echo $options['store_compressed']?'':'disabled'; ?> />
         <div class="hints">
         <?php _e('When possible (i.e. if the browser accepts compression and the page was cached compressed) the page will be sent compressed to save bandwidth.', 'hyper-cache-mod'); ?>
@@ -376,7 +376,7 @@ else
 <tr valign="top">
     <th><?php _e('On-the-fly compression', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[gzip_on_the_fly]" value="1" <?php echo $options['gzip_on_the_fly']?'checked':''; ?> />
+        <input type="checkbox" name="options[gzip_on_the_fly]" value="1" <?php echo !empty($options['gzip_on_the_fly'])?'checked':''; ?> />
         <div class="hints">
         <?php _e('When possible (i.e. if the browser accepts compression) use on-the-fly compression to save bandwidth when sending pages which are not compressed.', 'hyper-cache-mod'); ?>
         <?php _e('Serving of such pages will be a little less performant.', 'hyper-cache-mod'); ?>
@@ -397,7 +397,7 @@ else
 <tr valign="top">
     <th><?php _e('Translation', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[notranslation]" value="1" <?php echo $options['notranslation']?'checked':''; ?>/>
+        <input type="checkbox" name="options[notranslation]" value="1" <?php echo !empty($options['notranslation'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('DO NOT show this panel translated.', 'hyper-cache-mod'); ?>
         </div>
@@ -407,7 +407,7 @@ else
 <tr valign="top">
     <th><?php _e('Disable Last-Modified header', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[lastmodified]" value="1" <?php echo $options['lastmodified']?'checked':''; ?>/>
+        <input type="checkbox" name="options[lastmodified]" value="1" <?php echo !empty($options['lastmodified'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('Disable some HTTP headers (Last-Modified) which improve performances but some one is reporting they create problems which some hosting configurations.','hyper-cache-mod'); ?>
         </div>
@@ -417,7 +417,7 @@ else
 <tr valign="top">
     <th><?php _e('Disable home caching', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[home]" value="1" <?php echo $options['home']?'checked':''; ?>/>
+        <input type="checkbox" name="options[home]" value="1" <?php echo !empty($options['home'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('DO NOT cache the home page so it is always fresh.','hyper-cache-mod'); ?>
         </div>
@@ -427,7 +427,7 @@ else
 <tr valign="top">
     <th><?php _e('Redirect caching', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[redirects]" value="1" <?php echo $options['redirects']?'checked':''; ?>/>
+        <input type="checkbox" name="options[redirects]" value="1" <?php echo !empty($options['redirects'])?'checked':''; ?>/>
         <br />
         <?php _e('Cache WordPress redirects.', 'hyper-cache-mod'); ?>
         <?php _e('WordPress sometime sends back redirects that can be cached to avoid further processing time.', 'hyper-cache-mod'); ?>
@@ -437,14 +437,14 @@ else
 <tr valign="top">
     <th><?php _e('Page not found caching (HTTP 404)', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[notfound]" value="1" <?php echo $options['notfound']?'checked':''; ?>/>
+        <input type="checkbox" name="options[notfound]" value="1" <?php echo !empty($options['notfound'])?'checked':''; ?>/>
     </td>
 </tr>
 
 <tr valign="top">
     <th><?php _e('Strip query string', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[strip_qs]" value="1" <?php echo $options['strip_qs']?'checked':''; ?>/>
+        <input type="checkbox" name="options[strip_qs]" value="1" <?php echo !empty($options['strip_qs'])?'checked':''; ?>/>
         <div class="hints">
            <?php _e('This is a really special case, usually you have to kept it disabled. When enabled, URL with query string will be
     reduced removing the query string. So the URL http://www.domain.com/post-title and
@@ -460,7 +460,7 @@ else
 <tr valign="top">
     <th><?php _e('URL with parameters', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[cache_qs]" value="1" <?php echo $options['cache_qs']?'checked':''; ?>/>
+        <input type="checkbox" name="options[cache_qs]" value="1" <?php echo !empty($options['cache_qs'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('Cache requests with query string (parameters).', 'hyper-cache-mod'); ?>
         <?php _e('This option has to be enabled for blogs which have post URLs with a question mark on them.', 'hyper-cache-mod'); ?>
@@ -475,7 +475,7 @@ else
 <tr valign="top">
     <th><?php _e('Allow browser to bypass cache', 'hyper-cache-mod'); ?></th>
     <td>
-        <input type="checkbox" name="options[nocache]" value="1" <?php echo $options['nocache']?'checked':''; ?>/>
+        <input type="checkbox" name="options[nocache]" value="1" <?php echo !empty($options['nocache'])?'checked':''; ?>/>
         <div class="hints">
         <?php _e('Do not use cache if browser sends no-cache header (e.g. on explicit page reload).','hyper-cache-mod'); ?>
         </div>
