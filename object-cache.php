@@ -13,6 +13,11 @@
  * to make updating the file easy.
  */
 
+/* File-based object cache start */
+define('CACHE_SERIAL_HEADER', "<?php\n/*");
+define('CACHE_SERIAL_FOOTER', "*/\n?".">");
+/* File-based object cache end */
+
 /**
  * Adds data to the cache, if the cache key doesn't already exist.
  *
@@ -591,9 +596,9 @@ class WP_Object_Cache {
 		/* File-based object cache start */
 		$force = $force || $_SERVER['REQUEST_METHOD'] == 'POST'/* || $this->qs !== false || $this->wp*/;
 		if (!$force && !isset($this->cache[$group])) {
-			$cache_file = $this->cache_dir.$group.'.obj';
+			$cache_file = $this->cache_dir.$group.'.php';
 			if (file_exists($cache_file)) {
-				$this->cache[$group] = unserialize(file_get_contents($cache_file));
+				$this->cache[$group] = unserialize(substr(@ file_get_contents($cache_file), strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER)));
 				if ( $this->_exists( $key, $group ) ) {
 					$found = true;
 					$this->cache_hits += 1;
@@ -757,6 +762,7 @@ class WP_Object_Cache {
 	 * @since 2.0.0
 	 */
 	public function stats() {
+		/* File-based object cache start */
 		echo "<p>";
 		echo "<strong>Admin Panel:</strong> " . ($this->wp ? 'Yes' : 'No') . "<br />";
 		echo "<strong>Query String:</strong> " . ($this->qs !== false ? 'Yes' : 'No') . "<br />";
@@ -786,6 +792,7 @@ class WP_Object_Cache {
 		echo "<strong>Global Groups:</strong> " . implode(', ', array_keys($this->global_groups)) . "<br />";
 		echo "<strong>Non-Persistent Groups:</strong> " . implode(', ', array_keys($this->non_persistent_groups)) . "<br />";
 		echo "</p>";
+		/* File-based object cache end */
 	}
 
 	/**
@@ -892,8 +899,8 @@ class WP_Object_Cache {
 			foreach ($this->dirty_groups as $group => $dirty) {
 				if (!isset($this->non_persistent_groups[$group]) &&
 					!empty($this->cache[$group]))
-					file_put_contents($this->cache_dir.$group.'.obj',
-									  serialize($this->cache[$group]));
+					file_put_contents($this->cache_dir.$group.'.php',
+									  CACHE_SERIAL_HEADER . serialize($this->cache[$group]) . CACHE_SERIAL_FOOTER);
 			}
 
 			$this->release_lock();
