@@ -291,7 +291,9 @@ class WP_Object_Cache {
 	private $qs;
 	private $path;
 	private $wp;
+	private $file_cache_hits = 0;
 	private $cache_hits_groups = array();
+	private $file_cache_hits_groups = array();
 	private $cache_misses_groups = array();
 	private $cache_deletions = 0;
 	private $resets = 0;
@@ -602,10 +604,15 @@ class WP_Object_Cache {
 				if ( $this->_exists( $key, $group ) ) {
 					$found = true;
 					$this->cache_hits += 1;
-					if (!isset($this->cache_hits_groups[$group]))
+					$this->file_cache_hits += 1;
+					if (!isset($this->cache_hits_groups[$group])) {
 						$this->cache_hits_groups[$group] = 1;
-					else
+						$this->file_cache_hits_groups[$group] = 1;
+					}
+					else {
 						$this->cache_hits_groups[$group] += 1;
+						$this->file_cache_hits_groups[$group] += 1;
+					}
 					if ( is_object($this->cache[$group][$key]) )
 						return clone $this->cache[$group][$key];
 					else
@@ -768,21 +775,23 @@ class WP_Object_Cache {
 		echo "<strong>Query String:</strong> " . ($this->qs !== false ? 'Yes' : 'No') . "<br />";
 		echo "<strong>Request Method:</strong> " . ($_SERVER['REQUEST_METHOD']) . "<br />";
 		echo "<strong>Cache Hits:</strong> {$this->cache_hits}<br />";
+		echo "<strong>File Cache Hits:</strong> {$this->file_cache_hits}<br />";
 		echo "</p>";
-		echo '<ul>';
+		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Hits</th><th style="padding: .1em .3em">From File</th><th style="padding: .1em .3em">Size (KiB)</th></tr>';
 		foreach ($this->cache as $group => $cache) {
-			$count = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : 0;
-			echo "<li><strong>Group:</strong> $group - $count ( " . number_format( strlen( serialize( $cache ) ) / 1024, 2 ) . 'k )</li>';
+			$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : 0;
+			$file_cache_hits_groups = isset($this->file_cache_hits_groups[$group]) ? $this->file_cache_hits_groups[$group] : 0;
+			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$cache_hits_groups</td></td><td style='padding: .1em .3em'>$file_cache_hits_groups</td><td style='padding: .1em .3em'>" . number_format( strlen( serialize( $cache ) ) / 1024, 2 ) . '</td></tr>';
 		}
-		echo '</ul>';
+		echo '</table>';
 		echo "<p>";
 		echo "<strong>Cache Misses:</strong> {$this->cache_misses}<br />";
 		echo "</p>";
-		echo '<ul>';
+		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Misses</th>';
 		foreach ($this->cache_misses_groups as $group => $count) {
-			echo "<li><strong>Group:</strong> $group - $count" . '</li>';
+			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count" . '</td></tr>';
 		}
-		echo '</ul>';
+		echo '</table>';
 		echo "<p>";
 		echo "<strong>Cache Deletions:</strong> {$this->cache_deletions}<br />";
 		echo "<strong>Cache Flushes:</strong> {$this->flushes}<br />";
