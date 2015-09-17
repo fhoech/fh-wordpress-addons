@@ -35,7 +35,7 @@
 			</thead>
 			<tbody>
 				{loop="data"}
-				<tr class="{function="implode(' ', $value.tags)"}" id="hash-{$value.filename}">
+				<tr class="{function="implode(' ', $value.tags)"}" id="hash-{$value.hash}">
 					<td class="status{if="!isset($value.status)"} not-applicable{/if}">
 						{if="isset($value.status)"}<abbr title="{$value.status_text}"><span>{$value.status}</span></abbr>{/if}
 					</td>

@@ -89,11 +89,21 @@ class HyperCacheUtility {
 	public function get_data($file) {
 		$data = @unserialize(file_get_contents($file));
 		$data['file'] = $file;
-		$data['filename'] = pathinfo($file, PATHINFO_FILENAME);
+		$data['filename'] = dirname(substr($file, strlen($this -> hc_cache_path))) . '/' . pathinfo($file, PATHINFO_FILENAME);
+		$data['hash'] = md5($data['filename']);
 		$data['filetime'] = @filemtime($file);
 		$data['is_expired'] = $this -> is_expired($data);
 		if (!isset($data['status']) && !$this -> is_special($data['filename'])) $data['status'] = !isset($data['location']) ? 200 : 301;
 		return $data;
+	}
+
+	public function get_files(&$path) {
+		$files = false;
+		$iter = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path, RecursiveDirectoryIterator::SKIP_DOTS));
+		foreach ($iter as $entry) {
+			if (is_file($entry) && substr($entry, -4) == '.dat') $files[] = $entry -> getPathName();
+		}
+		return $files;
 	}
 	
 	/**
@@ -179,7 +189,7 @@ class HyperCacheUtility {
 	 * @return int 1 if hash is valid, 0 if invalid.
 	 */
 	public static function is_valid_hash($hash) {
-		return preg_match('/^[0-9a-f_]{32}$/i', $hash);
+		return preg_match('/^\.?\/?[0-9a-f_]{32}$/i', $hash) || substr($hash, 0, strlen($_SERVER['HTTP_HOST'])) == $_SERVER['HTTP_HOST'];
 	}
 
 	/**
@@ -217,7 +227,7 @@ class HyperCacheUtility {
 		else {
 			$this -> data = array();
 
-			$files = glob($this -> hc_cache_path . '*.dat');
+			$files = $this -> get_files($this -> hc_cache_path);
 			if ($files !== false) $this -> files = $files;
 
 			$this -> hc_invalidation_archives_time =  $delete == '_archives' ? 0 : @filemtime($this -> hc_cache_path . '_archives.dat');
@@ -228,7 +238,7 @@ class HyperCacheUtility {
 			$this -> uris = array();
 
 			foreach ($this -> files as $file) {
-				$filename = pathinfo($file, PATHINFO_FILENAME);
+				$filename = dirname(substr($file, strlen($this -> hc_cache_path))) . '/' . pathinfo($file, PATHINFO_FILENAME);
 				$should_delete = $delete == 'all' || $delete == $filename;
 				if (!$should_delete) {
 					$data = $this -> get_data($file);
@@ -345,7 +355,7 @@ class HyperCacheUtility {
 	 */
 	public function send_headers($delete=NULL) {
 		header('X-HyperCache-Count: ' . (count($this -> files) - $this -> deleted));
-		if ($this -> deleted > 0) header('X-HyperCache-Deleted: ' . ($this -> deleted == count($this -> files) ? 'all' : ($this -> deleted > 1 ? ($delete == 'expired' ? 'expired' : 'status=404') : 'hash=' . $this -> last_deleted_filename)));
+		if ($this -> deleted > 0) header('X-HyperCache-Deleted: ' . ($this -> deleted == count($this -> files) ? 'all' : ($this -> deleted > 1 ? ($delete == 'expired' ? 'expired' : 'status=404') : 'hash=' . md5($this -> last_deleted_filename))));
 		header('X-HyperCache-Expired-Count: ' . $this -> expired);
 		header('X-HyperCache-Status-301-Count: ' . $this -> status301);
 		header('X-HyperCache-Status-404-Count: ' . $this -> status404);
