@@ -287,17 +287,22 @@ class WP_Object_Cache {
 	private $dirty_groups = array();
 	private $non_persistent_groups = array();
 	private $expires = array();
-	private $uri;
-	private $qs;
-	private $path;
-	private $wp;
+	private $expirations = 0;
+	private $expirations_groups = array();
+	private $mtime = array();
+	private $force;
 	private $file_cache_hits = 0;
 	private $cache_hits_groups = array();
 	private $file_cache_hits_groups = array();
 	private $cache_misses_groups = array();
+	private $file_cache_groups = array();
+	private $file_cache_errors_groups = array();
 	private $cache_deletions = 0;
+	private $cache_deletions_groups = array();
 	private $resets = 0;
 	private $flushes = 0;
+	private $now;
+	private $expiration_time = 900;
 	/* File-based object cache end */
 
 	/**
@@ -517,6 +522,10 @@ class WP_Object_Cache {
 		$this->dirty_groups[$group] = 1;
 		unset( $this->expires[$group][$key] );
 		$this->cache_deletions += 1;
+		if (!isset($this->cache_deletions_groups[$group]))
+			$this->cache_deletions_groups[$group] = 1;
+		else
+			$this->cache_deletions_groups[$group] += 1;
 		/* File-based object cache end */
 		return true;
 	}
@@ -577,10 +586,40 @@ class WP_Object_Cache {
 		if ( empty( $group ) )
 			$group = 'default';
 
+		/* File-based object cache start */
+		$force = $force || $this->force;
+		//if ($force) {
+			//$dir = dirname(__FILE__);
+			//$log = $dir . '/object-cache.log';
+			//if (is_file($log)) $txt = file_get_contents($log);
+			//else $txt = '';
+			//$txt .= $_SERVER['REQUEST_URI'] . "\n";
+			//$txt .= (defined('DOING_AJAX') && DOING_AJAX ? 'AJAX' : 'NOAJAX') . "\n";
+			//file_put_contents($log, $txt);
+		//}
+		if (!$force && !isset($this->file_cache_groups[$group])) {
+			$cache_file = $this->cache_dir.$group.'.php';
+			if (file_exists($cache_file)) {
+				$this->file_cache_groups[$group] = unserialize(substr(@ file_get_contents($cache_file), strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER)));
+				if (false === $this->file_cache_groups[$group]) {
+					$this->file_cache_errors_groups[] = substr($cache_file, strlen($this->cache_dir));
+					$this->file_cache_groups[$group] = array();
+				}
+				else {
+					if (isset($this->cache[$group])) $this->cache[$group] = array_replace($this->file_cache_groups[$group], $this->cache[$group]);
+					else $this->cache[$group] = $this->file_cache_groups[$group];
+					$this->file_cache_groups[$group] = array_fill_keys(array_keys($this->file_cache_groups[$group]), true);
+					$this->mtime[$group] = filemtime($cache_file);
+				}
+			}
+			else $this->file_cache_groups[$group] = array();
+		}
+		/* File-based object cache end */
+
 		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
 			$key = $this->blog_prefix . $key;
 
-		if ( $this->_exists( $key, $group ) ) {
+		if ( $this->_exists( $key, $group ) && ! $this->_expire( $key, $group ) ) {
 			$found = true;
 			$this->cache_hits += 1;
 			/* File-based object cache start */
@@ -588,6 +627,13 @@ class WP_Object_Cache {
 				$this->cache_hits_groups[$group] = 1;
 			else
 				$this->cache_hits_groups[$group] += 1;
+			if ($this->_exists( $key, $group, $this->file_cache_groups )) {
+				$this->file_cache_hits += 1;
+				if (!isset($this->file_cache_hits_groups[$group]))
+					$this->file_cache_hits_groups[$group] = 1;
+				else
+					$this->file_cache_hits_groups[$group] += 1;
+			}
 			/* File-based object cache end */
 			if ( is_object($this->cache[$group][$key]) )
 				return clone $this->cache[$group][$key];
@@ -596,30 +642,6 @@ class WP_Object_Cache {
 		}
 
 		/* File-based object cache start */
-		$force = $force || $_SERVER['REQUEST_METHOD'] == 'POST'/* || $this->qs !== false || $this->wp*/;
-		if (!$force && !isset($this->cache[$group])) {
-			$cache_file = $this->cache_dir.$group.'.php';
-			if (file_exists($cache_file)) {
-				$this->cache[$group] = unserialize(substr(@ file_get_contents($cache_file), strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER)));
-				if ( $this->_exists( $key, $group ) ) {
-					$found = true;
-					$this->cache_hits += 1;
-					$this->file_cache_hits += 1;
-					if (!isset($this->cache_hits_groups[$group])) {
-						$this->cache_hits_groups[$group] = 1;
-						$this->file_cache_hits_groups[$group] = 1;
-					}
-					else {
-						$this->cache_hits_groups[$group] += 1;
-						$this->file_cache_hits_groups[$group] += 1;
-					}
-					if ( is_object($this->cache[$group][$key]) )
-						return clone $this->cache[$group][$key];
-					else
-						return $this->cache[$group][$key];
-				}
-			}
-		}
 		if (!isset($this->cache_misses_groups[$group]))
 			$this->cache_misses_groups[$group] = 1;
 		else
@@ -748,8 +770,7 @@ class WP_Object_Cache {
 			$data = clone $data;
 
 		/* File-based object cache start */
-		if (!array_key_exists($group, $this->cache) ||
-			!array_key_exists($key, $this->cache[$group]))
+		if (!$this->_exists($key, $group))
 			$this->dirty_groups[$group] = 1;
 		//if (!array_key_exists($group, $this->expires))
 			//$this->expires[$group] = array();
@@ -771,35 +792,47 @@ class WP_Object_Cache {
 	public function stats() {
 		/* File-based object cache start */
 		echo "<p>";
-		echo "<strong>Admin Panel:</strong> " . ($this->wp ? 'Yes' : 'No') . "<br />";
-		echo "<strong>Query String:</strong> " . ($this->qs !== false ? 'Yes' : 'No') . "<br />";
-		echo "<strong>Request Method:</strong> " . ($_SERVER['REQUEST_METHOD']) . "<br />";
-		echo "<strong>Cache Hits:</strong> {$this->cache_hits}<br />";
-		echo "<strong>File Cache Hits:</strong> {$this->file_cache_hits}<br />";
+		echo "<strong>Cache Hits:</strong> {$this->cache_hits} ({$this->file_cache_hits} from disk)";
 		echo "</p>";
-		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Hits</th><th style="padding: .1em .3em">From File</th><th style="padding: .1em .3em">Size (KiB)</th></tr>';
+		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Hits</th><th style="padding: .1em .3em">From Disk</th><th style="padding: .1em .3em">Freshness</th><th style="padding: .1em .3em">Persist</th><th style="padding: .1em .3em">Global</th><th style="padding: .1em .3em">Entries</th><th style="padding: .1em .3em">Expired</th><th style="padding: .1em .3em">Deleted</th><th style="padding: .1em .3em">Size (KiB)</th></tr>';
+		$total_entries = 0;
+		$total_size = 0;
 		foreach ($this->cache as $group => $cache) {
 			$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : 0;
 			$file_cache_hits_groups = isset($this->file_cache_hits_groups[$group]) ? $this->file_cache_hits_groups[$group] : 0;
-			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$cache_hits_groups</td></td><td style='padding: .1em .3em'>$file_cache_hits_groups</td><td style='padding: .1em .3em'>" . number_format( strlen( serialize( $cache ) ) / 1024, 2 ) . '</td></tr>';
+			$updated = isset($this->dirty_groups[$group]) ? 'Now' : (isset($this->mtime[$group]) ? human_time_diff( $this->mtime[$group] ) : 'Unknown');
+			$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
+			$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
+			$entries = count($cache);
+			$total_entries += $entries;
+			$expired = isset($this->expirations_groups[$group]) ? $this->expirations_groups[$group] : 0;
+			$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : 0;
+			$size = strlen( serialize( $cache ) ) / 1024;
+			$total_size += $size;
+			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$cache_hits_groups</td></td><td style='padding: .1em .3em'>$file_cache_hits_groups</td><td style='padding: .1em .3em'>$updated</td><td style='padding: .1em .3em'>$persist</td><td style='padding: .1em .3em'>$global</td><td style='padding: .1em .3em'>$entries</td><td style='padding: .1em .3em'>$expired</td><td style='padding: .1em .3em'>$deleted</td><td style='padding: .1em .3em'>" . number_format( $size, 2 ) . "</td></tr>";
 		}
 		echo '</table>';
+		echo "<p>";
+		echo "<strong>Cache Entries:</strong> $total_entries ({$this->expirations} expired, {$this->cache_deletions} deleted)<br 7>";
+		$overhead = strlen(str_repeat(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER, count($this->cache))) / 1024;
+		echo "<strong>Cache Size:</strong> " . number_format( $total_size, 2 ) . " KiB (" . number_format( $total_size + $overhead, 2 ) . " KiB on disk)";
+		echo "</p>";
 		echo "<p>";
 		echo "<strong>Cache Misses:</strong> {$this->cache_misses}<br />";
 		echo "</p>";
 		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Misses</th>';
 		foreach ($this->cache_misses_groups as $group => $count) {
-			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count" . '</td></tr>';
+			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count</td></tr>";
 		}
 		echo '</table>';
 		echo "<p>";
-		echo "<strong>Cache Deletions:</strong> {$this->cache_deletions}<br />";
 		echo "<strong>Cache Flushes:</strong> {$this->flushes}<br />";
-		echo "<strong>Cache Resets (deprecated):</strong> {$this->resets}<br />";
+		echo "<strong>Cache Resets (deprecated):</strong> {$this->resets}";
 		echo "</p>";
 		echo "<p>";
 		echo "<strong>Global Groups:</strong> " . implode(', ', array_keys($this->global_groups)) . "<br />";
 		echo "<strong>Non-Persistent Groups:</strong> " . implode(', ', array_keys($this->non_persistent_groups)) . "<br />";
+		if (!empty($this->file_cache_errors_groups)) echo "<strong>File Cache Errors:</strong> " . implode(', ', $this->file_cache_errors_groups);
 		echo "</p>";
 		/* File-based object cache end */
 	}
@@ -828,8 +861,9 @@ class WP_Object_Cache {
 	 * @param string $group
 	 * @return bool
 	 */
-	protected function _exists( $key, $group ) {
-		return isset( $this->cache[ $group ] ) && ( isset( $this->cache[ $group ][ $key ] ) || array_key_exists( $key, $this->cache[ $group ] ) );
+	protected function _exists( $key, $group, $cache = null ) {
+		if ($cache === null) $cache = &$this->cache;
+		return isset( $cache[ $group ] ) && ( isset( $cache[ $group ][ $key ] ) || array_key_exists( $key, $cache[ $group ] ) );
 	}
 
 	/**
@@ -852,10 +886,13 @@ class WP_Object_Cache {
 			// Using the correct separator eliminates some cache flush errors on Windows
 			$this->cache_dir = ABSPATH.'wp-content'.DIRECTORY_SEPARATOR.'cache'.DIRECTORY_SEPARATOR.'fh-object-cache'.DIRECTORY_SEPARATOR;
 
-		$this->uri = $_SERVER['REQUEST_URI'];
-		$this->wp = strpos($this->uri, '/wp-') === 0;
-		$this->qs = strpos($this->uri, '?');
-		$this->path = $this->qs !== false ? substr($this->uri, 0, $this->qs) : $this->uri;
+		$this->force = $_SERVER['REQUEST_METHOD'] == 'POST' && (!defined('DOING_AJAX') || !DOING_AJAX) && strpos($_SERVER['REQUEST_URI'], '/wp-cron.php') === false;
+		$this->now = time();
+
+		if (is_file($this->cache_dir . '.expires.php')) {
+			$this->expires = unserialize(substr(@ file_get_contents($this->cache_dir . '.expires.php'), strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER)));
+			if ($this->expires === false) $this->expires = array();
+		}
 		/* File-based object cache end */
 
 		/**
@@ -897,20 +934,15 @@ class WP_Object_Cache {
 			if ( ! $this->acquire_lock() )
 				return false;
 
-			// Expire keys
-			//foreach ($this->expires as $group => $expires) {
-				//foreach ($expires as $key=>$expire) {
-					//if ($expire === 0)
-						//unset( $this->cache[$group][$key] );
-				//}
-			//}
-
 			foreach ($this->dirty_groups as $group => $dirty) {
 				if (!isset($this->non_persistent_groups[$group]) &&
 					!empty($this->cache[$group]))
 					file_put_contents($this->cache_dir.$group.'.php',
 									  CACHE_SERIAL_HEADER . serialize($this->cache[$group]) . CACHE_SERIAL_FOOTER);
 			}
+
+			if (!empty($dirty)) file_put_contents($this->cache_dir.'.expires.php',
+												  CACHE_SERIAL_HEADER . serialize($this->expires) . CACHE_SERIAL_FOOTER);
 
 			$this->release_lock();
 		}
@@ -920,6 +952,21 @@ class WP_Object_Cache {
 	}
 
 	/* File-based object cache start */
+	private function _expire ( $key, $group ) {
+		$expiration_time = empty( $this->expires[$group][$key] ) ? 0 : $this->expires[$group][$key];
+		if ( $expiration_time && isset( $this->mtime[$group] ) && $this->mtime[$group] + $expiration_time <= $this->now ) {
+			unset( $this->cache[$group][$key] );
+			$this->dirty_groups[$group] = 1;
+			$this->expirations += 1;
+			if ( ! isset($this->expirations_groups[$group]) )
+				$this->expirations_groups[$group] = 1;
+			else
+				$this->expirations_groups[$group] += 1;
+			return true;
+		}
+		else return false;
+	}
+
 	public function add_non_persistent_groups ( $groups ) {
 		$groups = (array) $groups;
 
