@@ -46,7 +46,7 @@
 		$(document).ajaxError(function (event, jqXHR, ajaxSettings, thrownError) {
 			alert(thrownError);
 		});
-		if ($('#hyper-cache-utility .overview').length) mainready();
+		if ($('#hyper-cache-utility .overview table tbody tr').length) mainready();
 		if ($('#hyper-cache-utility .view-single').length) viewready();
 		csstooltips();
 		$('.hyper-cache-utility-content').css('opacity', 1);
