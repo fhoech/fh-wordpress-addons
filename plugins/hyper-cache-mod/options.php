@@ -496,9 +496,10 @@ else
     <td>
         <textarea wrap="off" rows="5" cols="70" name="options[reject]"><?php echo htmlspecialchars($options['reject']); ?></textarea>
         <div class="hints">
-        <?php _e('Write one URI per line, each URI has to start with a slash.', 'hyper-cache-mod'); ?>
+        <?php _e('Write one URI per line, each URI has to start with a slash, or an asterisk (*) for partial matching.', 'hyper-cache-mod'); ?>
         <?php _e('A specified URI will match the requested URI if the latter starts with the former.', 'hyper-cache-mod'); ?>
-        <?php _e('If you want to specify a stric matching, surround the URI with double quotes.', 'hyper-cache-mod'); ?>
+        <?php _e('If you want to specify a strict match, surround the URI with double quotes.', 'hyper-cache-mod'); ?>
+        <?php _e('If you want to specify a partial match, start the URI with an asterisk (*).', 'hyper-cache-mod'); ?>
 
         <?php
         $languages = get_option('gltr_preferred_languages');

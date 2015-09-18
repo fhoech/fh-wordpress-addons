@@ -34,9 +34,10 @@ if (strpos($hyper_uri, 'robots.txt') !== false || strpos($hyper_uri, 'sitemap.xm
 if ($hyper_cache_reject !== false) {
     foreach($hyper_cache_reject as $uri) {
         if (substr($uri, 0, 1) == '"') {
-            if ($uri == '"' . $hyper_uri . '"') return hyper_cache_exit(true, 'Request-URI="' . $uri . '"');
+            if ($uri == '"' . $hyper_uri . '"') return hyper_cache_exit(true, 'Request-URI=' . $uri . '');
         }
         if (substr($hyper_uri, 0, strlen($uri)) == $uri) return hyper_cache_exit(true, 'Request-URI^="' . $uri . '"');
+        if ($uri[0] == '*' && strpos($hyper_uri, substr($uri, 1)) !== false) return hyper_cache_exit(true, 'Request-URI*="' . $uri . '"');
     }
 }
 
