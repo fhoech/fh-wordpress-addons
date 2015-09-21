@@ -286,7 +286,7 @@ class WP_Object_Cache {
 	private $mutex;
 	private $deleted = array();
 	private $dirty_groups = array();
-	private $non_persistent_groups = array();
+	private $non_persistent_groups = array('bp_notifications' => true);
 	private $expires = array();
 	private $expirations = 0;
 	private $expirations_groups = array();
@@ -950,7 +950,7 @@ class WP_Object_Cache {
 		$this->ajax = defined('DOING_AJAX') && DOING_AJAX;
 		$this->cron = defined('DOING_CRON') && DOING_CRON;
 		// Skip reading from persistent cache if POST, but not if AJAX or CRON
-		$this->skip = $_SERVER['REQUEST_METHOD'] == 'POST' && !($this->ajax || $this->cron);
+		$this->skip = false; //$_SERVER['REQUEST_METHOD'] == 'POST' && !($this->ajax || $this->cron);
 		$this->now = time();
 
 		//$log = @file_get_contents($this->cache_dir . 'object-cache.log');
