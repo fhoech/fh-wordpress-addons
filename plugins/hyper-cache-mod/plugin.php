@@ -47,6 +47,7 @@ function hyper_activate()
         $options['archive'] = 1;
         $options['timeout'] = 1440;
         $options['browsercache_timeout'] = 720;
+        $options['browsercache_loggedin_timeout'] = 0;
         $options['redirects'] = 1;
         $options['notfound'] = 1;
         $options['clean_interval'] = 60;
@@ -313,6 +314,7 @@ function hyper_generate_config(&$options)
     if ($timeout == 0) $timeout = 2000000000;
 
     $browsercache_timeout = $options['browsercache_timeout']*60;
+    $browsercache_loggedin_timeout = $options['browsercache_loggedin_timeout']*60;
 
     $buffer = "<?php\n";
     $buffer .= '$hyper_cache_path = \'' . WP_CONTENT_DIR . '/cache/hyper-cache-mod/\'' . ";\n";
@@ -345,7 +347,9 @@ function hyper_generate_config(&$options)
     $buffer .= '$hyper_cache_lastmodified = ' . (isset($options['lastmodified'])?'true':'false') . ";\n";
     // Allow browser caching?
     $buffer .= '$hyper_cache_browsercache = ' . (isset($options['browsercache'])?'true':'false') . ";\n";
+    $buffer .= '$hyper_cache_etag = ' . (isset($options['etag'])?'true':'false') . ";\n";
     $buffer .= '$hyper_cache_browsercache_timeout = ' . ($browsercache_timeout) . ";\n";
+    $buffer .= '$hyper_cache_browsercache_loggedin_timeout = ' . ($browsercache_loggedin_timeout) . ";\n";
     // Do not use cache if browser sends no-cache header?
     $buffer .= '$hyper_cache_nocache = ' . (isset($options['nocache'])?'true':'false') . ";\n";
 

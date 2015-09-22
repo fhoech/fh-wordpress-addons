@@ -4,6 +4,9 @@ global $hyper_cache_stop;
 
 $hyper_cache_stop = false;
 
+if (!isset($hyper_cache_etag)) $hyper_cache_etag = false;
+if (!isset($hyper_cache_browsercache_loggedin_timeout)) $hyper_cache_browsercache_loggedin_timeout = 0;
+
 header('X-HyperCache-Version: 2.9.1.6-Mod-$Id:$');
 
 // If no-cache header support is enabled and the browser explicitly requests a fresh page, do not cache
@@ -79,7 +82,7 @@ if ($hyper_qs !== false && !$hyper_cache_strip_qs) $hyper_uri = substr($hyper_ur
 // Prefix host
 $hyper_cache_name = strtolower($_SERVER['HTTP_HOST']) . hyper_cache_sanitize_uri($hyper_uri);
 if (substr($hyper_cache_name, -1) == '/') $hyper_cache_name .= 'index';
-if ($hyper_qs !== false && !$hyper_cache_strip_qs) {
+if (!empty($_SERVER['QUERY_STRING']) && !$hyper_cache_strip_qs) {
     parse_str($_SERVER['QUERY_STRING'], $hyper_query);
     ksort($hyper_query);
     if (substr($hyper_cache_name, -1) != '/') $hyper_cache_name .= '/';
@@ -111,7 +114,7 @@ if (array_key_exists("HTTP_IF_MODIFIED_SINCE", $_SERVER)) {
     $if_modified_since = strtotime(preg_replace('/;.*$/', '', $_SERVER["HTTP_IF_MODIFIED_SINCE"]));
     if ($if_modified_since >= $hc_file_time) {
         header($_SERVER['SERVER_PROTOCOL'] . " 304 Not Modified");
-        hyper_cache_headers($hc_file_time, false, false);
+        hyper_cache_headers(0, false);
         header('X-HyperCache: 304 Not Modified');
         flush();
         die();
@@ -149,7 +152,7 @@ header('X-HyperCache-File: ' . $hyper_cache_name);
 
 // It's time to serve the cached page
 
-hyper_cache_headers($hc_file_time, true, !empty($hyper_data['hash']) ? $hyper_data['hash'] : false);
+hyper_cache_headers($hc_file_time, !empty($hyper_data['hash']) ? $hyper_data['hash'] : false);
 header('X-HyperCache: 200 OK');
 
 header('Content-Type: ' . $hyper_data['mime']);
@@ -270,7 +273,7 @@ function hyper_cache_callback($buffer) {
 
     hyper_cache_write($data);
 
-    hyper_cache_headers(@filemtime($hc_file), true, !empty($data['hash']) ? $data['hash'] : false);
+    hyper_cache_headers(@filemtime($hc_file), !empty($data['hash']) ? $data['hash'] : false);
     
     if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false &&
         (($hyper_cache_gzip && !empty($data['gz'])) || ($hyper_cache_gzip_on_the_fly && !empty($data['html']) && function_exists('gzencode')))) {
@@ -285,7 +288,7 @@ function hyper_cache_callback($buffer) {
 }
 
 function hyper_cache_write(&$data) {
-    global $hc_file, $hyper_cache_store_compressed, $hyper_cache_store_uncompressed, $hyper_cache_name;
+    global $hc_file, $hyper_cache_store_compressed, $hyper_cache_store_uncompressed, $hyper_cache_name, $hyper_cache_lastmodified, $hyper_cache_etag;
 
     $data['host'] = $_SERVER['HTTP_HOST'];
     $data['uri'] = $_SERVER['REQUEST_URI'];
@@ -295,9 +298,9 @@ function hyper_cache_write(&$data) {
     if ($hyper_cache_store_compressed && !empty($data['html']) && function_exists('gzencode')) {
         $data['gz'] = gzencode($data['html']);
         if ($data['gz'] && !$hyper_cache_store_uncompressed) unset($data['html']);
-        $data['hash'] = crc32($data['gz']);
+        if ($hyper_cache_lastmodified && $hyper_cache_etag) $data['hash'] = crc32($data['gz']);
     }
-    else if (!empty($data['html'])) $data['hash'] = crc32($data['html']);
+    else if ($hyper_cache_lastmodified && $hyper_cache_etag && !empty($data['html'])) $data['hash'] = crc32($data['html']);
     $hc_dir = dirname($hc_file);
     if (!is_dir($hc_dir)) wp_mkdir_p($hc_dir);
     $file = fopen($hc_file, 'w');
@@ -352,33 +355,45 @@ function hyper_cache_sanitize_uri($uri) {
     return $uri;
 }
 
-function hyper_cache_headers($hc_file_time, $send_last_modified_if_enabled=true, $hash=false) {
-    global $hyper_cache_browsercache, $hyper_cache_browsercache_timeout, $hyper_cache_timeout, $hyper_cache_lastmodified;
-    $hc_file_age = time() - $hc_file_time;
+function hyper_cache_headers($hc_file_time, $hash=false) {
+    global $hyper_cache_lastmodified;
+    $browsercache_timeout = hyper_cache_browsercache_timeout();
     // Always send Vary
     header('Vary: Accept-Encoding, Cookie');
-    if (!$hyper_cache_browsercache) {
-        // True if browser caching NOT enabled (default)
+    if (!$browsercache_timeout) {
+        // Browser caching NOT enabled (default) or timeout = 0
         header('Cache-Control: no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
         header('Expires: Wed, 11 Jan 1984 05:00:00 GMT');
         header('X-HyperCache-Cache-Control: no-cache, must-revalidate, max-age=0');
     }
     else {
-        $private = function_exists('is_user_logged_in') && is_user_logged_in() ? 'private, ' : '';
-        header('Cache-Control: ' . $private . 'max-age=' . $hyper_cache_browsercache_timeout);
-        if (!empty($private)) header('Pragma: private');
-        header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $hyper_cache_browsercache_timeout) . " GMT");
-        header('X-HyperCache-Cache-Control: ' . $private . 'max-age=' . $hyper_cache_browsercache_timeout);
+        $loggedin = hyper_cache_loggedin();
+        $cache_control = 'Cache-Control: ' . ($loggedin ? 'private, ' : '') . 'max-age=' . $browsercache_timeout;
+        header($cache_control);
+        if ($loggedin) header('Pragma: private');
+        header('Expires: ' . gmdate("D, d M Y H:i:s", time() + $browsercache_timeout) . " GMT");
+        header('X-HyperCache-' . $cache_control);
         if ($hash && hyper_cache_etag($hash) == 304) {
             flush();
             die();
         }
         // True if user ask to NOT send Last-Modified
-        if (!$hash && $send_last_modified_if_enabled && !$hyper_cache_lastmodified) {
+        if (!$hash && $hc_file_time && !$hyper_cache_lastmodified) {
             header('Last-Modified: ' . gmdate("D, d M Y H:i:s", $hc_file_time). " GMT");
         }
     }
+}
+
+function hyper_cache_browsercache_timeout() {
+    global $hyper_cache_browsercache, $hyper_cache_browsercache_timeout, $hyper_cache_browsercache_loggedin_timeout;
+    if ($hyper_cache_browsercache)
+        return hyper_cache_loggedin() ? $hyper_cache_browsercache_loggedin_timeout : $hyper_cache_browsercache_timeout;
+    else return false;
+}
+
+function hyper_cache_loggedin() {
+    return function_exists('is_user_logged_in') && is_user_logged_in();
 }
 
 function hyper_cache_gzdecode ($data) {
@@ -421,21 +436,23 @@ function hyper_cache_etag($hash) {
 }
 
 function hyper_cache_output($buffer) {
-    global $hyper_cache_gzip_on_the_fly;
-    hyper_cache_headers(0, false, false);
+    global $hyper_cache_gzip_on_the_fly, $hyper_cache_etag;
+    hyper_cache_headers(0, false);
     if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false &&
         $hyper_cache_gzip_on_the_fly && !empty($buffer) && function_exists('gzencode')) {
         $buffer = gzencode($buffer);
-        if (hyper_cache_etag(crc32($buffer)) == 304) return '';
+        if ($hyper_cache_etag && hyper_cache_etag(crc32($buffer)) == 304) return '';
         header('Content-Encoding: gzip');
     }
-    else if (hyper_cache_etag(crc32($buffer)) == 304) return '';
+    else if ($hyper_cache_etag && hyper_cache_etag(crc32($buffer)) == 304) return '';
     return $buffer;
 }
 
-function hyper_cache_exit($allow_browsercache=true, $reason='') {
+function hyper_cache_exit($allow_browsercache=true, $reason='Unspecified') {
+    global $hyper_cache_gzip_on_the_fly;
     header('X-HyperCache-Bypass-Reason: ' . $reason);
 
-    if ($allow_browsercache) ob_start('hyper_cache_output');
+    if ($allow_browsercache && hyper_cache_browsercache_timeout()) ob_start('hyper_cache_output');
+    else if ($hyper_cache_gzip_on_the_fly) ob_start('ob_gzhandler');
     return false;
 }

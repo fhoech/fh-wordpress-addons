@@ -33,6 +33,9 @@ if (isset($_POST['save']))
     
     if (!is_numeric($options['browsercache_timeout'])) $options['browsercache_timeout'] = 60;
     $options['browsercache_timeout'] = (int)$options['browsercache_timeout'];
+    
+    if (!is_numeric($options['browsercache_loggedin_timeout'])) $options['browsercache_loggedin_timeout'] = 0;
+    $options['browsercache_loggedin_timeout'] = (int)$options['browsercache_loggedin_timeout'];
 
     if (!is_numeric($options['clean_interval'])) $options['clean_interval'] = 60;
     $options['clean_interval'] = (int)$options['clean_interval'];
@@ -264,12 +267,36 @@ else
 </tr>
 
 <tr valign="top">
-    <th><?php _e('Browser cache timeout', 'hyper-cache-mod'); ?></th>
+    <th><?php _e('Use Etag header', 'hyper-cache-mod'); ?></th>
+    <td>
+        <input type="checkbox" name="options[etag]" value="1" <?php echo isset($options['etag'])?'checked':''; ?>/>
+        <div class="hints">
+        <?php _e('Use Etag header for browser cache management. Serving of pages will be a little less performant, but it may save some bandwidth as unchanged pages will not be sent.','hyper-cache-mod'); ?>
+        </div>
+    </td>
+</tr>
+
+<tr valign="top">
+    <th><?php _e('Browser cache timeout for visitors', 'hyper-cache-mod'); ?></th>
     <td>
         <input type="text" size="5" name="options[browsercache_timeout]" value="<?php echo htmlspecialchars($options['browsercache_timeout']); ?>"/>
         (<?php _e('minutes', 'hyper-cache-mod'); ?>)
         <div class="hints">
-        <?php _e('Minutes a page in the browser cache is valid. A zero value effectively disables browser caching.', 'hyper-cache-mod'); ?>
+        <?php _e('Minutes a page in the browser cache is valid for visitors. A zero value effectively disables browser caching.', 'hyper-cache-mod'); ?>
+        <?php _e('If a cached page is older than specified value (expired) it is no more used and
+        will be requested from the server.', 'hyper-cache-mod'); ?>
+        <?php _e('720 minutes is half a day, 1440 is a full day and so on.', 'hyper-cache-mod'); ?>
+        </div>
+    </td>
+</tr>
+
+<tr valign="top">
+    <th><?php _e('Browser cache timeout for logged in users', 'hyper-cache-mod'); ?></th>
+    <td>
+        <input type="text" size="5" name="options[browsercache_loggedin_timeout]" value="<?php echo htmlspecialchars($options['browsercache_loggedin_timeout']); ?>"/>
+        (<?php _e('minutes', 'hyper-cache-mod'); ?>)
+        <div class="hints">
+        <?php _e('Minutes a page in the browser cache is valid for logged in users. A zero value effectively disables browser caching.', 'hyper-cache-mod'); ?>
         <?php _e('If a cached page is older than specified value (expired) it is no more used and
         will be requested from the server.', 'hyper-cache-mod'); ?>
         <?php _e('720 minutes is half a day, 1440 is a full day and so on.', 'hyper-cache-mod'); ?>
@@ -535,7 +562,7 @@ else
         <textarea wrap="off" rows="5" cols="70" name="options[reject_cookies]"><?php echo htmlspecialchars($options['reject_cookies']); ?></textarea>
         <div class="hints">
         <?php _e('Write one cookie name per line.', 'hyper-cache-mod'); ?>
-        <?php _e('When a specified cookie will match one of the cookie names sent bby the client the cache stops.', 'hyper-cache-mod'); ?>
+        <?php _e('When a specified cookie will match one of the cookie names sent by the client the cache stops. You can also specify a cookie value by separating it from the name with an equals sign (=).', 'hyper-cache-mod'); ?>
         <?php if (defined('FBC_APP_KEY_OPTION')) { ?>
         <br />
         <?php _e('It seems you have Facebook Connect plugin installed. Add this cookie name to make it works
