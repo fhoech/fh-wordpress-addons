@@ -21,7 +21,8 @@ $hyper_uri = $_SERVER['REQUEST_URI'];
 $hyper_qs = strpos($hyper_uri, '?');
 
 // Do not cache WP pages, even if those calls typically don't go throught this script
-if (strpos($hyper_uri, '/wp-') !== false) return hyper_cache_exit(false, 'Request-URI*=/wp-');
+$hyper_wp = strpos($hyper_uri, '/wp-') !== false;
+if ($hyper_wp) return hyper_cache_exit(false, 'Request-URI*=/wp-');
 
 if ($hyper_qs !== false) {
     if ($hyper_cache_strip_qs) $hyper_uri = substr($hyper_uri, 0, $hyper_qs);
@@ -449,10 +450,12 @@ function hyper_cache_output($buffer) {
 }
 
 function hyper_cache_exit($allow_browsercache=true, $reason='Unspecified') {
-    global $hyper_cache_gzip_on_the_fly;
+    global $hyper_cache_gzip_on_the_fly, $hyper_wp;
     header('X-HyperCache-Bypass-Reason: ' . $reason);
 
     if ($allow_browsercache && hyper_cache_browsercache_timeout()) ob_start('hyper_cache_output');
-    else if ($hyper_cache_gzip_on_the_fly) ob_start('ob_gzhandler');
+    else if ($hyper_cache_gzip_on_the_fly &&
+             (!$hyper_wp || strpos($_SERVER['REQUEST_URI'], '/wp-admin/up') === false) &&
+             (!isset($_SERVER['HTTP_REFERER']) || strpos($_SERVER['HTTP_REFERER'], '/wp-admin/customize.php?') === false)) ob_start('ob_gzhandler');
     return false;
 }
