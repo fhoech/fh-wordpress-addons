@@ -1007,7 +1007,7 @@ class WP_Object_Cache {
 	}
 
 	/* File-based object cache start */
-	private function persist($groups=null) {
+	public function persist($groups=null) {
         if ($this->debug) $time_start = microtime(true);
         $this->persists += 1;
 		if (!empty($this->dirty_groups)) {
