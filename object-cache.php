@@ -37,21 +37,21 @@ function wp_cache_add( $key, $data, $group = '', $expire = 0 ) {
 	return $wp_object_cache->add( $key, $data, $group, (int) $expire );
 }
 
+/* File-based object cache start */
 /**
- * Closes the cache.
- *
- * This function has ceased to do anything since WordPress 2.5. The
- * functionality was removed along with the rest of the persistent cache. This
- * does not mean that plugins can't implement this function when they need to
- * make sure that the cache is cleaned up after WordPress no longer needs it.
+ * Closes and persists the cache.
  *
  * @since 2.0.0
  *
- * @return true Always returns True
+ * @return true if cache was successfully persisted, false on failure
  */
 function wp_cache_close() {
-	return true;
+	global $wp_object_cache;
+
+	if (isset($wp_object_cache))
+		return $wp_object_cache->persist();
 }
+/* File-based object cache end */
 
 /**
  * Decrement numeric cache item's value
@@ -300,6 +300,9 @@ class WP_Object_Cache {
 	private $cache_misses_groups = array();
 	private $file_cache_groups = array();
 	private $file_cache_errors_groups = array();
+	private $file_cache_persist_errors_groups = array();
+	private $actual_persists = 0;
+	private $persists = 0;
 	private $cache_deletions = 0;
 	private $cache_deletions_groups = array();
 	private $resets = 0;
@@ -621,7 +624,7 @@ class WP_Object_Cache {
 				$this->file_cache_groups[$group] = unserialize(substr(@ file_get_contents($cache_file), strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER)));
 				if ($this->debug) $this->time_disk_read += microtime(true) - $time_disk_read_start;
 				if (false === $this->file_cache_groups[$group]) {
-					$this->file_cache_errors_groups[] = substr($cache_file, strlen($this->cache_dir));
+					$this->file_cache_errors_groups[$group] = true;
 					$this->file_cache_groups[$group] = array();
 				}
 				else {
@@ -840,6 +843,10 @@ class WP_Object_Cache {
 			// POST will try to read the value from the persistent cache.
 			$this->persist(array('transient'));
 		}
+		else if ($group == 'options' && isset($_POST['action']) &&
+				 strpos($_POST['action'], 'save-') === 0) {
+			$this->persist(array('options'));
+		}
 		/* File-based object cache end */
 		return true;
 	}
@@ -892,13 +899,15 @@ class WP_Object_Cache {
 		}
 		echo '</table>';
 		echo "<p>";
+		echo "<strong>Cache Persists:</strong> {$this->actual_persists} ({$this->persists} calls)<br />";
 		echo "<strong>Cache Flushes:</strong> {$this->flushes}<br />";
 		echo "<strong>Cache Resets (deprecated):</strong> {$this->resets}";
 		echo "</p>";
 		echo "<p>";
 		echo "<strong>Global Groups:</strong> " . implode(', ', array_keys($this->global_groups)) . "<br />";
 		echo "<strong>Non-Persistent Groups:</strong> " . implode(', ', array_keys($this->non_persistent_groups)) . "<br />";
-		if (!empty($this->file_cache_errors_groups)) echo "<strong>File Cache Errors:</strong> " . implode(', ', $this->file_cache_errors_groups);
+		if (!empty($this->file_cache_errors_groups)) echo "<strong>File Cache Read Errors:</strong> " . implode(', ', array_keys($this->file_cache_errors_groups));
+		if (!empty($this->file_cache_persist_errors_groups)) echo "<strong>File Cache Write Errors:</strong> " . implode(', ', array_keys($this->file_cache_persist_errors_groups));
 		echo "</p>";
 		/* File-based object cache end */
 	}
@@ -1000,7 +1009,9 @@ class WP_Object_Cache {
 	/* File-based object cache start */
 	private function persist($groups=null) {
         if ($this->debug) $time_start = microtime(true);
+        $this->persists += 1;
 		if (!empty($this->dirty_groups)) {
+			$this->actual_persists += 1;
 			$stat = stat(ABSPATH.'wp-content');
 			$dir_perms = $stat['mode'] & 0007777; // Get the permission bits.
 			$file_perms = $dir_perms & 0000666; // Remove execute bits for files.
@@ -1026,16 +1037,22 @@ class WP_Object_Cache {
 			}
 
 			if ($this->debug) $time_disk_write_start = microtime(true);
+			$errors = 0;
 			$persisted = false;
 			foreach ($this->dirty_groups as $group => $dirty) {
 				if (!isset($this->non_persistent_groups[$group]) &&
 					isset($this->cache[$group]) &&
 					($groups == null || in_array($group, $groups))) {
-					file_put_contents($this->cache_dir.$group.'.php',
-									  CACHE_SERIAL_HEADER . serialize($this->cache[$group]) . CACHE_SERIAL_FOOTER);
-					$this->mtime[$group] = time();
-					$persisted = true;
-					unset($this->dirty_groups[$group]);
+					if (file_put_contents($this->cache_dir.$group.'.php',
+										  CACHE_SERIAL_HEADER . serialize($this->cache[$group]) . CACHE_SERIAL_FOOTER) !== false) {
+						$this->mtime[$group] = time();
+						$persisted = true;
+						unset($this->dirty_groups[$group]);
+					}
+					else {
+						$errors += 1;
+						$this->file_cache_persist_errors_groups[$group] = true;
+					}
 				}
 			}
 
@@ -1046,6 +1063,11 @@ class WP_Object_Cache {
 			$this->release_lock();
 		}
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
+
+		if ($errors)
+			return false;
+
+		return true;
 	}
 
 	private function _expire ( $key, $group ) {
