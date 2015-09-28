@@ -1064,7 +1064,7 @@ class WP_Object_Cache {
 		}
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 
-		if ($errors)
+		if (!empty($errors))
 			return false;
 
 		return true;
