@@ -7,6 +7,9 @@ $hyper_cache_stop = false;
 if (!isset($hyper_cache_etag)) $hyper_cache_etag = false;
 if (!isset($hyper_cache_browsercache_loggedin_timeout)) $hyper_cache_browsercache_loggedin_timeout = 0;
 
+$hyper_uri = $_SERVER['REQUEST_URI'];
+$hyper_wp = strpos($hyper_uri, '/wp-') !== false;
+
 header('X-HyperCache-Version: 2.9.1.6-Mod-$Id:$');
 
 // If no-cache header support is enabled and the browser explicitly requests a fresh page, do not cache
@@ -17,11 +20,9 @@ if ($hyper_cache_nocache &&
 // Do not cache post request (comments, plugins and so on)
 if ($_SERVER["REQUEST_METHOD"] == 'POST') return hyper_cache_exit(false, 'Request-Method=POST');
 
-$hyper_uri = $_SERVER['REQUEST_URI'];
 $hyper_qs = strpos($hyper_uri, '?');
 
 // Do not cache WP pages, even if those calls typically don't go throught this script
-$hyper_wp = strpos($hyper_uri, '/wp-') !== false;
 if ($hyper_wp) return hyper_cache_exit(false, 'Request-URI*=/wp-');
 
 if ($hyper_qs !== false) {
@@ -453,9 +454,15 @@ function hyper_cache_exit($allow_browsercache=true, $reason='Unspecified') {
     global $hyper_cache_gzip_on_the_fly, $hyper_wp;
     header('X-HyperCache-Bypass-Reason: ' . $reason);
 
-    if ($allow_browsercache && hyper_cache_browsercache_timeout()) ob_start('hyper_cache_output');
+    if ($allow_browsercache && hyper_cache_browsercache_timeout()) {
+        header('X-HyperCache-OB: hyper_cache_output');
+        ob_start('hyper_cache_output');
+    }
     else if ($hyper_cache_gzip_on_the_fly &&
              (!$hyper_wp || strpos($_SERVER['REQUEST_URI'], '/wp-admin/up') === false) &&
-             (!isset($_SERVER['HTTP_REFERER']) || strpos($_SERVER['HTTP_REFERER'], '/wp-admin/customize.php?') === false)) ob_start('ob_gzhandler');
+             (!isset($_SERVER['HTTP_REFERER']) || strpos($_SERVER['HTTP_REFERER'], '/wp-admin/customize.php?') === false)) {
+        header('X-HyperCache-OB: ob_gzhandler');
+        ob_start('ob_gzhandler');
+    }
     return false;
 }
