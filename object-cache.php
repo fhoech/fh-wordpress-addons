@@ -823,8 +823,7 @@ class WP_Object_Cache {
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
 		if (!isset($this->dirty_groups[$group]) &&
-			(!$this->_exists($key, $group) ||
-			 $this->cache[$group][$key] != $data))
+			!$this->_exists($key, $group))
 			$this->dirty_groups[$group] = true;
 		//if (!array_key_exists($group, $this->expires))
 			//$this->expires[$group] = array();
