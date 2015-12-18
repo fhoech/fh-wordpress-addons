@@ -500,6 +500,7 @@ class WP_Object_Cache {
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
 		$this->dirty_groups[$group] = true;
+		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
 
@@ -529,12 +530,19 @@ class WP_Object_Cache {
 		if ( ! $this->_exists( $key, $group ) )
 			return false;
 
+		/* File-based object cache start */
+        if ($this->debug) $time_start = microtime(true);
+		if (!isset($this->dirty_groups[$group]) &&
+			$this->_exists($key, $group))
+			$this->dirty_groups[$group] = true;
+        if ($this->debug) $this->time_total += microtime(true) - $time_start;
+		/* File-based object cache end */
 		unset( $this->cache[$group][$key] );
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
         $this->deleted[$group][$key] = true;
-		$this->dirty_groups[$group] = true;
 		unset( $this->expires[$group][$key] );
+		$this->_check_persist($key, $group);
 		if ($this->debug) {
 			$this->cache_deletions += 1;
 			if (!isset($this->cache_deletions_groups[$group]))
@@ -612,16 +620,18 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
-		//if ($force) {
-			//$log = @file_get_contents($this->cache_dir . 'object-cache.log');
-			//$log .= "FORCE REFETCH FROM PERSISTENT CACHE\n";
-			//@file_put_contents($this->cache_dir . 'object-cache.log', $log);
-		//}
+		if ($force) {
+			$this->_log("FORCE REFETCH FROM PERSISTENT CACHE FOR $group.$key");
+			if ($this->_exists( $key, $group ))
+				$this->_log("BEFORE REFETCH: $group.$key = " . json_encode($this->cache[$group][$key], JSON_PRETTY_PRINT));
+		}
 		if ($force || (!$this->skip && !isset($this->file_cache_groups[$group]))) {
 			$cache_file = $this->cache_dir.$group.'.php';
 			if (file_exists($cache_file)) {
 				if ($this->debug) $time_disk_read_start = microtime(true);
 				$this->file_cache_groups[$group] = unserialize(substr(@ file_get_contents($cache_file), strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER)));
+				if ($force)
+					$this->_log("PERSISTENT CACHE: $group.$key = " . json_encode($this->file_cache_groups[$group][$key], JSON_PRETTY_PRINT));
 				if ($this->debug) $this->time_disk_read += microtime(true) - $time_disk_read_start;
 				if (false === $this->file_cache_groups[$group]) {
 					$this->file_cache_errors_groups[$group] = true;
@@ -636,11 +646,8 @@ class WP_Object_Cache {
 					else $this->cache[$group] = $this->file_cache_groups[$group];
 					$this->file_cache_groups[$group] = array_fill_keys(array_keys($this->file_cache_groups[$group]), true);
 					$this->mtime[$group] = filemtime($cache_file);
-					//if ($group == 'options' && $id == 'alloptions') {
-						//$log = @file_get_contents($this->cache_dir . 'object-cache.log');
-						//$log .= "GET $group.$id\n";
-						//@file_put_contents($this->cache_dir . 'object-cache.log', $log);
-					//}
+					if ($group == 'options' && $id == 'alloptions')
+						$this->_log("GET $group.$key\n");
 				}
 			}
 			else $this->file_cache_groups[$group] = array();
@@ -652,6 +659,8 @@ class WP_Object_Cache {
 			$found = true;
 			$this->cache_hits += 1;
 			/* File-based object cache start */
+			if ($force)
+				$this->_log("AFTER REFETCH: $group.$key = " . json_encode($this->cache[$group][$key], JSON_PRETTY_PRINT));
 			if ($this->debug) {
 				$time_start = microtime(true);
 				if (!isset($this->cache_hits_groups[$group]))
@@ -723,6 +732,7 @@ class WP_Object_Cache {
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
 		$this->dirty_groups[$group] = true;
+		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
 
@@ -807,13 +817,6 @@ class WP_Object_Cache {
 		if ( empty( $group ) )
 			$group = 'default';
 
-		//if ($group == 'options' && $key == 'alloptions') {
-			//$log = @file_get_contents($this->cache_dir . 'object-cache.log');
-			//if (isset($this->cache[$group][$key]['cron'])) $log .= "WHERE $group.$key.cron =\n" . json_encode(unserialize($this->cache[$group][$key]['cron']), JSON_PRETTY_PRINT) . "\n";
-			//$log .= "SET $group.$key.cron =\n" . json_encode(unserialize($data['cron']), JSON_PRETTY_PRINT) . "\n";
-			//@file_put_contents($this->cache_dir . 'object-cache.log', $log);
-		//}
-
 		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
 			$key = $this->blog_prefix . $key;
 
@@ -821,31 +824,23 @@ class WP_Object_Cache {
 			$data = clone $data;
 
 		/* File-based object cache start */
-        if ($this->debug) $time_start = microtime(true);
+		if ($this->debug) $time_start = microtime(true);
+		$is_complex = is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] );
 		if (!isset($this->dirty_groups[$group]) &&
-			!$this->_exists($key, $group))
+			(!$this->_exists($key, $group) ||
+			 (!$is_complex && $this->cache[$group][$key] != $data) ||
+			 ($is_complex && serialize($this->cache[$group][$key]) != serialize($data))))
 			$this->dirty_groups[$group] = true;
-		//if (!array_key_exists($group, $this->expires))
-			//$this->expires[$group] = array();
+        if ($this->debug) $this->time_total += microtime(true) - $time_start;
+		/* File-based object cache end */
+		$this->cache[$group][$key] = $data;
+		/* File-based object cache start */
+		if ($this->debug) $time_start = microtime(true);
 		if ($expire) $this->expires[$group][$key] = $expire;
 		unset($this->deleted[$group][$key]);
         unset($this->file_cache_groups[$group][$key]);
+		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
-
-		$this->cache[$group][$key] = $data;
-		/* File-based object cache start */
-		if ($group == 'transient' && $key == 'doing_cron') {
-			// We need to persist the value right away because spawn_cron will
-			// issue a POST while the cache is still alive, so the destructor
-			// won't cause an automatic persist, and wp-cron.php spawned via the
-			// POST will try to read the value from the persistent cache.
-			$this->persist(array('transient'));
-		}
-		else if ($group == 'options' && isset($_POST['action']) &&
-				 strpos($_POST['action'], 'save-') === 0) {
-			$this->persist(array('options'));
-		}
 		/* File-based object cache end */
 		return true;
 	}
@@ -936,8 +931,10 @@ class WP_Object_Cache {
 	 * @return bool
 	 */
 	protected function _exists( $key, $group, $cache = null ) {
+		/* File-based object cache start */
 		if ($cache === null) $cache = &$this->cache;
 		return isset( $cache[ $group ] ) && ( isset( $cache[ $group ][ $key ] ) || array_key_exists( $key, $cache[ $group ] ) );
+		/* File-based object cache end */
 	}
 
 	/**
@@ -954,7 +951,7 @@ class WP_Object_Cache {
 		$this->blog_prefix =  $this->multisite ? $blog_id . ':' : '';
 
 		/* File-based object cache start */
-		$this->debug = defined('FH_OBJECT_CACHE_DEBUG') && FH_OBJECT_CACHE_DEBUG;
+		$this->debug = defined('FH_OBJECT_CACHE_DEBUG') ? FH_OBJECT_CACHE_DEBUG : 0;
         if ($this->debug) $time_start = microtime(true);
 		if (defined('FH_OBJECT_CACHE_PATH'))
 			$this->cache_dir = FH_OBJECT_CACHE_PATH;
@@ -965,14 +962,12 @@ class WP_Object_Cache {
 		$this->ajax = defined('DOING_AJAX') && DOING_AJAX;
 		$this->cron = defined('DOING_CRON') && DOING_CRON;
 		// Skip reading from persistent cache if POST, but not if AJAX or CRON
-		$this->skip = (!empty($_SERVER['QUERY_STRING']) || $_SERVER['REQUEST_METHOD'] == 'POST') && !($this->ajax || $this->cron);
+		$this->skip = false;  // (!empty($_SERVER['QUERY_STRING']) || $_SERVER['REQUEST_METHOD'] == 'POST') && !($this->ajax || $this->cron);
 		$this->now = time();
 
-		//$log = @file_get_contents($this->cache_dir . 'object-cache.log');
-		//$log .= strftime('%Y-%m-%d %H:%M:%S') . ' ' . $_SERVER['REQUEST_URI'] . "\n";
-		//if ($this->ajax) $log .= "DOING_AJAX\n";
-		//if ($this->cron) $log .= "DOING_CRON\n";
-		//@file_put_contents($this->cache_dir . 'object-cache.log', $log);
+		$this->_log($_SERVER['REQUEST_URI']);
+		if ($this->ajax) $this->_log("DOING_AJAX");
+		if ($this->cron) $this->_log("DOING_CRON");
 
 		if (is_file($this->cache_dir . '.expires.php')) {
 			$this->expires = unserialize(substr(@ file_get_contents($this->cache_dir . '.expires.php'), strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER)));
@@ -1069,6 +1064,28 @@ class WP_Object_Cache {
 		return true;
 	}
 
+	private function _check_persist( $key, $group ) {
+		if ($group == 'options' && $key == 'alloptions') {
+			if (isset($this->cache[$group][$key]['cron'])) $this->_log("$group.$key.cron = " . json_encode(unserialize($this->cache[$group][$key]['cron']), JSON_PRETTY_PRINT), 3);
+			$this->_log("SET $group.$key.cron = " . json_encode(unserialize($this->cache[$group][$key]['cron']), JSON_PRETTY_PRINT), 3);
+		}
+		if ($group == 'transient' && $key == 'doing_cron' && !$this->ajax) {
+			// We need to persist the value right away because spawn_cron will
+			// issue a POST while the cache is still alive, so the destructor
+			// won't cause an automatic persist, and wp-cron.php spawned via the
+			// POST will try to read the value from the persistent cache.
+			if (isset($this->cache[$group][$key])) $this->_log("$group.$key = " . json_encode(unserialize($this->cache[$group][$key]), JSON_PRETTY_PRINT));
+			$this->_log("SET $group.$key = " . json_encode(unserialize($this->cache[$group][$key]), JSON_PRETTY_PRINT));
+			$result = $this->persist(array('transient'));
+		}
+		else if ($group == 'options' && isset($_POST['action']) &&
+				 strpos($_POST['action'], 'save-') === 0) {
+			$result = $this->persist(array('options'));
+		}
+		if (isset($result))
+			$this->_log("PERSISTED $group " . json_encode($result, JSON_PRETTY_PRINT) . " ({$this->actual_persists})");
+	}
+
 	private function _expire ( $key, $group ) {
         if ($this->debug) $time_start = microtime(true);
 		$expiration_time = empty( $this->expires[$group][$key] ) ? 0 : $this->expires[$group][$key];
@@ -1087,6 +1104,17 @@ class WP_Object_Cache {
 		else $return = false;
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		return $return;
+	}
+
+	private function _log( $msg, $loglevel=2 ) {
+		if ($this->debug >= $loglevel) {
+			$log = @file_get_contents($this->cache_dir . 'object-cache.log');
+			$time = microtime(true);
+			$secs = floor($time);
+			$ms = sprintf("%03d", ($time - $secs) * 1000);
+			$log .= strftime("%Y-%m-%d %H:%M:%S") . ",$ms $msg \n";
+			@file_put_contents($this->cache_dir . 'object-cache.log', $log);
+		}
 	}
 
 	public function add_non_persistent_groups ( $groups ) {
