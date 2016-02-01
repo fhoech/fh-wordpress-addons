@@ -286,7 +286,7 @@ class WP_Object_Cache {
 	private $mutex;
 	private $deleted = array();
 	private $dirty_groups = array();
-	private $non_persistent_groups = array('bp_notifications' => true);
+	private $non_persistent_groups = array('bp_notifications' => true, 'bp_messages' => true);
 	private $expires = array();
 	private $expirations = 0;
 	private $expirations_groups = array();
