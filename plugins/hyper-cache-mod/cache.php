@@ -459,7 +459,8 @@ function hyper_cache_exit($allow_browsercache=true, $reason='Unspecified') {
         ob_start('hyper_cache_output');
     }
     else if ($hyper_cache_gzip_on_the_fly &&
-             (!$hyper_wp || strpos($_SERVER['REQUEST_URI'], '/wp-admin/up') === false) &&
+             (!$hyper_wp || (strpos($_SERVER['REQUEST_URI'], '/wp-admin/up') === false &&
+                             strpos($_SERVER['REQUEST_URI'], '/wp-admin/admin.php?import=') === false)) &&
              (!isset($_SERVER['HTTP_REFERER']) || strpos($_SERVER['HTTP_REFERER'], '/wp-admin/customize.php?') === false)) {
         header('X-HyperCache-OB: ob_gzhandler');
         ob_start('ob_gzhandler');
