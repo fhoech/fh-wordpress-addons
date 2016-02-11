@@ -312,7 +312,7 @@ class WP_Object_Cache {
 	private $time_disk_write = 0;
 	private $time_total = 0;
 	private $now;
-	private $expiration_time = 900;
+	private $expiration_time = 0;
 	/* File-based object cache end */
 
 	/**
@@ -801,16 +801,12 @@ class WP_Object_Cache {
 	 * the group should be used with care and should follow normal function
 	 * naming guidelines outside of core WordPress usage.
 	 *
-	 * The $expire parameter is not used, because the cache will automatically
-	 * expire for each time a page is accessed and PHP finishes. The method is
-	 * more for cache plugins which use files.
-	 *
 	 * @since 2.0.0
 	 *
 	 * @param int|string $key What to call the contents in the cache
 	 * @param mixed $data The contents to store in the cache
 	 * @param string $group Where to group the cache contents
-	 * @param int $expire Not Used
+	 * @param int $expire Expiration time in seconds
 	 * @return true Always returns true
 	 */
 	public function set( $key, $data, $group = 'default', $expire = 0 ) {
@@ -836,7 +832,8 @@ class WP_Object_Cache {
 		$this->cache[$group][$key] = $data;
 		/* File-based object cache start */
 		if ($this->debug) $time_start = microtime(true);
-		if ($expire) $this->expires[$group][$key] = $expire;
+		if (!$expire) $expire = $this->expiration_time;
+		if ($expire) $this->expires[$group][$key] = $this->now + $expire;
 		unset($this->deleted[$group][$key]);
         unset($this->file_cache_groups[$group][$key]);
 		$this->_check_persist($key, $group);
@@ -856,6 +853,7 @@ class WP_Object_Cache {
 	public function stats() {
 		/* File-based object cache start */
 		echo "<p>";
+		echo "<strong>Cache Lifetime:</strong> {$this->expiration_time}s (if unspecified for entry)<br />";
 		echo "<strong>Cache Hits:</strong> {$this->cache_hits} ({$this->file_cache_hits} from disk)";
 		echo "</p>";
 		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Hits</th><th style="padding: .1em .3em">From Disk</th><th style="padding: .1em .3em">Freshness</th><th style="padding: .1em .3em">Persist</th><th style="padding: .1em .3em">Global</th><th style="padding: .1em .3em">Entries</th><th style="padding: .1em .3em">Expired</th><th style="padding: .1em .3em">Deleted</th><th style="padding: .1em .3em">Size (KiB)</th></tr>';
@@ -952,6 +950,7 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
 		$this->debug = defined('FH_OBJECT_CACHE_DEBUG') ? FH_OBJECT_CACHE_DEBUG : 0;
+		$this->expiration_time = defined('FH_OBJECT_CACHE_LIFETIME') ? FH_OBJECT_CACHE_LIFETIME : 60 * 3;
         if ($this->debug) $time_start = microtime(true);
 		if (defined('FH_OBJECT_CACHE_PATH'))
 			$this->cache_dir = FH_OBJECT_CACHE_PATH;
@@ -1030,6 +1029,13 @@ class WP_Object_Cache {
 				return false;
 			}
 
+			// Remove expired entries
+			foreach ($this->expires as $group => $keys) {
+				foreach ($keys as $key => $value) {
+					$this->_expire( $key, $group );
+				}
+			}
+
 			if ($this->debug) $time_disk_write_start = microtime(true);
 			$errors = 0;
 			$persisted = false;
@@ -1088,9 +1094,11 @@ class WP_Object_Cache {
 
 	private function _expire ( $key, $group ) {
         if ($this->debug) $time_start = microtime(true);
-		$expiration_time = empty( $this->expires[$group][$key] ) ? 0 : $this->expires[$group][$key];
-		if ( $expiration_time && isset( $this->mtime[$group] ) && $this->mtime[$group] + $expiration_time <= $this->now ) {
+		$expiration_time = empty( $this->expires[$group][$key] ) ? (isset( $this->mtime[$group] ) ? $this->mtime[$group] + $this->expiration_time : 0) : $this->expires[$group][$key];
+		if ( $expiration_time && $expiration_time <= $this->now ) {
 			unset( $this->cache[$group][$key] );
+			$this->mtime[$group] = time();
+			unset( $this->expires[$group][$key] );
 			$this->dirty_groups[$group] = true;
 			$this->expirations += 1;
 			if ($this->debug) {
