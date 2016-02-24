@@ -1003,6 +1003,14 @@ class WP_Object_Cache {
 	public function persist($groups=null) {
         if ($this->debug) $time_start = microtime(true);
         $this->persists += 1;
+
+		// Remove expired entries
+		foreach ($this->cache as $group => $keys) {
+			foreach ($keys as $key => $value) {
+				$this->_expire( $key, $group );
+			}
+		}
+
 		if (!empty($this->dirty_groups)) {
 			$this->actual_persists += 1;
 			$stat = stat(ABSPATH.'wp-content');
@@ -1027,13 +1035,6 @@ class WP_Object_Cache {
 			if ( ! $this->acquire_lock() ) {
 				if ($this->debug) $this->time_total += microtime(true) - $time_start;
 				return false;
-			}
-
-			// Remove expired entries
-			foreach ($this->expires as $group => $keys) {
-				foreach ($keys as $key => $value) {
-					$this->_expire( $key, $group );
-				}
 			}
 
 			if ($this->debug) $time_disk_write_start = microtime(true);
@@ -1094,7 +1095,7 @@ class WP_Object_Cache {
 
 	private function _expire ( $key, $group ) {
         if ($this->debug) $time_start = microtime(true);
-		$expiration_time = empty( $this->expires[$group][$key] ) ? (isset( $this->mtime[$group] ) ? $this->mtime[$group] + $this->expiration_time : 0) : $this->expires[$group][$key];
+		$expiration_time = !isset( $this->expires[$group][$key] ) ? 1 : $this->expires[$group][$key];
 		if ( $expiration_time && $expiration_time <= $this->now ) {
 			unset( $this->cache[$group][$key] );
 			$this->mtime[$group] = time();
