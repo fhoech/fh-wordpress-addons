@@ -1,0 +1,172 @@
+<?php
+/*
+Plugin Name: FH Gravatar Cache
+Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_gravatar_cache
+Version: $Id:$
+Description: Cache gravatars for a week (overridable by defining FH_GRAVATAR_CACHE_LIFETIME). Unlike other gravatar cache plugins, this one respects the requested avatar size and serves the correct file type. Works with BuddyPress and bbPress. Uses WP_Cron to fetch gravatars.
+Author: Florian Höch
+Author URI: http://hoech.net
+License: GPL3
+*/
+
+class FH_Gravatar_Cache {
+
+	private $cache_dir;
+	private $expiration_time;
+	private $flock_filename = '.lock';
+	private $mutex;
+	private $now;
+	
+	public function __construct() {
+		$this->expiration_time = defined('FH_GRAVATAR_CACHE_LIFETIME') ? FH_GRAVATAR_CACHE_LIFETIME : 60 * 60 * 24 * 7;  // One week default
+		if (defined('FH_GRAVATAR_CACHE_PATH'))
+			$this->cache_dir = FH_GRAVATAR_CACHE_PATH;
+		else
+			// Using the correct separator eliminates some cache flush errors on Windows
+			$this->cache_dir = ABSPATH.'wp-content'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'fh-gravatar-cache'.DIRECTORY_SEPARATOR;
+
+		$this->now = time();
+
+		add_action( 'fh_gravatar_cache_cron', array( &$this, 'fetch_gravatar'), 10, 4 );
+		add_filter( 'get_avatar', array( &$this, 'get_avatar'), 10, 5 );
+	}
+
+	public function get_avatar ( $avatar, $id_or_email, $size, $default, $alt ) {
+
+		if ( strpos( $avatar, '//www.gravatar.com/' ) === false )
+			return $avatar;  // Not a gravatar
+
+		// Get user email
+		$user = false;
+		if ( is_numeric( $id_or_email ) ) {
+			$id = (int) $id_or_email;
+			$user = get_user_by( 'id' , $id );
+		}
+		elseif ( is_object( $id_or_email ) ) {
+			if ( empty ( $id_or_email->user_email ) &&
+				 ! empty( $id_or_email->user_id ) ) {
+				$id = (int) $id_or_email->user_id;
+				$user = get_user_by( 'id' , $id );
+			}
+			else $user = $id_or_email;
+		}
+		else $email = $id_or_email;
+		if ( $user && ! empty( $user->user_email ) ) $email = $user->user_email;
+		if ( ! isset( $email ) ) $email = '';
+
+		if ( preg_match( '~&amp;r=(g|pg|r|x)~', $avatar, $match) )
+			$rating = $match[1];
+		else
+			$rating = 'g';
+
+		$md5 = md5( strtolower( trim( $email ) ) );
+		
+		// Check if avatar exists in cache and is not expired
+		$file_types = array( 'jpg', 'png', 'gif' );
+		$is_cached = false;
+		foreach ( $file_types as $file_type ) {
+			$cache_file = $this->cache_dir . $md5 . '-' . $size . '.' . $file_type;
+			$url = substr( $cache_file, strlen( ABSPATH ) );
+			if ( is_file( $cache_file ) ) {
+				$stat = stat( $cache_file );
+				if ($stat['mtime'] + $this->expiration_time > $this->now)
+					$is_cached = true;
+				break;
+			}
+		}
+
+		// ---------------------------------------------------------------------
+
+		if ( ! $is_cached ) {
+			// Schedule fetching of gravatar
+
+			$stat = stat(ABSPATH.'wp-content');
+			$dir_perms = $stat['mode'] & 0007777;  // Get the permission bits.
+			$file_perms = $dir_perms & 0000666;  // Remove execute bits for files.
+
+			// Make the base cache dir.
+			if (!file_exists($this->cache_dir)) {
+				if (! @ mkdir($this->cache_dir))
+					return $avatar;
+				@ chmod($this->cache_dir, $dir_perms);
+			}
+
+			if (!file_exists($this->cache_dir.".htaccess")) {
+				@ touch($this->cache_dir."index.html");
+				@ chmod($this->cache_dir."index.html", $file_perms);
+				file_put_contents($this->cache_dir.'.htaccess',
+								  "<IfModule mod_expires.c>\n" .
+								  "ExpiresActive on\n" .
+								  'ExpiresByType image/jpeg "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
+								  "</IfModule>\n");
+			}
+
+			$args = array( $md5, $size, $rating, $default );
+			wp_clear_scheduled_hook( 'fh_gravatar_cache_cron', $args );
+			wp_schedule_single_event( time(), 'fh_gravatar_cache_cron', $args );
+
+			return $avatar;
+		}
+
+		return preg_replace( '~(["\'])(?:https?:)?//www\.gravatar\.com/[^"\']+["\']~',
+							 '\1' . esc_attr( site_url( $url ) ) . '\1', $avatar );
+	}
+
+	public function fetch_gravatar( $md5, $size, $rating, $default ) {
+		// Fetch gravatar
+
+		if ( ! $this->acquire_lock() )
+			return;
+
+		$data = $this->curl_get_contents( 'http://www.gravatar.com/avatar/' . $md5 . '?s=' . $size . '&r=' . $rating . '&d=' . $default );
+		if ( ! empty( $data ) ) {
+			$header = substr( $data, 0, 4);
+			switch ( $header ) {
+				case "\x89PNG":
+					$file_type = 'png';
+					break;
+				case 'GIF8':
+					$file_type = 'gif';
+					break;
+				default:
+					$file_type = 'jpg';
+			}
+			$cache_file = $this->cache_dir . $md5 . '-' . $size . '.' . $file_type;
+			file_put_contents( $cache_file, $data );
+		}
+
+		$this->release_lock();
+	}
+
+	private function curl_get_contents( $uri, $timeout=5 ) {
+		$ch = curl_init( $uri );
+		curl_setopt( $ch, CURLOPT_HEADER, 0 );
+		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, 1 );
+		curl_setopt( $ch, CURLOPT_TIMEOUT, $timeout );
+		$contents = @curl_exec( $ch );
+		curl_close( $ch );
+		return $contents;
+	}
+
+	private function acquire_lock() {
+		// Acquire a write lock
+		$this->mutex = @fopen($this->cache_dir.$this->flock_filename, 'w');
+		if ( false == $this->mutex)
+			return false;
+		else {
+			flock($this->mutex, LOCK_EX);
+			return true;
+		}
+	}
+
+	private function release_lock() {
+		// Release write lock
+		flock($this->mutex, LOCK_UN);
+		fclose($this->mutex);
+	}
+
+}
+
+$FH_Gravatar_Cache = new FH_Gravatar_Cache;
+
+?>
