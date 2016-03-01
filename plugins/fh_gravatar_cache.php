@@ -3,7 +3,7 @@
 Plugin Name: FH Gravatar Cache
 Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_gravatar_cache
 Version: $Id:$
-Description: Cache gravatars for a week (overridable by defining FH_GRAVATAR_CACHE_LIFETIME). Unlike other gravatar cache plugins, this one respects the requested avatar size and serves the correct file type. Works with BuddyPress and bbPress. Uses WP_Cron to fetch gravatars.
+Description: Cache gravatars for a week (overridable by defining FH_GRAVATAR_CACHE_LIFETIME). Unlike other gravatar cache plugins, this one respects the requested avatar size and serves the correct file type. Works with BuddyPress and bbPress. Uses WP_Cron to fetch gravatars, and serves the same file for all users with default gravatar to keep the number of HTTP requests to a minimum.
 Author: Florian Höch
 Author URI: http://hoech.net
 License: GPL3
@@ -12,6 +12,7 @@ License: GPL3
 class FH_Gravatar_Cache {
 
 	private $cache_dir;
+	private $default_md5 = 'd41d8cd98f00b204e9800998ecf8427e';  // md5( '' )
 	private $expiration_time;
 	private $flock_filename = '.lock';
 	private $mutex;
@@ -62,11 +63,10 @@ class FH_Gravatar_Cache {
 		$md5 = md5( strtolower( trim( $email ) ) );
 		
 		// Check if avatar exists in cache and is not expired
-		$file_types = array( 'jpg', 'png', 'gif' );
+		$file_types = array( 'default', 'jpg', 'png', 'gif' );
 		$is_cached = false;
 		foreach ( $file_types as $file_type ) {
-			$cache_file = $this->cache_dir . $md5 . '-' . $size . '.' . $file_type;
-			$url = substr( $cache_file, strlen( ABSPATH ) );
+			$cache_file = $this->cache_dir . $md5 . '-' . $size . '-' . $rating . '-' . rawurlencode( $default ) . '.' . $file_type;
 			if ( is_file( $cache_file ) ) {
 				$stat = stat( $cache_file );
 				if ($stat['mtime'] + $this->expiration_time > $this->now)
@@ -98,6 +98,8 @@ class FH_Gravatar_Cache {
 								  "<IfModule mod_expires.c>\n" .
 								  "ExpiresActive on\n" .
 								  'ExpiresByType image/jpeg "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
+								  'ExpiresByType image/png "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
+								  'ExpiresByType image/gif "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
 								  "</IfModule>\n");
 			}
 
@@ -108,17 +110,38 @@ class FH_Gravatar_Cache {
 			return $avatar;
 		}
 
+		if ( $file_type == 'default' ) {
+			if ( $default == 'blank' ) $file_type = 'png';
+			else $file_type = 'jpg';
+			$cache_file = $this->cache_dir . $this->default_md5 . '-' . $size . '-' . $rating . '-' . rawurlencode( $default ) . '.' . $file_type;
+		}
+		$url = substr( $cache_file, strlen( ABSPATH ) );
+
 		return preg_replace( '~(["\'])(?:https?:)?//www\.gravatar\.com/[^"\']+["\']~',
 							 '\1' . esc_attr( site_url( $url ) ) . '\1', $avatar );
 	}
 
 	public function fetch_gravatar( $md5, $size, $rating, $default ) {
-		// Fetch gravatar
+		// Fetch gravatar. Map all gravatars that return 404 to default gravatar.
 
 		if ( ! $this->acquire_lock() )
 			return;
 
-		$data = $this->curl_get_contents( 'http://www.gravatar.com/avatar/' . $md5 . '?s=' . $size . '&r=' . $rating . '&d=' . $default );
+		if ( empty( $default ) || $default == 'blank' || $default == 'mm' ) $fallback = '404';
+		else $fallback = $default;
+
+		$data = $this->curl_get_contents( 'http://www.gravatar.com/avatar/' . $md5 . '?s=' . $size . '&r=' . $rating . '&d=' . $fallback );
+		if ( $fallback == '404' && ! empty( $data ) && substr( $data, 0, 3 ) == '404' ) {
+			file_put_contents( $this->cache_dir . $md5 . '-' . $size . '-' . $rating . '-' . rawurlencode( $default ) . '.default', '' );
+			// Map to default gravatar
+			$md5 = $this->default_md5;
+			// Check if default gravatar cache file already exists
+			if ( $default == 'blank' ) $file_type = 'png';
+			else $file_type = 'jpg';
+			if ( is_file( $this->cache_dir . $md5 . '-' . $size . '-' . $rating . '-' . rawurlencode( $default ) . '.' . $file_type ) )
+				unset( $data );
+			else $data = $this->curl_get_contents( 'http://www.gravatar.com/avatar/' . $md5 . '?s=' . $size . '&r=' . $rating . '&d=' . rawurlencode( $default ) );
+		}
 		if ( ! empty( $data ) ) {
 			$header = substr( $data, 0, 4);
 			switch ( $header ) {
@@ -131,7 +154,7 @@ class FH_Gravatar_Cache {
 				default:
 					$file_type = 'jpg';
 			}
-			$cache_file = $this->cache_dir . $md5 . '-' . $size . '.' . $file_type;
+			$cache_file = $this->cache_dir . $md5 . '-' . $size . '-' . $rating . '-' . rawurlencode( $default ) . '.' . $file_type;
 			file_put_contents( $cache_file, $data );
 		}
 
