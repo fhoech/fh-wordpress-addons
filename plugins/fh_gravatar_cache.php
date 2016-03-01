@@ -94,7 +94,7 @@ class FH_Gravatar_Cache {
 		}
 		$url = substr( $cache_file, strlen( ABSPATH ) );
 
-		return preg_replace( '~(["\'])(?:https?:)?//www\.gravatar\.com/[^"\']+["\']~',
+		return preg_replace( '~(["\'])(?:https?:)?//(?:www|secure)\.gravatar\.com/[^"\']+["\']~',
 							 '\1' . esc_attr( site_url( $url ) ) . '\1', $avatar );
 	}
 
