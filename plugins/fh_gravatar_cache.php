@@ -80,29 +80,6 @@ class FH_Gravatar_Cache {
 		if ( ! $is_cached ) {
 			// Schedule fetching of gravatar
 
-			$stat = stat(ABSPATH.'wp-content');
-			$dir_perms = $stat['mode'] & 0007777;  // Get the permission bits.
-			$file_perms = $dir_perms & 0000666;  // Remove execute bits for files.
-
-			// Make the base cache dir.
-			if (!file_exists($this->cache_dir)) {
-				if (! @ mkdir($this->cache_dir))
-					return $avatar;
-				@ chmod($this->cache_dir, $dir_perms);
-			}
-
-			if (!file_exists($this->cache_dir.".htaccess")) {
-				@ touch($this->cache_dir."index.html");
-				@ chmod($this->cache_dir."index.html", $file_perms);
-				file_put_contents($this->cache_dir.'.htaccess',
-								  "<IfModule mod_expires.c>\n" .
-								  "ExpiresActive on\n" .
-								  'ExpiresByType image/jpeg "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
-								  'ExpiresByType image/png "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
-								  'ExpiresByType image/gif "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
-								  "</IfModule>\n");
-			}
-
 			$args = array( $md5, $size, $rating, $default );
 			wp_clear_scheduled_hook( 'fh_gravatar_cache_cron', $args );
 			wp_schedule_single_event( time(), 'fh_gravatar_cache_cron', $args );
@@ -123,6 +100,29 @@ class FH_Gravatar_Cache {
 
 	public function fetch_gravatar( $md5, $size, $rating, $default ) {
 		// Fetch gravatar. Map all gravatars that return 404 to default gravatar.
+
+		$stat = stat(ABSPATH.'wp-content');
+		$dir_perms = $stat['mode'] & 0007777;  // Get the permission bits.
+		$file_perms = $dir_perms & 0000666;  // Remove execute bits for files.
+
+		// Make the base cache dir.
+		if (!file_exists($this->cache_dir)) {
+			if (! @ mkdir($this->cache_dir))
+				return $avatar;
+			@ chmod($this->cache_dir, $dir_perms);
+		}
+
+		if (!file_exists($this->cache_dir.".htaccess")) {
+			@ touch($this->cache_dir."index.html");
+			@ chmod($this->cache_dir."index.html", $file_perms);
+			file_put_contents($this->cache_dir.'.htaccess',
+							  "<IfModule mod_expires.c>\n" .
+							  "ExpiresActive on\n" .
+							  'ExpiresByType image/jpeg "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
+							  'ExpiresByType image/png "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
+							  'ExpiresByType image/gif "access plus ' . $this->expiration_time . ' seconds"' . "\n" .
+							  "</IfModule>\n");
+		}
 
 		if ( ! $this->acquire_lock() )
 			return;
