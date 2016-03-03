@@ -532,8 +532,7 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
-		if (!isset($this->dirty_groups[$group]) &&
-			$this->_exists($key, $group))
+		if (!isset($this->dirty_groups[$group]))
 			$this->dirty_groups[$group] = true;
         if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -972,6 +971,9 @@ class WP_Object_Cache {
 			$this->expires = unserialize(substr(@ file_get_contents($this->cache_dir . '.expires.php'), strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER)));
 			if ($this->expires === false) $this->expires = array();
 		}
+
+		add_action( 'edit_post', array( &$this, 'flush_taxonomies' ), 10, 1 );
+
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
 
@@ -1000,6 +1002,15 @@ class WP_Object_Cache {
 	}
 
 	/* File-based object cache start */
+	public function flush_taxonomies( $post_id ) {
+		$taxonomies = get_post_taxonomies( $post_id );
+		foreach ( $taxonomies as $taxonomy ) {
+			$group = $taxonomy . '_relationships';
+			if ( $this->get( $post_id, $group ) && $this->delete( $post_id, $group ) )
+				$this->_log('Flushed taxonomy ' . $taxonomy . ' for post ' . $post_id);
+		}
+	}
+
 	public function persist($groups=null) {
         if ($this->debug) $time_start = microtime(true);
         $this->persists += 1;
