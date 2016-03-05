@@ -27,10 +27,19 @@ function fh_cleanup_html($html){
 	$html = preg_replace('/(<\/div[^>]*>)\s*<br(?:\s+\/)?>/i', '\1', $html);
 	// Remove MS Office cruft
 	$html = preg_replace('/<!--\[if\s+(?:\S+\s+)?mso.*?-->/s', '', $html);
-	return $html . (current_filter() == 'the_content' ? '<!-- fh_cleanup_html -->' : '');
+	// Remove empty paragraphs
+	$html = str_replace('<p>&nbsp;</p>', '', $html);
+	return $html /*. (current_filter() == 'the_content' ? '<!-- fh_cleanup_html -->' : '')*/;
+}
+
+function fh_cleanup_comment($text) {
+	$text = str_replace("\n&nbsp;\n", "\n", $text);
+	$text = apply_filters('the_content', $text);
+	return $text;
 }
  
 add_filter('the_content', 'fh_cleanup_html');
 add_filter('content_save_pre', 'fh_cleanup_html');
+add_filter('comment_text', 'fh_cleanup_comment');
 
 ?>
