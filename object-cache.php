@@ -1006,7 +1006,7 @@ class WP_Object_Cache {
 		$taxonomies = get_post_taxonomies( $post_id );
 		foreach ( $taxonomies as $taxonomy ) {
 			$group = $taxonomy . '_relationships';
-			if ( $this->get( $post_id, $group ) && $this->delete( $post_id, $group ) )
+			if ( $this->get( $post_id, $group ) !== false && $this->delete( $post_id, $group ) )
 				$this->_log('Flushed taxonomy ' . $taxonomy . ' for post ' . $post_id);
 		}
 	}
