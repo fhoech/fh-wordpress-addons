@@ -1128,12 +1128,11 @@ class WP_Object_Cache {
 
 	private function _log( $msg, $loglevel=2 ) {
 		if ($this->debug >= $loglevel) {
-			$log = @file_get_contents($this->cache_dir . 'object-cache.log');
 			$time = microtime(true);
 			$secs = floor($time);
 			$ms = sprintf("%03d", ($time - $secs) * 1000);
-			$log .= strftime("%Y-%m-%d %H:%M:%S") . ",$ms $msg \n";
-			@file_put_contents($this->cache_dir . 'object-cache.log', $log);
+			$log = strftime("%Y-%m-%d %H:%M:%S") . ",$ms $msg\n";
+			@file_put_contents($this->cache_dir . 'object-cache.log', $log, FILE_APPEND);
 		}
 	}
 
