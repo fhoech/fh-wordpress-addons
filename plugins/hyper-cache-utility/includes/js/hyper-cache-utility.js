@@ -318,13 +318,13 @@
 					scriptNode.src = $script.attr('src');
 				}
 				scriptNode.appendChild(document.createTextNode(scriptText));
-				$('[data-uri$="' + state.url + '"]')[0].appendChild(scriptNode);
+				$('[data-uri$="' + decodeURIComponent(state.url) + '"]')[0].appendChild(scriptNode);
 			});
 			if ($newcontent.hasClass('overview')) mainready();
 			if ($newcontent.hasClass('view-single')) viewready($newcontent);
 			csstooltips();
 		}
-		$('[data-uri$="' + state.url + '"]').show().css('opacity', 1);
+		$('[data-uri$="' + decodeURIComponent(state.url) + '"]').show().css('opacity', 1);
 		previous_url = state.url;
 	};
 
@@ -333,7 +333,7 @@
 		log('statechange ', state);
 		if (state.url != previous_url) {
 			log(previous_url + ' -> ' + state.url);
-			if ($('[data-uri$="' + state.url + '"]').length) update_content(state);
+			if ($('[data-uri$="' + decodeURIComponent(state.url) + '"]').length) update_content(state);
 			else {
 				$content = $('.hyper-cache-utility-content:visible');
 				$content.css('opacity', .5);
