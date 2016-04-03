@@ -1068,8 +1068,18 @@ class WP_Object_Cache {
 				}
 			}
 
-			if ($persisted) file_put_contents($this->cache_dir.'.expires.php',
+			if ($persisted) {
+				foreach ($this->expires as $group => $keys) {
+					if (!isset($this->cache[$group])) unset($this->expires[$group]);
+					else {
+						foreach ($keys as $key => $value) {
+							if (!isset($this->cache[$group][$key])) unset($this->expires[$group][$key]);
+						}
+					}
+				}
+				file_put_contents($this->cache_dir.'.expires.php',
 											  CACHE_SERIAL_HEADER . serialize($this->expires) . CACHE_SERIAL_FOOTER);
+			}
 			if ($this->debug) $this->time_disk_write += microtime(true) - $time_disk_write_start;
 
 			$this->release_lock();
