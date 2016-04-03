@@ -1070,8 +1070,7 @@ class WP_Object_Cache {
 
 			if ($persisted) {
 				foreach ($this->expires as $group => $keys) {
-					if (!isset($this->cache[$group])) unset($this->expires[$group]);
-					else {
+					if (isset($this->cache[$group])) {
 						foreach ($keys as $key => $value) {
 							if (!isset($this->cache[$group][$key])) unset($this->expires[$group][$key]);
 						}
