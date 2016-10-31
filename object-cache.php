@@ -852,7 +852,7 @@ class WP_Object_Cache {
 	public function stats() {
 		/* File-based object cache start */
 		echo "<p>";
-		echo "<strong>Cache Lifetime:</strong> {$this->expiration_time}s (if unspecified for entry)<br />";
+		echo "<strong>Cache Lifetime:</strong> " . human_time_diff( 0, $this->expiration_time ) . " (if unspecified for entry)<br />";
 		echo "<strong>Cache Hits:</strong> {$this->cache_hits} ({$this->file_cache_hits} from disk)";
 		echo "</p>";
 		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Hits</th><th style="padding: .1em .3em">From Disk</th><th style="padding: .1em .3em">Freshness</th><th style="padding: .1em .3em">Persist</th><th style="padding: .1em .3em">Global</th><th style="padding: .1em .3em">Entries</th><th style="padding: .1em .3em">Expired</th><th style="padding: .1em .3em">Deleted</th><th style="padding: .1em .3em">Size (KiB)</th></tr>';
@@ -870,7 +870,7 @@ class WP_Object_Cache {
 			$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : 0;
 			$size = strlen( serialize( $cache ) ) / 1024;
 			$total_size += $size;
-			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$cache_hits_groups</td></td><td style='padding: .1em .3em'>$file_cache_hits_groups</td><td style='padding: .1em .3em'>$updated</td><td style='padding: .1em .3em'>$persist</td><td style='padding: .1em .3em'>$global</td><td style='padding: .1em .3em'>$entries</td><td style='padding: .1em .3em'>$expired</td><td style='padding: .1em .3em'>$deleted</td><td style='padding: .1em .3em'>" . number_format( $size, 2 ) . "</td></tr>";
+			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$cache_hits_groups</td><td style='padding: .1em .3em'>$file_cache_hits_groups</td><td style='padding: .1em .3em'>$updated</td><td style='padding: .1em .3em'>$persist</td><td style='padding: .1em .3em'>$global</td><td style='padding: .1em .3em'>$entries</td><td style='padding: .1em .3em'>$expired</td><td style='padding: .1em .3em'>$deleted</td><td style='padding: .1em .3em'>" . number_format( $size, 2 ) . "</td></tr>";
 		}
 		echo '</table>';
 		echo "<p>";
