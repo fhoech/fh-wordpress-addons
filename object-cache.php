@@ -6,6 +6,7 @@
  *
  * @package WordPress
  * @subpackage Cache
+ * @version $Id$
  * 
  * This file will always be for the most part a verbatim copy of wp-includes/cache.php,
  * with the exception that it has support for file-based object caching. All changes
