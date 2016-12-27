@@ -3,7 +3,7 @@
 Plugin name: FH Cleanup HTML
 Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_cleanup_html.php
 Description: Remove a bit of cruft from post HTML.
-Version: $Id:$
+Version: $Id$
 Author: Florian Höch
 Author URI: http://hoech.net
 License: GPL3
@@ -34,7 +34,7 @@ function fh_cleanup_html($html){
 
 function fh_cleanup_comment($text) {
 	$text = str_replace("\n&nbsp;\n", "\n", $text);
-	$text = apply_filters('the_content', $text);
+	$text = fh_cleanup_html($text);
 	return $text;
 }
  
