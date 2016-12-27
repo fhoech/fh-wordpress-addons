@@ -3,7 +3,7 @@
 Plugin Name: Hyper Cache 2.9.1.6 Mod
 Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/hyper-cache-mod
 Description: Hyper Cache is a cache system for WordPress to improve it's perfomances and save resources. <a href="http://www.satollo.net/plugins/hyper-cache" target="_blank">Hyper Cache official page</a>. To manually upgrade remember the sequence: deactivate, update, reactivate.
-Version: 2.9.1.6-Mod-$Id:$
+Version: 2.9.1.6-Mod-$Id$
 Text Domain: hyper-cache-mod
 Author: Stefano Lissa, Florian Höch (Mod)
 Author URI: http://www.satollo.net
@@ -101,6 +101,7 @@ function hyper_clean($path=null, &$invalidation_time=null, &$time=null, &$timeou
             }
         }
     }
+    @rmdir($path);
 
     if (isset($stack)) hyper_log('end cleaning');
 }
