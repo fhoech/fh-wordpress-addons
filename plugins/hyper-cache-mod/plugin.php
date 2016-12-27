@@ -284,6 +284,69 @@ add_action('edit_post', 'hyper_cache_invalidate_post', 0);
 add_action('publish_post', 'hyper_cache_invalidate_post', 0);
 add_action('delete_post', 'hyper_cache_invalidate_post', 0);
 
+// bbPress
+add_action('bbp_new_reply', 'hyper_cache_invalidate_bbp_reply', 0);
+add_action('bbp_new_topic', 'hyper_cache_invalidate_bbp_topic', 0);
+
+function hyper_cache_invalidate_bbp_reply($reply_id) {
+    global $hyper_invalidated_post_id;
+
+    hyper_log("hyper_cache_invalidate_bbp_reply(" . $post_id . ")> Called");
+
+    if ($hyper_invalidated_post_id == $post_id)
+    {
+        hyper_log("hyper_cache_invalidate_bbp_reply(" . $post_id . ")> Post was already invalidated");
+        return;
+    }
+
+    $options = get_option('hyper');
+
+    if ($options['expire_type'] == 'none')
+    {
+        hyper_log("hyper_cache_invalidate_bbp_reply(" . $post_id . ")> Invalidation disabled");
+        return;
+    }
+
+    //$topic_id = bbp_get_reply_topic_id($reply_id);
+    //$topic_url = bbp_get_topic_permalink($topic_id);
+    //$dir = $this->get_folder() . '/' . substr($topic_url, strpos($topic_url, '://') + 3) . '/';
+    //$this->remove_dir($dir);
+
+    //$forum_id = bbp_get_reply_forum_id($reply_id);
+    //$forum_url = bbp_get_forum_permalink($forum_id);
+    //$dir = $this->get_folder() . '/' . substr($topic_url, strpos($forum_url, '://') + 3) . '/';
+    //$this->remove_dir($dir);
+}
+
+function hyper_cache_invalidate_bbp_topic($topic_id) {
+    global $hyper_invalidated_post_id;
+
+    hyper_log("hyper_cache_invalidate_bbp_topic(" . $post_id . ")> Called");
+
+    if ($hyper_invalidated_post_id == $post_id)
+    {
+        hyper_log("hyper_cache_invalidate_bbp_topic(" . $post_id . ")> Post was already invalidated");
+        return;
+    }
+
+    $options = get_option('hyper');
+
+    if ($options['expire_type'] == 'none')
+    {
+        hyper_log("hyper_cache_invalidate_bbp_topic(" . $post_id . ")> Invalidation disabled");
+        return;
+    }
+
+    //$topic_url = bbp_get_topic_permalink($topic_id);
+    //$dir = $this->get_folder() . '/' . substr($topic_url, strpos($topic_url, '://') + 3) . '/';
+    //$this->remove_dir($dir);
+
+    //$forum_id = bbp_get_topic_forum_id($topic_id);
+    //$forum_url = bbp_get_forum_permalink($forum_id);
+    //$dir = $this->get_folder() . '/' . substr($topic_url, strpos($forum_url, '://') + 3) . '/';
+    //$this->remove_dir($dir);
+}
+
 
 // Capture and register if a redirect is sent back from WP, so the cache
 // can cache (or ignore) it. Redirects were source of problems for blogs
