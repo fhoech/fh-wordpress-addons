@@ -123,9 +123,11 @@ class FH_Gravatar_Cache {
 			$cache_file = $this->cache_dir . $this->default_md5 . '-' . $size . '-' . $rating . '-' . rawurlencode( $default ) . '.' . $file_type;
 		}
 		$url = substr( $cache_file, strlen( ABSPATH ) );
+		if ( strpos( $url, 'wp-content' . DIRECTORY_SEPARATOR ) === 0 ) $url = content_url( substr( $url, strlen( 'wp-content' . DIRECTORY_SEPARATOR ) ) );
+		else $url = site_url( $url );
 
 		return preg_replace( '~(["\'])(?:https?:)?//(?:www|secure)\.gravatar\.com/[^"\']+["\']~',
-							 '\1' . esc_attr( site_url( $url ) ) . '\1', $avatar );
+							 '\1' . esc_attr( $url ) . '\1', $avatar );
 	}
 
 	public function fetch_gravatar( $md5, $size, $rating, $default ) {
