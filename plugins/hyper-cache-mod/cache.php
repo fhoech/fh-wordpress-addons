@@ -213,18 +213,26 @@ function hyper_cache_callback($buffer) {
 
     header('X-HyperCache: 202 Accepted');
 
-    if (!function_exists('is_home')) return $buffer;
-    if (!function_exists('is_front_page')) return $buffer;
+    if (!function_exists('is_home')) {
+        header('X-HyperCache-Callback-Exit-Reason: <?php !function_exists(\'is_home\'); ?>');
+        return $buffer;
+    }
+    if (!function_exists('is_front_page')) {
+        header('X-HyperCache-Callback-Exit-Reason: <?php !function_exists(\'is_front_page\'), ?>');
+        return $buffer;
+    }
     
     if (function_exists('apply_filters')) $buffer = apply_filters('hyper_cache_buffer', $buffer);
 
-    if ($hyper_cache_stop) return $buffer;
-
-    if (!$hyper_cache_notfound && is_404()) {
+    if ($hyper_cache_stop) {
+        header('X-HyperCache-Callback-Exit-Reason: Stop=' . $hyper_cache_stop);
         return $buffer;
     }
 
-    if (strpos($buffer, '</body>') === false && !is_feed()) return $buffer;
+    if (!$hyper_cache_notfound && is_404()) {
+        header('X-HyperCache-Callback-Exit-Reason: 404 Not Found');
+        return $buffer;
+    }
 
     // WP is sending a redirect
     if ($hyper_redirect) {
@@ -232,14 +240,30 @@ function hyper_cache_callback($buffer) {
             $data['location'] = $hyper_redirect;
             hyper_cache_write($data);
         }
+        header('X-HyperCache-Callback-Exit-Reason: Redirect');
+        return $buffer;
+    }
+
+    $buffer = trim($buffer);
+
+    // Can be a trackback or other things without a body. We do not cache them, WP needs to get those calls.
+    if (strlen($buffer) == 0) {
+        header('X-HyperCache-Callback-Exit-Reason: No content');
+        return '';
+    }
+
+    if (strpos($buffer, '</body>') === false && !is_feed()) {
+        header('X-HyperCache-Callback-Exit-Reason: <?php strpos($buffer, \'</body>\') === false && !is_feed(); ?>');
         return $buffer;
     }
 
     if ((is_home() || is_front_page()) && $hyper_cache_home) {
+        header('X-HyperCache-Callback-Exit-Reason: <?php is_home() || is_front_page(); ?>');
         return $buffer;
     }
 
     if (is_feed() && !$hyper_cache_feed) {
+        header('X-HyperCache-Callback-Exit-Reason: <?php is_feed(); ?>');
         return $buffer;
     }
 
@@ -253,10 +277,6 @@ function hyper_cache_callback($buffer) {
                         else if (is_404()) $data['type'] = '404';
                             else if (is_search()) $data['type'] = 'search';
                                 else $data['type'] = is_singular() ? get_post_type() : 'archive';
-    $buffer = trim($buffer);
-
-    // Can be a trackback or other things without a body. We do not cache them, WP needs to get those calls.
-    if (strlen($buffer) == 0) return '';
 
     if (!$hyper_cache_charset) $hyper_cache_charset = 'UTF-8';
 
