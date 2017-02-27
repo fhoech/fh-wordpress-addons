@@ -154,15 +154,11 @@ header('X-HyperCache-File: ' . $hyper_cache_name);
 
 // It's time to serve the cached page
 
-hyper_cache_headers($hc_file_time, !empty($hyper_data['hash']) ? $hyper_data['hash'] : false);
+hyper_cache_headers($hc_file_time, !empty($hyper_data['hash']) ? $hyper_data['hash'] : false, !empty($hyper_data['headers']) ? $hyper_data['headers'] : NULL);
 header('X-HyperCache: 200 OK');
 
 header('Content-Type: ' . $hyper_data['mime']);
 if (isset($hyper_data['status']) && $hyper_data['status'] == 404) header($_SERVER['SERVER_PROTOCOL'] . " 404 Not Found");
-
-if (!empty($hyper_data['headers'])) {
-    foreach ($hyper_data['headers'] as $header) header($header, false);
-};
 
 // Send the cached html
 if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false &&
@@ -388,11 +384,17 @@ function hyper_cache_sanitize_uri($uri) {
     return $uri;
 }
 
-function hyper_cache_headers($hc_file_time, $hash=false) {
+function hyper_cache_headers($hc_file_time, $hash=false, $headers=NULL) {
     global $hyper_cache_lastmodified;
     $browsercache_timeout = hyper_cache_browsercache_timeout();
     // Always send Vary
     header('Vary: Accept-Encoding, Cookie');
+
+    // Send custom headers
+    if (!empty($headers)) {
+        foreach ($headers as $header) header($header, false);
+    }
+
     if (!$browsercache_timeout) {
         // Browser caching NOT enabled (default) or timeout = 0
         header('Cache-Control: no-cache, must-revalidate, max-age=0');

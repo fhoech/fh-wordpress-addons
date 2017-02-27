@@ -44,6 +44,11 @@
 	function ready() {
 		// Ajax
 		$(document).ajaxError(function (event, jqXHR, ajaxSettings, thrownError) {
+			console.error('ajaxError');
+			console.error('event:', event);
+			console.error('jqXHR:', jqXHR);
+			console.error('ajaxSettings:', ajaxSettings);
+			console.error(thrownError);
 			alert(thrownError);
 		});
 		if ($('#hyper-cache-utility .overview table tbody tr').length) mainready();
