@@ -160,6 +160,10 @@ header('X-HyperCache: 200 OK');
 header('Content-Type: ' . $hyper_data['mime']);
 if (isset($hyper_data['status']) && $hyper_data['status'] == 404) header($_SERVER['SERVER_PROTOCOL'] . " 404 Not Found");
 
+if (!empty($hyper_data['headers'])) {
+    foreach ($hyper_data['headers'] as $header) header($header, false);
+};
+
 // Send the cached html
 if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false &&
     (($hyper_cache_gzip && !empty($hyper_data['gz'])) || ($hyper_cache_gzip_on_the_fly && function_exists('gzencode')))) {
@@ -315,6 +319,13 @@ function hyper_cache_write(&$data) {
     $data['host'] = $_SERVER['HTTP_HOST'];
     $data['uri'] = $_SERVER['REQUEST_URI'];
     $data['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+
+    // Support HTTP2 server push
+    $headers = headers_list();
+    $data['headers'] = array();
+    foreach ($headers as $header) {
+        if (strpos($header, 'Link:') === 0) $data['headers'][] = $header;
+    }
 
     // Look if we need the compressed version
     if ($hyper_cache_store_compressed && !empty($data['html']) && function_exists('gzencode')) {
