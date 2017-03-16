@@ -543,8 +543,8 @@ class WP_Object_Cache {
         $this->deleted[$group][$key] = true;
 		unset( $this->expires[$group][$key] );
 		$this->_check_persist($key, $group);
+		$this->cache_deletions += 1;
 		if ($this->debug) {
-			$this->cache_deletions += 1;
 			if (!isset($this->cache_deletions_groups[$group]))
 				$this->cache_deletions_groups[$group] = 1;
 			else
@@ -852,23 +852,27 @@ class WP_Object_Cache {
 	 */
 	public function stats() {
 		/* File-based object cache start */
+		if ( ! $this->debug ) {
+			echo "<p>Define FH_OBJECT_CACHE_DEBUG for additional stats</p>";
+		}
 		echo "<p>";
 		echo "<strong>Cache Lifetime:</strong> " . human_time_diff( 0, $this->expiration_time ) . " (if unspecified for entry)<br />";
-		echo "<strong>Cache Hits:</strong> {$this->cache_hits} ({$this->file_cache_hits} from disk)";
+		echo "<strong>Cache Hits:</strong> {$this->cache_hits}";
+		if ( $this->debug ) echo " ({$this->file_cache_hits} from disk)";
 		echo "</p>";
 		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Hits</th><th style="padding: .1em .3em">From Disk</th><th style="padding: .1em .3em">Freshness</th><th style="padding: .1em .3em">Persist</th><th style="padding: .1em .3em">Global</th><th style="padding: .1em .3em">Entries</th><th style="padding: .1em .3em">Expired</th><th style="padding: .1em .3em">Deleted</th><th style="padding: .1em .3em">Size (KiB)</th></tr>';
 		$total_entries = 0;
 		$total_size = 0;
 		foreach ($this->cache as $group => $cache) {
-			$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : 0;
-			$file_cache_hits_groups = isset($this->file_cache_hits_groups[$group]) ? $this->file_cache_hits_groups[$group] : 0;
+			$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : ( $this->debug ? 0 : 'N/A' );
+			$file_cache_hits_groups = isset($this->file_cache_hits_groups[$group]) ? $this->file_cache_hits_groups[$group] : ( $this->debug ? 0 : 'N/A' );
 			$updated = isset($this->dirty_groups[$group]) ? 'Now' : (isset($this->mtime[$group]) ? human_time_diff( $this->mtime[$group] ) : 'Unknown');
 			$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
 			$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
 			$entries = count($cache);
 			$total_entries += $entries;
-			$expired = isset($this->expirations_groups[$group]) ? $this->expirations_groups[$group] : 0;
-			$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : 0;
+			$expired = isset($this->expirations_groups[$group]) ? $this->expirations_groups[$group] : ( $this->debug ? 0 : 'N/A' );
+			$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : ( $this->debug ? 0 : 'N/A' );
 			$size = strlen( serialize( $cache ) ) / 1024;
 			$total_size += $size;
 			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$cache_hits_groups</td><td style='padding: .1em .3em'>$file_cache_hits_groups</td><td style='padding: .1em .3em'>$updated</td><td style='padding: .1em .3em'>$persist</td><td style='padding: .1em .3em'>$global</td><td style='padding: .1em .3em'>$entries</td><td style='padding: .1em .3em'>$expired</td><td style='padding: .1em .3em'>$deleted</td><td style='padding: .1em .3em'>" . number_format( $size, 2 ) . "</td></tr>";
@@ -878,18 +882,22 @@ class WP_Object_Cache {
 		echo "<strong>Cache Entries:</strong> $total_entries ({$this->expirations} expired, {$this->cache_deletions} deleted)<br />";
 		$overhead = strlen(str_repeat(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER, count($this->cache))) / 1024;
 		echo "<strong>Cache Size:</strong> " . number_format( $total_size, 2 ) . " KiB (" . number_format( $total_size + $overhead, 2 ) . " KiB on disk)<br />";
-		echo "<strong>File Cache Overall Performance:</strong> " . number_format( $this->time_total, 3) . "s<br />";
-		echo "<strong>File Cache Disk Read Performance:</strong> " . number_format( $this->time_disk_read, 3) . "s<br />";
-		echo "<strong>File Cache Disk Write Performance:</strong> " . number_format( $this->time_disk_write, 3) . "s";
+		if ( $this->debug ) {
+			echo "<strong>File Cache Overall Performance:</strong> " . number_format( $this->time_total, 3) . "s<br />";
+			echo "<strong>File Cache Disk Read Performance:</strong> " . number_format( $this->time_disk_read, 3) . "s<br />";
+			echo "<strong>File Cache Disk Write Performance:</strong> " . number_format( $this->time_disk_write, 3) . "s";
+		}
 		echo "</p>";
 		echo "<p>";
 		echo "<strong>Cache Misses:</strong> {$this->cache_misses}<br />";
 		echo "</p>";
-		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Misses</th>';
-		foreach ($this->cache_misses_groups as $group => $count) {
-			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count</td></tr>";
+		if ( ! empty( $this->cache_misses_groups ) ) {
+			echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Misses</th>';
+			foreach ($this->cache_misses_groups as $group => $count) {
+				echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count</td></tr>";
+			}
+			echo '</table>';
 		}
-		echo '</table>';
 		echo "<p>";
 		echo "<strong>Cache Persists:</strong> {$this->actual_persists} ({$this->persists} calls)<br />";
 		echo "<strong>Cache Flushes:</strong> {$this->flushes}<br />";
