@@ -3,7 +3,7 @@
 Plugin name: FH Protect E-Mail
 Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fhpe/
 Description: Protect email addresses from spambots.
-Version: $Id:$
+Version: $Id$
 Author: Florian Höch
 Author URI: http://hoech.net
 License: GPL3
@@ -122,6 +122,9 @@ class FH_protect_email {
 			add_action( 'wp_footer', array( &$this, 'wp_footer' ) );
 			add_action( 'wp_head', array( &$this, 'buffer_start' ) );
 		}
+		add_filter( 'wpseo_metadesc', array(&$this, 'protect_meta'), 10, 1 );
+		add_filter( 'wpseo_opengraph_desc', array(&$this, 'protect_meta'), 10, 1 );
+		add_filter( 'wpseo_twitter_description', array(&$this, 'protect_meta'), 10, 1 );
 	}
 
 	private function _protect_email_callback($match) {
@@ -300,6 +303,14 @@ class FH_protect_email {
 	
 	public static function wp_mailto_encode($email) {
 		return rawurlencode($email);
+	}
+
+	public static function protect_meta( $meta ) {
+		$namepattern = '\w+(?:[+-.]\w+)*';
+		$topleveldomainpattern = '[A-Za-z]+';
+		// Remove part before @ and TLD of email address
+		$meta = preg_replace( '/(' . $namepattern . ')@(' . $namepattern . ')\.(' . $topleveldomainpattern . ')/', '@\\2', $meta );
+		return $meta;
 	}
 
 }
