@@ -2,6 +2,7 @@
 	/* Cannot be set on a pseudo-element in IE 8 */
 	unicode-bidi: bidi-override;
 	direction: rtl;
+	display: inline-block;
 }
 
 .fhpe:after {
