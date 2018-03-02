@@ -17,7 +17,7 @@ class HyperCacheUtility {
 	public $hc_timeout;
 	public $last_deleted_filename = '';
 	public $page_uri;
-	protected $special = array('_archives', '_global');
+	protected $special = array('./_archives', './_global');
 	public $status301 = 0;
 	public $status404 = 0;
 	public $time;
