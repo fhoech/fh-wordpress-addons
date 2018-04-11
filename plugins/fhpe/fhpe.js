@@ -1,4 +1,5 @@
-(function (q) {
+var FHPE = {};
+FHPE.init = function (q, z) {
 	function b(s) {
 		var a = d2c([30.5, 23.5, 21.5].concat(r(28.5, 24)).concat(r(61.0, 48.5)).concat(r(45.0, 32.5))),
 			o1, o2, o3, h1, h2, h3, h4, b, i = 0, d = [];
@@ -68,7 +69,7 @@
 	};
 	var sfcc = String.fromCharCode, u = unescape, w = window, st = w[d2c([58, 58.5, 55.5, 50.5, 54.5, 52.5, 42, 58, 50.5, 57.5])];
 	q(function () {
-		q(d2c([46.5, 17, 30.5, 50.5, 56, 52, 51, 31.5, 17, 30.5, 21, 51, 50.5, 57, 52, 45.5, 48.5]))[d2c([52, 49.5, 48.5, 50.5])](function () {
+		q(z + d2c([46.5, 17, 30.5, 50.5, 56, 52, 51, 31.5, 17, 30.5, 21, 51, 50.5, 57, 52, 45.5, 48.5, 16]))[d2c([52, 49.5, 48.5, 50.5])](function () {
 			var qa = q(this);
 			st(function () {
 				qa[d2c([53.5, 49.5, 52.5, 54, 49.5])](function () {
@@ -80,4 +81,5 @@
 			}, 0x3e8);
 		});
 	});
-})(jQuery);
+};
+FHPE.init(jQuery, '');
