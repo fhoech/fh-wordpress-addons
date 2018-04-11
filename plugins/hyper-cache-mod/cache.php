@@ -333,11 +333,17 @@ function hyper_cache_write(&$data) {
     $hc_dir = dirname($hc_file);
     if (!is_dir($hc_dir)) wp_mkdir_p($hc_dir);
     $file = fopen($hc_file, 'w');
-    fwrite($file, serialize($data));
-    fclose($file);
+    if ($file !== FALSE) {
+        fwrite($file, serialize($data));
+        fclose($file);
 
-    header('X-HyperCache: 201 Created');
-    header('X-HyperCache-File: ' . $hyper_cache_name);
+        header('X-HyperCache: 201 Created');
+        header('X-HyperCache-File: ' . $hyper_cache_name);
+    }
+    else {
+        header('X-HyperCache: 500 Could not create cache file');
+        header('X-HyperCache-File: ' . $hyper_cache_name);
+    }
 }
 
 function hyper_mobile_type() {
