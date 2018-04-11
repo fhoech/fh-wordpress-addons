@@ -33,7 +33,7 @@ function fh_cleanup_html($html){
 }
 
 function fh_cleanup_comment($text) {
-	$text = str_replace("\n&nbsp;\n", "\n", $text);
+	$text = preg_replace('~\n&nbsp;(\n|$)~', "\n", $text);
 	$text = fh_cleanup_html($text);
 	return $text;
 }
@@ -41,5 +41,7 @@ function fh_cleanup_comment($text) {
 add_filter('the_content', 'fh_cleanup_html');
 add_filter('content_save_pre', 'fh_cleanup_html');
 add_filter('comment_text', 'fh_cleanup_comment');
+add_filter('bbp_get_topic_content', 'fh_cleanup_comment');
+add_filter('bbp_get_reply_content', 'fh_cleanup_comment');
 
 ?>
