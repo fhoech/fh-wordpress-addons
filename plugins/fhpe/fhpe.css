@@ -3,6 +3,7 @@
 	unicode-bidi: bidi-override;
 	direction: rtl;
 	display: inline-block;
+	white-space: nowrap;  /* Prevent line break */
 }
 
 .fhpe:after {
