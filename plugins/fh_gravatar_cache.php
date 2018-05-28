@@ -31,6 +31,8 @@ class FH_Gravatar_Cache {
 		add_action( 'fh_gravatar_cache_update_cron', array( &$this, 'fetch_gravatar'), 10, 4 );
 		add_action( 'fh_gravatar_cache_clean_cron', array( &$this, 'clean_cache'), 10, 0 );
 		add_filter( 'get_avatar', array( &$this, 'get_avatar'), 10, 5 );
+		add_filter( 'bp_core_fetch_avatar', array( &$this, 'bp_core_fetch_avatar'), 10, 9 );
+		add_filter( 'bp_core_fetch_avatar_url', array( &$this, 'bp_core_fetch_avatar_url'), 10, 2 );
 
 		register_activation_hook( __FILE__, array( &$this, 'activate') );
 		register_deactivation_hook( __FILE__, array( &$this, 'deactivate') );
@@ -60,6 +62,21 @@ class FH_Gravatar_Cache {
 			if ( $stat['mtime'] + $this->expiration_time < $this->now )
 				unlink( $this->cache_dir . $cache_filename );
 		}
+	}
+
+	public function bp_core_fetch_avatar( $avatar, $params, $item_id, $avatar_dir, $html_css_id, $html_width, $html_height, $avatar_folder_url, $avatar_folder_dir ) {
+		if ( empty( $params['html'] ) )
+			$avatar_url = $avatar;
+		elseif ( preg_match( '~src="([^"]+)"~', $avatar, $match ) )
+			$avatar_url = $match[1];
+		// FIXME: We default to mystery man irrespective of BuddyPress setting
+		$avatar = str_replace( $avatar_url, $this->bp_core_fetch_avatar_url( $avatar_url, $params ), $avatar );
+		return $avatar;
+	}
+
+	public function bp_core_fetch_avatar_url( $avatar_url, $params ) {
+		// FIXME: We default to mystery man irrespective of BuddyPress setting
+		return $this->get_avatar( $avatar_url, $params['email'], $params['width'], 'mm', '' );
 	}
 
 	public function get_avatar ( $avatar, $id_or_email, $size, $default, $alt ) {
@@ -126,8 +143,8 @@ class FH_Gravatar_Cache {
 		if ( strpos( $url, 'wp-content' . DIRECTORY_SEPARATOR ) === 0 ) $url = content_url( substr( $url, strlen( 'wp-content' . DIRECTORY_SEPARATOR ) ) );
 		else $url = site_url( $url );
 
-		return preg_replace( '~(["\'])(?:https?:)?//(?:www|secure)\.gravatar\.com/[^"\']+["\']~',
-							 '\1' . esc_attr( $url ) . '\1', $avatar );
+		return preg_replace( '~(?:https?:)?//(?:www|secure)\.gravatar\.com/[^"\']+~',
+							 esc_attr( $url ), $avatar );
 	}
 
 	public function fetch_gravatar( $md5, $size, $rating, $default ) {
