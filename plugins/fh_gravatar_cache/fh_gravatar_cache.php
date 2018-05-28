@@ -131,17 +131,18 @@ class FH_Gravatar_Cache {
 			wp_clear_scheduled_hook( 'fh_gravatar_cache_update_cron', $args );
 			wp_schedule_single_event( time(), 'fh_gravatar_cache_update_cron', $args );
 
-			return plugin_dir_path( __FILE__ ) . 'wait.svg';
+			$url = plugins_url( 'wait.svg', __FILE__ );
 		}
-
-		if ( $file_type == 'default' ) {
-			if ( $default == 'blank' ) $file_type = 'png';
-			else $file_type = 'jpg';
-			$cache_file = $this->cache_dir . $this->default_md5 . '-' . $size . '-' . $rating . '-' . rawurlencode( $default ) . '.' . $file_type;
+		else {
+			if ( $file_type == 'default' ) {
+				if ( $default == 'blank' ) $file_type = 'png';
+				else $file_type = 'jpg';
+				$cache_file = $this->cache_dir . $this->default_md5 . '-' . $size . '-' . $rating . '-' . rawurlencode( $default ) . '.' . $file_type;
+			}
+			$url = substr( $cache_file, strlen( ABSPATH ) );
+			if ( strpos( $url, 'wp-content' . DIRECTORY_SEPARATOR ) === 0 ) $url = content_url( substr( $url, strlen( 'wp-content' . DIRECTORY_SEPARATOR ) ) );
+			else $url = site_url( $url );
 		}
-		$url = substr( $cache_file, strlen( ABSPATH ) );
-		if ( strpos( $url, 'wp-content' . DIRECTORY_SEPARATOR ) === 0 ) $url = content_url( substr( $url, strlen( 'wp-content' . DIRECTORY_SEPARATOR ) ) );
-		else $url = site_url( $url );
 
 		return preg_replace( '~(?:https?:)?//(?:www|secure)\.gravatar\.com/[^"\']+~',
 							 esc_attr( $url ), $avatar );
