@@ -2,7 +2,7 @@
 /*
 Plugin Name: FH Gravatar Cache
 Plugin URI: https://github.com/fhoech/fh-wordpress-addons/blob/master/plugins/fh_gravatar_cache
-Version: $Id$
+Version: $Id:$
 Description: Cache gravatars for a week (overridable by defining FH_GRAVATAR_CACHE_LIFETIME). Unlike other gravatar cache plugins, this one respects the requested avatar size and serves the correct file type. Works with BuddyPress and bbPress. Uses WP_Cron to fetch gravatars, and serves the same file for all users with default gravatar to keep the number of HTTP requests to a minimum.
 Author: Florian Höch
 Author URI: http://hoech.net
@@ -131,7 +131,7 @@ class FH_Gravatar_Cache {
 			wp_clear_scheduled_hook( 'fh_gravatar_cache_update_cron', $args );
 			wp_schedule_single_event( time(), 'fh_gravatar_cache_update_cron', $args );
 
-			return $avatar;
+			return plugin_dir_path( __FILE__ ) . 'wait.svg';
 		}
 
 		if ( $file_type == 'default' ) {

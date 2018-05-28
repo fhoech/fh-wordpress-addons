@@ -9,6 +9,14 @@ Author URI: http://hoech.net
 License: GPL3
 */
 
+function str_replace_first($search, $replace, $subject) {
+	$pos = strpos($subject, $search);
+	if ($pos !== false) {
+		$subject = substr_replace($subject, $replace, $pos, strlen($search));
+	}
+	return $subject;
+}
+
 function fh_cleanup_html($html){
 	// Set table border to "" and remove cellspacing/cellpadding
 	$html = preg_replace('/(<table\s+[^>]*?border=)[^>\s]+/i', '\1""', $html);
@@ -25,10 +33,33 @@ function fh_cleanup_html($html){
 	$html = preg_replace('/(\[\/?\w+[^\]]*\]|<\/?(?:div|ol|ul)[^>]*>)\s*<\/p>/i', '\1', $html);
 	$html = preg_replace('/<p>\s*(<\/div>)/i', '\1', $html);
 	$html = preg_replace('/(<\/div[^>]*>)\s*<br(?:\s+\/)?>/i', '\1', $html);
+	// Remove empty tags
+	$count = 1;
+	while ($count) $html = preg_replace('~<(\w+)(?:\s+[0-9a-z\-_:]+=""|\s)*></\1>~i', '', $html, -1, $count);
 	// Remove MS Office cruft
 	$html = preg_replace('/<!--\[if\s+(?:\S+\s+)?mso.*?-->/s', '', $html);
 	// Remove empty paragraphs
 	$html = str_replace('<p>&nbsp;</p>', '', $html);
+
+	// Remove accidental entity-encoded HTML
+	if ( preg_match_all( '~<pre[^>]*>.*?</pre>|<code[^>]*>.*?</code>|<[^>]+>|&(?:#\d+|nbsp|quot);~is', $html, $matches ) ) {
+		// Protect HTML tags and entities
+		foreach ( $matches[0] as $index => $match ) {
+			$html = str_replace_first( $match, "\0$index\0", $html );
+		}
+	}
+	$html = str_replace( '&lt;', '<', $html );
+	$html = str_replace( '&gt;', '>', $html );
+	$html = preg_replace( '~</?(div|p)[^>]*>~' , '', $html );
+	$html = str_replace( '<', '&lt;', $html );
+	$html = str_replace( '>', '&gt;', $html );
+	if ( !empty( $matches ) ) {
+		// Restore HTML tags
+		foreach ( $matches[0] as $index => $match ) {
+			$html = str_replace_first( "\0$index\0", $match, $html );
+		}
+	}
+
 	return $html /*. (current_filter() == 'the_content' ? '<!-- fh_cleanup_html -->' : '')*/;
 }
 
