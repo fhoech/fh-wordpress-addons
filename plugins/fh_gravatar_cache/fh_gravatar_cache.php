@@ -29,12 +29,12 @@ class FH_Gravatar_Cache {
 		$this->now = time();
 
 		add_action( 'fh_gravatar_cache_update_cron', array( &$this, 'fetch_gravatar'), 10, 4 );
-		add_action( 'fh_gravatar_cache_clean_cron', array( &$this, 'clean_cache'), 10, 0 );
+		//add_action( 'fh_gravatar_cache_clean_cron', array( &$this, 'clean_cache'), 10, 0 );
 		add_filter( 'get_avatar', array( &$this, 'get_avatar'), 10, 5 );
 		add_filter( 'bp_core_fetch_avatar', array( &$this, 'bp_core_fetch_avatar'), 10, 9 );
 		add_filter( 'bp_core_fetch_avatar_url', array( &$this, 'bp_core_fetch_avatar_url'), 10, 2 );
 
-		register_activation_hook( __FILE__, array( &$this, 'activate') );
+		//register_activation_hook( __FILE__, array( &$this, 'activate') );
 		register_deactivation_hook( __FILE__, array( &$this, 'deactivate') );
 	}
 
@@ -112,28 +112,30 @@ class FH_Gravatar_Cache {
 		// Check if avatar exists in cache and is not expired
 		$file_types = array( 'default', 'jpg', 'png', 'gif' );
 		$is_cached = false;
+		$is_expired = true;
 		foreach ( $file_types as $file_type ) {
 			$cache_file = $this->cache_dir . $md5 . '-' . $size . '-' . $rating . '-' . rawurlencode( $default ) . '.' . $file_type;
 			if ( is_file( $cache_file ) ) {
+				$is_cached = true;
 				$stat = stat( $cache_file );
 				if ($stat['mtime'] + $this->expiration_time > $this->now)
-					$is_cached = true;
+					$is_expired = false;
 				break;
 			}
 		}
 
 		// ---------------------------------------------------------------------
 
-		if ( ! $is_cached ) {
+		if ( ! $is_cached || $is_expired ) {
 			// Schedule fetching of gravatar
 
 			$args = array( $md5, $size, $rating, $default );
 			wp_clear_scheduled_hook( 'fh_gravatar_cache_update_cron', $args );
 			wp_schedule_single_event( time(), 'fh_gravatar_cache_update_cron', $args );
 
-			$url = plugins_url( 'wait.svg', __FILE__ );
+			if ( ! $is_cached ) $url = plugins_url( 'wait.svg', __FILE__ );
 		}
-		else {
+		if ( $is_cached ) {
 			if ( $file_type == 'default' ) {
 				if ( $default == 'blank' ) $file_type = 'png';
 				else $file_type = 'jpg';
