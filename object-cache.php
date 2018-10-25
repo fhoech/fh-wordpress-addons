@@ -1174,6 +1174,28 @@ class WP_Object_Cache {
 		if (!empty($this->file_cache_persist_errors_groups)) echo "<strong>File Cache Write Errors:</strong> " . implode(', ', array_keys($this->file_cache_persist_errors_groups));
 		echo "</p>";
 		/* File-based object cache end */
+
+		/* OPcache */
+		if ( defined( 'FH_OBJECT_CACHE_OPCACHE_DEBUG' ) ) {
+			if (function_exists('opcache_get_configuration')) {
+				$conf = opcache_get_configuration();
+
+				ob_start();
+				var_dump($conf);
+				$contents = preg_replace("/=>\s+/", "=>", ob_get_contents());
+				ob_end_clean();
+				echo '<pre>OPcache configuration: ' . $contents . "</pre>\n";
+			}
+			if (function_exists('opcache_get_status')) {
+				$status = opcache_get_status(false);
+
+				ob_start();
+				var_dump($status);
+				$contents = preg_replace("/=>\s+/", "=>", ob_get_contents());
+				ob_end_clean();
+				echo '<pre>OPcache status: ' . $contents . "</pre>\n";
+			}
+		}
 	}
 
 	/**
