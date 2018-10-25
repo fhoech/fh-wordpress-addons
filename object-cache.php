@@ -263,6 +263,8 @@ function wp_cache_reset() {
 	$wp_object_cache->reset();
 }
 
+define('FH_OBJECT_CACHE_UNIQID', uniqid());
+
 class SHM_Cache {
 
 	private $group = 'default';
@@ -276,7 +278,7 @@ class SHM_Cache {
 	public function __construct( $group = 'default' ) {
 		// XXX: Max 255 cache keys
 
-		$this->debug = defined('FH_OBJECT_CACHE_DEBUG') ? FH_OBJECT_CACHE_DEBUG : 0;
+		$this->debug = defined('FH_OBJECT_CACHE_SHM_DEBUG') ? FH_OBJECT_CACHE_SHM_DEBUG : 0;
 
 		$this->group = $group;
 
@@ -353,7 +355,7 @@ class SHM_Cache {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Cache: Could'nt persist groups to (proj_id, mtime) mapping (ID $id): " .
+							   " SHM_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Could'nt persist groups to (proj_id, mtime) mapping (ID $id): " .
 							   $error['message'] . "\n", FILE_APPEND );
 		}
 	}
@@ -382,6 +384,7 @@ class SHM_Cache {
 	public function put( $data ) {
 		if ( $this->id === null ) return false;
 		if ( $this->shm_id !== false || $this->open() ) $deleted = $this->clear();
+		else $deleted = null;
 		$size = strlen( $data );
 		if ( ! $size ) return $this->size === 0;
 		if ( ! $this->open( "n", 0644, $size ) ) {
@@ -389,7 +392,8 @@ class SHM_Cache {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Cache: Could'nt persist group '$this->group' (ID $this->id): " .
+								   " SHM_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Could'nt persist group '$this->group' (ID $this->id" .
+								   ( $deleted !== null ? ", deleted=" . ( $deleted ? 'true' : 'false' ) : '' ) . "): " .
 								   $error['message'] . "\n", FILE_APPEND );
 			}
 			return false;
@@ -397,7 +401,7 @@ class SHM_Cache {
 		else if ( $this->debug > 1 ) {
 			file_put_contents( __DIR__ . '/.SHM_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Cache: Persisted group '$this->group' (ID $this->id)\n",
+							   " SHM_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Persisted group '$this->group' (ID $this->id)\n",
 							   FILE_APPEND );
 		}
 		$this->size = shmop_write( $this->shm_id, $data, 0 );
@@ -414,7 +418,7 @@ class SHM_Cache {
 		if ( ! $deleted && $this->debug ) {
 			file_put_contents( __DIR__ . '/.SHM_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Cache: Could'nt delete group '$this->group' (ID $this->id)\n",
+							   " SHM_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Could'nt delete group '$this->group' (ID $this->id)\n",
 							   FILE_APPEND );
 		}
 		$this->close();
