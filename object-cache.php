@@ -543,6 +543,14 @@ class SHM_Cache {
 		return SHM_Cache::$groups_id;
 	}
 
+	public static function get_groups_shm_id() {
+		return SHM_Cache::$groups_shm_id;
+	}
+
+	public static function get_groups_size() {
+		return SHM_Cache::$groups_size;
+	}
+
 	public static function get_groups_persist() {
 		return SHM_Cache::$groups_persist;
 	}
