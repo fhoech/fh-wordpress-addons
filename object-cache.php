@@ -983,12 +983,13 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
-		if ($force) {
+        $is_persistent_group = !isset($this->non_persistent_groups[$group]);
+		if ($force && $is_persistent_group) {
 			$this->_log("FORCE REFETCH FROM PERSISTENT CACHE FOR $group.$key");
 			if ($this->_exists( $key, $group ))
 				$this->_log("BEFORE REFETCH: $group.$key = " . json_encode($this->cache[$group][$key], JSON_PRETTY_PRINT));
 		}
-		if ($force || (!$this->skip && !isset($this->file_cache_groups[$group]))) {
+		if ($is_persistent_group && ($force || (!$this->skip && !isset($this->file_cache_groups[$group])))) {
 			if ($this->_group_exists($group)) {
 				if ($this->debug) $time_read_start = microtime(true);
 				$this->file_cache_groups[$group] = unserialize($this->_get_group($group));
@@ -1021,7 +1022,7 @@ class WP_Object_Cache {
 			$found = true;
 			$this->cache_hits += 1;
 			/* File-based object cache start */
-			if ($force)
+			if ($force && $is_persistent_group)
 				$this->_log("AFTER REFETCH: $group.$key = " . json_encode($this->cache[$group][$key], JSON_PRETTY_PRINT));
 			if ($this->debug) {
 				$time_start = microtime(true);
