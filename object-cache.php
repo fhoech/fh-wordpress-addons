@@ -1456,7 +1456,6 @@ class WP_Object_Cache {
 	public function __destruct() {
 		/* File-based object cache start */
 		$this->persist();
-		SHM_Cache::_persist_groups();
 		/* File-based object cache end */
 
 		return true;
@@ -1526,6 +1525,8 @@ class WP_Object_Cache {
 				$this->_persist_group('.expires', serialize($this->expires));
 			}
 			if ($this->debug) $this->time_disk_write += microtime(true) - $time_disk_write_start;
+
+			if ( $this->shm_enable ) SHM_Cache::_persist_groups();
 
 			$this->release_lock();
 		}
