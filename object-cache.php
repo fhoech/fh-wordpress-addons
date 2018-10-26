@@ -372,7 +372,7 @@ class SHM_Cache {
 		}
 	}
 
-	private static function _open( $id, $flags="w", $mode=0, $size=0, $shm_id = false ) {
+	public static function _open( $id, $flags="w", $mode=0, $size=0, $shm_id = false ) {
 		// Open SHM segment. If existing SHM ID is given, will be closed first
 		// Return SHM ID
 		if ( $id === null ) return false;
@@ -381,7 +381,7 @@ class SHM_Cache {
 		return $shm_id;
 	}
 
-	private static function _close( $shm_id ) {
+	public static function _close( $shm_id ) {
 		// Close SHM segment
 		if ( $shm_id !== false ) {
 			$result = shmop_close( $shm_id );
@@ -401,12 +401,12 @@ class SHM_Cache {
 		}
 	}
 
-	private static function _size( $shm_id ) {
+	public static function _size( $shm_id ) {
 		if ( $shm_id === false ) return false;
 		return shmop_size( $shm_id );
 	}
 
-	private static function _read( $shm_id, $size ) {
+	public static function _read( $shm_id, $size ) {
 		// Read and return string from SHM
 		// Length of string can be shorter than given size!
 		if ( $shm_id === false ) return false;
@@ -431,7 +431,7 @@ class SHM_Cache {
 		return $data;
 	}
 
-	private static function _write( $shm_id, $data, $shm_size = 0, $id = null ) {
+	public static function _write( $shm_id, $data, $shm_size = 0, $id = null ) {
 		// Write string to SHM segment. String will be automatically null-terminated.
 		// Return array( <bytes written>, <resized>, <SHM ID> )
 		// If <resized> is true, segment was successfully resized and SHM ID has changed
@@ -441,7 +441,7 @@ class SHM_Cache {
 		$size = strlen( $data );
 		$data = ";" . pack( 'N', $size ) . $data;  // Prepend packed size
 		$shm_size_new = $size + 6;  // 5 bytes header + terminating null
-		if ( ( $shm_size_new > $shm_size || ! $size ) && $id !== null ) {
+		if ( ( $shm_id === false || $shm_size_new > $shm_size || ! $size ) && $id !== null ) {
 			// Delete SHM segment if size is zero or larger than existing segment
 			$deleted = SHM_Cache::_delete( $shm_id );
 			// If new size is zero, we are done here
@@ -455,7 +455,7 @@ class SHM_Cache {
 		return array( $bytes_written, $deleted, $shm_id );
 	}
 
-	private static function _delete( $shm_id ) {
+	public static function _delete( $shm_id ) {
 		// Delete and close SHM segment
 		if ( $shm_id === false ) return false;
 		$deleted = shmop_delete( $shm_id );
@@ -530,7 +530,10 @@ class SHM_Cache {
 	public function clear() {
 		if ( $this->shm_id === false && ! $this->open() ) return false;
 		$deleted = SHM_Cache::_delete( $this->shm_id );
-		if ( $deleted ) $this->size = 0;
+		if ( $deleted ) {
+			$this->shm_id = false;
+			$this->size = 0;
+		}
 		else if ( SHM_Cache::$debug ) {
 			file_put_contents( __DIR__ . '/.SHM_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
