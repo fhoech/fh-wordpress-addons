@@ -407,13 +407,26 @@ class SHM_Cache {
 	}
 
 	private static function _read( $shm_id, $size ) {
-		// Read null-terminated string (null is stripped from returned string)
+		// Read and return string from SHM
 		// Length of string can be shorter than given size!
 		if ( $shm_id === false ) return false;
-		$data = shmop_read( $shm_id, 0, $size );
+		$offset = 0;
+		if ( $size > 5 ) {
+			$header = shmop_read( $shm_id, 0, 5 );
+			if ( $header === false ) return false;
+			if ( $header[0] == ";" ) {
+				// Data size follows in the next 4 bytes (big-endian)
+				$size = unpack( 'N', substr( $header, 1, 4 ) )[1];
+				$offset = 5;
+			}
+		}
+		$data = shmop_read( $shm_id, $offset, $size );
 		if ( $data === false ) return false;
-		$len = strpos( $data, "\0" );
-		if ( $len !== false ) $data = substr( $data, 0, $len );
+		if ( $offset == 0 ) {
+			// Null-terminated
+			$len = strpos( $data, "\0" );
+			if ( $len !== false ) $data = substr( $data, 0, $len );
+		}
 		$data = stripcslashes( $data );  // Unescape, see _write()
 		return $data;
 	}
@@ -426,13 +439,15 @@ class SHM_Cache {
 		// If <resized> is null, no resizing was necessary (existing SHM segment re-used)
 		$data = addcslashes( $data, "\0\\" );  // Because we use null byte as string terminator, need to escape existing null bytes and backslashes
 		$size = strlen( $data );
-		if ( ( $size > $shm_size || ! $size ) && $id !== null ) {
+		$data = ";" . pack( 'N', $size ) . $data;  // Prepend packed size
+		$shm_size_new = $size + 6;  // 5 bytes header + terminating null
+		if ( ( $shm_size_new > $shm_size || ! $size ) && $id !== null ) {
 			// Delete SHM segment if size is zero or larger than existing segment
 			$deleted = SHM_Cache::_delete( $shm_id );
 			// If new size is zero, we are done here
 			if ( ! $size ) return array( 0, $deleted, $shm_id );
 			// Re-create SHM segment with new size + 1 (null-terminated)
-			$shm_id = SHM_Cache::_open( $id, "n", 0644, $size + 1 );
+			$shm_id = SHM_Cache::_open( $id, "n", 0644, $shm_size_new );
 			if ( $shm_id === false ) return array( false, $deleted, $shm_id );
 		}
 		else $deleted = null;
@@ -1232,7 +1247,10 @@ class WP_Object_Cache {
 			echo "<p>Define FH_OBJECT_CACHE_DEBUG for additional stats</p>";
 		}
 		echo "<p>";
-		echo "<strong>Cache Lifetime:</strong> " . human_time_diff( 0, $this->expiration_time ) . " (if unspecified for entry)<br />";
+		$hours = floor( $this->expiration_time / 60 / 60 );
+		$minutes = floor( ( $this->expiration_time - $hours * 60 * 60 ) / 60 );
+		$seconds = $this->expiration_time - $hours * 60 * 60 - $minutes * 60;
+		echo "<strong>Cache Lifetime (if unspecified for entry):</strong> $hours hours $minutes minutes $seconds soconds<br />";
 		echo "<strong>Cache Hits:</strong> {$this->cache_hits}";
 		if ( $this->debug ) echo " ({$this->file_cache_hits} from persistent cache)";
 		echo "</p>";
