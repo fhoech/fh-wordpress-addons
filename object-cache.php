@@ -447,7 +447,7 @@ class SHM_Cache {
 			// If new size is zero, we are done here
 			if ( ! $size ) return array( 0, $deleted, $shm_id );
 			// Re-create SHM segment with new size + 1 (null-terminated)
-			$shm_id = SHM_Cache::_open( $id, "n", 0644, $shm_size_new );
+			$shm_id = SHM_Cache::_open( $id, "n", 0600, $shm_size_new );
 			if ( $shm_id === false ) return array( false, $deleted, $shm_id );
 		}
 		else $deleted = null;
