@@ -183,7 +183,7 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 
 			var cls;
 			if ( document.body.className == '' ) {
-				if ( hours > start + range / 4 && hours < end - range / 4) cls = 'night';
+				if ( hours > start + range / 2 && hours < end) cls = 'night';
 				else cls = 'day';
 				while ( three_state.length ) three_state.pop();
 				three_state.push( '' );
