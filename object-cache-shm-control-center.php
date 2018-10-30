@@ -231,7 +231,7 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			overflow: hidden;
 		}
 		body {
-			background: linear-gradient(to top, #fff 0%, #fff 8%, #ffefcf 40%, #c68666 70%, #282c30 90%, #080a0c 100%);
+			background: linear-gradient(to top, #fff 0%, #fff 8%, #ffefcf 40%, #c68666 72.5%, #282c30 90%, #080a0c 100%);
 			background-position: 0 <?php echo ( 100 * $f ); ?>%;
 			background-size: 100% 1600%;
 			color: <?php echo $hours < $start + .25 || $hours > $end - .75 ? '#ccc' : '#000'; ?>;
