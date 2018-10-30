@@ -283,25 +283,7 @@ class SHM_Cache {
 
 		$this->group = $group;
 
-		if ( SHM_Cache::$groups === null ) {
-			// Init groups to (proj_id, mtime) mapping
-	
-			SHM_Cache::$groups = array( $group => array( 1, 0 ) );
-
-			SHM_Cache::$debug = defined('FH_OBJECT_CACHE_SHM_DEBUG') ? FH_OBJECT_CACHE_SHM_DEBUG : 0;
-
-			// Read existing groups to (proj_id, mtime) mapping
-			if ( SHM_Cache::_open_groups() ) {
-				$data = SHM_Cache::_read( SHM_Cache::$groups_shm_id, SHM_Cache::$groups_size );
-
-				if ( $data !== false ) {
-					$groups = @ unserialize( $data );
-					if ( $groups !== false ) SHM_Cache::$groups = $groups;
-				}
-			}
-
-			//register_shutdown_function( array( 'SHM_Cache', '_persist_groups' ) );
-		}
+		SHM_Cache::_init_groups( $group );
 
 		if ( array_key_exists( $group, SHM_Cache::$groups ) &&
 			 is_array( SHM_Cache::$groups[$group] ) )
@@ -329,6 +311,28 @@ class SHM_Cache {
 	public function __destruct() {
 		@ $this->close();
 		return true;
+	}
+
+	private static function _init_groups( $group = 'default' ) {
+		if ( SHM_Cache::$groups === null ) {
+			// Init groups to (proj_id, mtime) mapping
+	
+			SHM_Cache::$groups = array( $group => array( 1, 0 ) );
+
+			SHM_Cache::$debug = defined('FH_OBJECT_CACHE_SHM_DEBUG') ? FH_OBJECT_CACHE_SHM_DEBUG : 0;
+
+			// Read existing groups to (proj_id, mtime) mapping
+			if ( SHM_Cache::_open_groups() ) {
+				$data = SHM_Cache::_read( SHM_Cache::$groups_shm_id, SHM_Cache::$groups_size );
+
+				if ( $data !== false ) {
+					$groups = @ unserialize( $data );
+					if ( $groups !== false ) SHM_Cache::$groups = $groups;
+				}
+			}
+
+			//register_shutdown_function( array( 'SHM_Cache', '_persist_groups' ) );
+		}
 	}
 
 	private static function _get_groups_id() {
@@ -554,18 +558,22 @@ class SHM_Cache {
 	}
 
 	public static function get_groups() {
+		SHM_Cache::_init_groups();
 		return SHM_Cache::$groups;
 	}
 
 	public static function get_groups_id( $hex = false ) {
+		SHM_Cache::_init_groups();
 		return SHM_Cache::format_id( SHM_Cache::$groups_id, $hex );
 	}
 
 	public static function get_groups_shm_id() {
+		SHM_Cache::_init_groups();
 		return SHM_Cache::$groups_shm_id;
 	}
 
 	public static function get_groups_size() {
+		SHM_Cache::_init_groups();
 		return SHM_Cache::$groups_size;
 	}
 

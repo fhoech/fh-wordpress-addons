@@ -382,8 +382,6 @@ else if ( ! function_exists('shmop_open') ) {
 else if ( $dump ) {
 
 	$group = $_REQUEST['get'];
-
-	$shm_cache = new SHM_Cache;
 	
 	$groups = SHM_Cache::get_groups();
 
@@ -457,8 +455,6 @@ else {
 										   'message_meta' => true);
 
 	// Init cache
-	$shm_cache = new SHM_Cache;
-	
 	$groups = SHM_Cache::get_groups();
 
 	$persistent_groups = array();
