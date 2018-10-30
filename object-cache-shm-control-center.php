@@ -106,6 +106,11 @@ $dump = ! empty( $_REQUEST['get'] );
 if ( ( $update_groups || $clear_corrupt || $clear_all || $trim || $dump ) && ! $admin ) {
 	http_response_code( 403 );
 
+	if ( isset( $_REQUEST['json'] ) ) {
+		header( 'Content-Type: application/json' );
+		die();
+	}
+
 	$update_groups = false;
 	$clear_corrupt = false;
 	$clear_all = false;
@@ -115,16 +120,18 @@ if ( ( $update_groups || $clear_corrupt || $clear_all || $trim || $dump ) && ! $
 	define( 'FORBIDDEN', true );
 }
 
-$hours = floatval( date( 'H' ) ) + floatval( date( 'i' ) ) / 60 + floatval( date( 's' ) ) / 60 / 60;
-$tzoffset = get_option('gmt_offset');
-$hours += $tzoffset;
-$start = 6;
-$end = 22;
-$range = $end - $start;
-$f = ( $hours - $start ) / ( $range / 2 );
-if ( $f > 1 ) $f = 1 - ( $f - 1 );
-if ( $f < 0 ) $f = 0;
-$f = sin( $f * pi() / 2 );
+if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
+
+	$hours = floatval( date( 'H' ) ) + floatval( date( 'i' ) ) / 60 + floatval( date( 's' ) ) / 60 / 60;
+	$tzoffset = get_option('gmt_offset');
+	$hours += $tzoffset;
+	$start = 6;
+	$end = 22;
+	$range = $end - $start;
+	$f = ( $hours - $start ) / ( $range / 2 );
+	if ( $f > 1 ) $f = 1 - ( $f - 1 );
+	if ( $f < 0 ) $f = 0;
+	$f = sin( $f * pi() / 2 );
 
 ?>
 <!DOCTYPE html>
@@ -215,7 +222,7 @@ $f = sin( $f * pi() / 2 );
 
 		function get( tr ) {
 			var group = tr.getAttribute( 'data-group' );
-			location.href = "<?php echo $_SERVER['REQUEST_URI']; ?>?get=" + group;
+			location.href = "<?php echo $_SERVER['REQUEST_URI']; ?>?get=" + group + '&json';
 		}
 
 	</script>
@@ -251,9 +258,13 @@ $f = sin( $f * pi() / 2 );
 			color: inherit;
 			text-decoration: none;
 		}
-		tbody tr:hover a,
+		tbody tr:hover td a:last-child,
+		tbody tr:hover td:hover a:hover,
 		a:hover {
 			color: #06f;
+		}
+		tbody tr:hover td:hover a {
+			color: inherit;
 		}
 		main {
 			bottom: 0;
@@ -362,8 +373,13 @@ $f = sin( $f * pi() / 2 );
 <main>
 <?php
 
+}
+
 if ( defined( 'FORBIDDEN' ) ) {
 	echo "<p class='error'>You do not have permission to perform this function.</p>";
+}
+else if ( ! function_exists('shmop_open') ) {
+	echo "<p>shmop support disabled</p>\n";
 }
 else if ( $dump ) {
 
@@ -379,26 +395,56 @@ else if ( $dump ) {
 		if ( $data !== false ) {
 			$entries = unserialize( $data );
 			if ( is_array( $entries ) ) {
-				echo "<pre>";
-				print_r( $entries );
-				echo "</pre>";
+				if ( isset( $_REQUEST['json'] ) ) {
+					header( 'Content-Type: application/json' );
+					echo json_encode( $entries );
+					$shm_cache->close();
+					die();
+				}
+				else {
+					echo "<pre>";
+					echo htmlspecialchars( var_export( $entries, true ), ENT_COMPAT, 'UTF-8' );
+					echo "</pre>";
+				}
 			}
-			else if ( $entries !== false ) echo "<p class='error'>Unexpected data type for group '$group': " . gettype( $data ) . "</p>\n";
+			else if ( $entries !== false ) {
+				if ( isset( $_REQUEST['json'] ) ) {
+					http_response_code( 500 );
+					header( 'Content-Type: application/json' );
+					die();
+				}
+				else echo "<p class='error'>Unexpected data type for group '$group': " . gettype( $data ) . "</p>\n";
+			}
 			else {
-				echo "<p class='error'>Unserializing failed for group '$group'.</p>\n";
+				if ( isset( $_REQUEST['json'] ) ) {
+					http_response_code( 500 );
+					header( 'Content-Type: application/json' );
+					die();
+				}
+				else echo "<p class='error'>Unserializing failed for group '$group'.</p>\n";
 				//var_dump( $data );
 			}
 		}
+		else if ( isset( $_REQUEST['json'] ) ) {
+			http_response_code( 500 );
+			header( 'Content-Type: application/json' );
+			die();
+		}
 		else echo "<p class='error'>ERROR reading shared memory for group '$group'.</p>\n";
+	}
+	else if ( isset( $_REQUEST['json'] ) ) {
+		http_response_code( 404 );
+		header( 'Content-Type: application/json' );
+		die();
 	}
 	else echo "<p class='error'>Group '$group' does not exist.</p>\n";
 
 }
-else if ( function_exists('shmop_open') ) {
+else {
 ?>
 <table>
 <thead>
-<tr><th>#</th><th>Group</th><th>Project ID</th><th>SHM key</th><th>Resource ID</th><th>Entries</th><th>.expires entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>% used</th><th>Last modified</th><th></th></tr>
+<tr><th>#</th><th>Group</th><th>Project ID</th><th>SHM key</th><th>Resource ID</th><th>Entries</th><th>.expires entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>% used</th><th>Last modified</th><th><?php if ( $admin ) { ?>Dump<?php } ?></th></tr>
 </thead>
 <tbody>
 <?php
@@ -500,7 +546,7 @@ else if ( function_exists('shmop_open') ) {
 				echo "<td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td>";
 				//if ( in_array( $group, array( 'themes', 'post_format_relationships', 'bp_member_member_type' ) ) ) var_dump( $data );
 				echo "<td>" . date( 'Y-m-d H:i:s', $groups[$group][1] ) . ", " . fh_human_time_diff( $groups[$group][1] ) . "</td>";
-				echo "<td>" . ( $admin ? "<a href='" . $_SERVER['REQUEST_URI'] . "?get=$group' title='Dump cache contents'>⯈</a>" : "" ) . "</td>";
+				echo "<td>" . ( $admin ? "<a href='" . $_SERVER['REQUEST_URI'] . "?get=$group' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['REQUEST_URI'] . "?get=$group&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
 			}
 			else {
 				if ( $clear_corrupt ) {
@@ -538,7 +584,6 @@ else if ( function_exists('shmop_open') ) {
 	printf( "<p>WordPress loaded in %.3f seconds, page generated in %.3f seconds</p>\n", round( $time_wp_load, 3 ), round( microtime( true ) - $time_start, 3 ) );
 
 }
-else echo "<p>shmop support disabled</p>\n";
 
 ?>
 <form action="<?php echo $_SERVER['REQUEST_URI']; ?>" method="post">
