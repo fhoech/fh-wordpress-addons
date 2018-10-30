@@ -577,7 +577,7 @@ else {
 	$r = 102 * ( 2 - $used );
 	$g = min( 153 * ( .5 + $used ), 204 );
 	
-	echo "<p>" . human_size( $bytes_sum ) . " used of " . human_size( $bytes_allocated_sum ) . " allocated (<span style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</span>)</p>\n";
+	echo "<p>" . human_size( $bytes_sum ) . " used (<span style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated</p>\n";
 
 	echo "<p>Groups to (proj_id, mtime) mapping modified? " . ( SHM_Cache::get_groups_persist() ? "Yes" : "No" ) . "</p>\n";
 
