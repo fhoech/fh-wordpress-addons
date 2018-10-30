@@ -181,8 +181,6 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 				end = <?php echo $end; ?>,
 				range = end - start;
 
-			if ( ! window.day_night_cycle_hours ) window.day_night_cycle_hours = hours;
-
 			var cls;
 			if ( document.body.className == '' ) {
 				if ( hours > start + range / 4 && hours < end - range / 4) cls = 'night';
