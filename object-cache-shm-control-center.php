@@ -159,12 +159,12 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			f = Math.sin( f * Math.PI / 2 );
 
 			document.body.style.backgroundPosition = '0 ' + ( 100 * f ) + '%';
-			var c = hours < start + .25 || hours > end - .75 ? 0xcc : 0;
+			var c = hours < start * 2 || hours > end - 1 ? 0xcc : 0;
 			document.body.style.color = 'rgb(' + c + ', ' + c + ', ' + c + ')';
 			document.getElementById( 'sun' ).style.top = -( 100 * f ) + ( 150 * ( 1 - f ) ) + '%';
 
 			var buttons = document.getElementsByTagName( 'button' ),
-				c = hours < start + .25 || hours > end - .75 ? 255 : 0;
+				c = hours < start * 2 || hours > end - 1 ? 255 : 0;
 			for ( var i = 0; i < buttons.length; i ++ ) {
 				buttons[i].style.color = 'rgb(' + c + ', ' + c + ', ' + c + ')';
 			}
@@ -185,7 +185,7 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 
 			var cls;
 			if ( document.body.className == '' ) {
-				if ( hours > start + range / 2 && hours < end) cls = 'night';
+				if ( hours > start * 2 && hours < end - .25 ) cls = 'night';
 				else cls = 'day';
 				while ( three_state.length ) three_state.pop();
 				three_state.push( '' );
@@ -246,7 +246,7 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			background: linear-gradient(to top, #fff 0%, #fff 8%, #ffefcf 40%, #c68666 72.5%, #282c30 90%, #080a0c 100%);
 			background-position: 0 <?php echo ( 100 * $f ); ?>%;
 			background-size: 100% 1600%;
-			color: <?php echo $hours < $start + .25 || $hours > $end - .75 ? '#ccc' : '#000'; ?>;
+			color: <?php echo $hours < $start * 2 || $hours > $end - 1 ? '#ccc' : '#000'; ?>;
 			font-family: monospace;
 			margin: 0 auto;
 			position: relative;
@@ -350,7 +350,7 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			background: rgba(128, 128, 128, .4);
 			border: 0;
 			border-radius: 0;
-			color: <?php echo $hours < $start + .25 || $hours > $end - .75 ? '#fff' : '#000'; ?>;
+			color: <?php echo $hours < $start * 2 || $hours > $end - 1 ? '#fff' : '#000'; ?>;
 			opacity: .796875;
 			padding: 8px 16px;
 			transition: color ease 1s;
