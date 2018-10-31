@@ -100,10 +100,11 @@ $admin = current_user_can( 'administrator' );
 $update_groups = isset( $_REQUEST['update_groups'] );
 $clear_corrupt = isset( $_REQUEST['clear_corrupt'] );
 $clear_all = isset( $_REQUEST['clear_all'] );
+$clear = ! empty( $_REQUEST['clear'] ) ? $_REQUEST['clear'] : false;
 $trim = isset( $_REQUEST['trim'] );
-$dump = ! empty( $_REQUEST['get'] );
+$dump = ! empty( $_REQUEST['get'] ) ? $_REQUEST['get'] : false;
 
-if ( ( $update_groups || $clear_corrupt || $clear_all || $trim || $dump ) && ! $admin ) {
+if ( ( $update_groups || $clear_corrupt || $clear_all || $clear || $trim || $dump ) && ! $admin ) {
 	http_response_code( 403 );
 
 	if ( isset( $_REQUEST['json'] ) ) {
@@ -114,6 +115,7 @@ if ( ( $update_groups || $clear_corrupt || $clear_all || $trim || $dump ) && ! $
 	$update_groups = false;
 	$clear_corrupt = false;
 	$clear_all = false;
+	$clear = false;
 	$trim = false;
 	$dump = false;
 
@@ -219,8 +221,18 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 		}
 
 		function get( tr ) {
+			if ( document.forms[0].elements[0].name ) return;
 			var group = tr.getAttribute( 'data-group' );
-			location.href = "<?php echo $_SERVER['REQUEST_URI']; ?>?get=" + group + '&json';
+			location.href = "<?php echo $_SERVER['SCRIPT_NAME']; ?>?get=" + group + '&json';
+		}
+
+		function submit( a ) {
+			var action = a.getAttribute( 'data-action' ),
+				value = a.getAttribute( 'data-value' );
+			document.forms[0].elements[0].name = action;
+			document.forms[0].elements[0].value = value;
+			document.forms[0].submit();
+			return false;
 		}
 
 	</script>
@@ -256,7 +268,7 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			color: inherit;
 			text-decoration: none;
 		}
-		tbody tr:hover td a:last-child,
+		tbody tr:hover td a:nth-child(2),
 		tbody tr:hover td:hover a:hover,
 		a:hover {
 			color: #06f;
@@ -274,14 +286,14 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			top: 0;
 			z-index: 1;
 		}
-		form {
+		#cp {
 			background: inherit;
 			bottom: 0;
 			position: fixed;
 			padding: 0 1em;
 			right: 1em;
 		}
-		form p {
+		#cp p {
 			text-align: right;
 		}
 		#sun {
@@ -381,7 +393,7 @@ else if ( ! function_exists('shmop_open') ) {
 }
 else if ( $dump ) {
 
-	$group = $_REQUEST['get'];
+	$group = $dump;
 	
 	$groups = SHM_Cache::get_groups();
 
@@ -438,9 +450,11 @@ else if ( $dump ) {
 }
 else {
 ?>
+<form action="<?php echo $_SERVER['SCRIPT_NAME']; ?>" method="post">
+<input type="hidden">
 <table>
 <thead>
-<tr><th>#</th><th>Group</th><th>Project ID</th><th>SHM key</th><th>Resource ID</th><th>Entries</th><th>.expires entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>% used</th><th>Last modified</th><th><?php if ( $admin ) { ?>Dump<?php } ?></th></tr>
+<tr><th>#</th><th>Group</th><th>Project ID</th><th>SHM key</th><th>Resource ID</th><th>Entries</th><th>.expires entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>% used</th><th>Last modified</th><th><?php if ( $admin ) { ?>Admin<?php } ?></th></tr>
 </thead>
 <tbody>
 <?php
@@ -461,6 +475,8 @@ else {
 	foreach ( $groups as $group => $proj_id_mtime ) {
 		if ( ! isset( $non_persistent_groups[$group] ) ) $persistent_groups[$group] = $proj_id_mtime;
 	}
+
+	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) $GLOBALS['wp_object_cache']->acquire_lock();
 
 	if ( $update_groups || $trim ) {
 		// Update SHM groups
@@ -507,14 +523,15 @@ else {
 	$total_entries_count = 0;
 	foreach ( $groups as $group => $proj_id_mtime ) {
 		$shm_cache = new SHM_Cache( $group );
+		if ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) $shm_cache->clear();
 		$exists = $shm_cache->open();
 		echo "<tr data-group='$group'" . ( ! $exists ? " class='unallocated'" : ( $admin ? " onclick='get( this )'" : "" ) ) . ( time() - $groups[$group][1] > HOUR_IN_SECONDS ? " class='stale'" : "" ) . ">";
 		echo "<td>$n</td><td>$group</td><td>" . $groups[$group][0] . "</td><td>" . ( $exists ? $shm_cache->get_id( true ) : "Not allocated" ) . "</td>";
 		$expires_count = isset( $expires[$group] ) ? count( $expires[$group] ) : 0;
 		if ( $exists ) {
 			echo "<td>" . $shm_cache->get_shm_id() . "</td>";
-			$data = $shm_cache->get();
-			if ( $trim || $clear_all || isset( $non_persistent_groups[$group] ) ) $shm_cache->clear();
+			if ( $trim || ! ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) ) $data = $shm_cache->get();
+			if ( $trim ) $shm_cache->clear();
 			if ( $data !== false ) {
 				if ( $trim ) $shm_cache->put( $data );
 				$bytes = strlen( addcslashes( $data, "\0\\" ) ) + 6;  // 5 bytes header + terminating null
@@ -536,13 +553,13 @@ else {
 				echo "<td" . ( $group != ".expires" && $expires_count != $count ? " class='error'" : "" ) . ">" . ( $group != ".expires" ? $expires_count : "N/A" ) . "</td>";
 				echo "<td>" . $bytes . "</td><td>" . human_size( $bytes ) . "</td><td>" . $shm_cache->get_size() . "</td><td>" . human_size( $shm_cache->get_size() ) . "</td>";
 				$bytes_allocated_sum +=  $shm_cache->get_size();
-				$used = $bytes / $shm_cache->get_size();
+				$used = $shm_cache->get_size() ? $bytes / $shm_cache->get_size() : 0;
 				$r = 102 * ( 2 - $used );
 				$g = min( 144 * ( .5 + $used ), 204 );
 				echo "<td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td>";
 				//if ( in_array( $group, array( 'themes', 'post_format_relationships', 'bp_member_member_type' ) ) ) var_dump( $data );
 				echo "<td>" . date( 'Y-m-d H:i:s', $groups[$group][1] ) . ", " . fh_human_time_diff( $groups[$group][1] ) . "</td>";
-				echo "<td>" . ( $admin ? "<a href='" . $_SERVER['REQUEST_URI'] . "?get=$group' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['REQUEST_URI'] . "?get=$group&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
+				echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=$group' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=$group&amp;json' title='Dump cache contents as JSON'>JSON</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?clear=$group' title='Clear cache contents' onclick='return submit( this )' data-action='clear' data-value='$group'>Clear</a>" : "" ) . "</td>";
 			}
 			else {
 				if ( $clear_corrupt ) {
@@ -561,12 +578,16 @@ else {
 		echo "</tr>\n";
 		$n ++;
 	}
+
+	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) $GLOBALS['wp_object_cache']->release_lock();
+
 	//echo "<pre>";
 	//print_r($expires);
 	//echo "</pre>";
 ?>
 </tbody>
 </table>
+</form>
 <?php
 
 	$used = $bytes_allocated_sum ? $bytes_sum / $bytes_allocated_sum : 0;
@@ -582,7 +603,7 @@ else {
 }
 
 ?>
-<form action="<?php echo $_SERVER['REQUEST_URI']; ?>" method="post">
+<form id="cp" action="<?php echo $_SERVER['SCRIPT_NAME']; ?>" method="post">
 <p>
 <?php
 	if ( function_exists( 'shmop_open' ) && $admin && ! $dump ) {
