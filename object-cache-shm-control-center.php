@@ -504,6 +504,7 @@ else {
 	$n = 1;
 	$expires = array();
 	$corrupt = 0;
+	$total_entries_count = 0;
 	foreach ( $groups as $group => $proj_id_mtime ) {
 		$shm_cache = new SHM_Cache( $group );
 		$exists = $shm_cache->open();
@@ -522,6 +523,7 @@ else {
 				echo "<td>";
 				if ( is_array( $entries ) ) {
 					$count = count( $entries );
+					$total_entries_count += $count;
 					echo $count;
 					if ( $group == ".expires" ) $expires = $entries;
 				}
@@ -571,7 +573,7 @@ else {
 	$r = 102 * ( 2 - $used );
 	$g = min( 153 * ( .5 + $used ), 204 );
 	
-	echo "<p>" . human_size( $bytes_sum ) . " used (<span style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated</p>\n";
+	echo "<p>" . $total_entries_count . " entries using " . human_size( $bytes_sum ) . " (<span style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated</p>\n";
 
 	echo "<p>Groups to (proj_id, mtime) mapping modified? " . ( SHM_Cache::get_groups_persist() ? "Yes" : "No" ) . "</p>\n";
 
