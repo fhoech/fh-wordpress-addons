@@ -707,6 +707,7 @@ class WP_Object_Cache {
 	private $expiration_time = 0;
 	private $shm_enable = false;
 	private $shm = array();
+	public $cache_writes = 0;
 	/* File-based object cache end */
 
 	/**
@@ -1268,6 +1269,7 @@ class WP_Object_Cache {
 		$this->cache[$group][$key] = $data;
 		/* File-based object cache start */
 		if ($this->debug) $time_start = microtime(true);
+		$this->cache_writes ++;
 		if (!$expire) $expire = $this->expiration_time;
 		if ($expire) $this->expires[$group][$key] = $this->now + $expire;
 		unset($this->deleted[$group][$key]);
@@ -1341,6 +1343,7 @@ class WP_Object_Cache {
 			echo '</table>';
 		}
 		echo "<p>";
+		echo "<strong>Cache Writes:</strong> {$this->cache_writes}<br />";
 		echo "<strong>Cache Persists:</strong> {$this->actual_persists} ({$this->persists} calls)<br />";
 		echo "<strong>Cache Flushes:</strong> {$this->flushes}<br />";
 		echo "<strong>Cache Resets (deprecated):</strong> {$this->resets}";
