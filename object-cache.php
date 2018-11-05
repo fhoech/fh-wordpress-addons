@@ -285,27 +285,7 @@ class SHM_Cache {
 
 		SHM_Cache::_init_groups( $group );
 
-		if ( array_key_exists( $group, SHM_Cache::$groups ) &&
-			 is_array( SHM_Cache::$groups[$group] ) )
-			$i = SHM_Cache::$groups[$group][0];
-		else {
-			// Update groups to (proj_id, mtime) mapping
-
-			if ( empty( SHM_Cache::$groups ) ) $i = 1;
-			else {
-				$proj_ids = array_values( SHM_Cache::$groups );
-				sort( $proj_ids );
-				$i = array_pop( $proj_ids )[0] + 1;
-				if ( $i > 255 ) return;
-			}
-
-			SHM_Cache::$groups[$group] = array( $i, time() );
-
-			SHM_Cache::$groups_persist = true;
-			//SHM_Cache::_persist_groups();
-		}
-
-		$this->id = ftok( __FILE__, chr( $i ) );
+		$this->id = SHM_Cache::_get_id( $group );
 	}
 
 	public function __destruct() {
@@ -341,6 +321,42 @@ class SHM_Cache {
 		return SHM_Cache::$groups_id;
 	}
 
+	private static function _get_id( $group, $reallocate = false ) {
+		if ( ! $reallocate && array_key_exists( $group, SHM_Cache::$groups ) &&
+			 is_array( SHM_Cache::$groups[$group] ) )
+			$i = SHM_Cache::$groups[$group][0];
+		else {
+			// Update groups to (proj_id, mtime) mapping
+
+			if ( empty( SHM_Cache::$groups ) ) $i = 1;
+			else {
+				$proj_ids = array_values( SHM_Cache::$groups );
+				sort( $proj_ids );
+				$i = array_pop( $proj_ids )[0] + 1;
+				//if ( $reallocate && $i > 255 ) {
+					//$i = 1;
+					//while ( $i < 256 ) {
+						//$id = ftok( __FILE__, chr( $i ) );
+						//$shm_id = SHM_Cache::_open( $id, 'a' );
+						//SHM_Cache::_close( $shm_id );
+						//if ( ! $shm_id ) break;
+						//$i ++;
+					//}
+				//}
+				if ( $i > 255 ) return;
+			}
+
+			SHM_Cache::$groups[$group] = array( $i, time() );
+
+			SHM_Cache::$groups_persist = true;
+			//SHM_Cache::_persist_groups();
+		}
+
+		if ( ! isset( $id ) ) $id = ftok( __FILE__, chr( $i ) );
+
+		return $id;
+	}
+
 	private static function _open_groups() {
 		$id = SHM_Cache::_get_groups_id();
 		$shm_id = SHM_Cache::$groups_shm_id = SHM_Cache::_open( $id, "w", 0, 0, SHM_Cache::$groups_shm_id );
@@ -353,8 +369,14 @@ class SHM_Cache {
 		if ( ! SHM_Cache::$groups_persist ) return;
 		$id = SHM_Cache::_get_groups_id();
 		$data = serialize( SHM_Cache::$groups );
-		list( $bytes_written, $deleted, $shm_id ) = SHM_Cache::_write( SHM_Cache::$groups_shm_id, $data, SHM_Cache::$groups_size, $id );
-		if ( $shm_id != SHM_Cache::$groups_shm_id ) SHM_Cache::$groups_shm_id = $shm_id;
+		list( $bytes_written, $deleted, $shm_id, $new_id ) = SHM_Cache::_write( SHM_Cache::$groups_shm_id, $data, SHM_Cache::$groups_size, $id );
+		if ( $shm_id != SHM_Cache::$groups_shm_id ) {
+			file_put_contents( __DIR__ . '/.SHM_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Reallocated SHM " . SHM_Cache::$groups_shm_id . " -> $shm_id (key " . SHM_Cache::get_groups_id( true ) . ") for groups to (proj_id, mtime) mapping: " . SHM_Cache::$groups_size . " -> $bytes_written bytes\n",
+							   FILE_APPEND );
+			SHM_Cache::$groups_shm_id = $shm_id;
+		}
 		if ( ! $bytes_written ) {
 			if ( $deleted ) SHM_Cache::$groups_size = 0;
 			if ( SHM_Cache::$debug ) {
@@ -368,10 +390,10 @@ class SHM_Cache {
 			return;
 		}
 		if ( $bytes_written > SHM_Cache::$groups_size ) {
-			file_put_contents( __DIR__ . '/.SHM_Cache.log',
-							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Reallocated SHM $shm_id (key " . SHM_Cache::get_groups_id( true ) . ") for groups to (proj_id, mtime) mapping: " . SHM_Cache::$groups_size . " -> $bytes_written bytes\n",
-							   FILE_APPEND );
+			//file_put_contents( __DIR__ . '/.SHM_Cache.log',
+							   //date( 'Y-m-d H:i:s,v' ) .
+							   //" SHM_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Reallocated SHM $shm_id (key " . SHM_Cache::get_groups_id( true ) . ") for groups to (proj_id, mtime) mapping: " . SHM_Cache::$groups_size . " -> $bytes_written bytes\n",
+							   //FILE_APPEND );
 			SHM_Cache::$groups_size = $bytes_written;
 		}
 	}
@@ -435,7 +457,7 @@ class SHM_Cache {
 		return $data;
 	}
 
-	public static function _write( $shm_id, $data, $shm_size = 0, $id = null ) {
+	public static function _write( $shm_id, $data, $shm_size = 0, $id = null, $group = null ) {
 		// Write string to SHM segment. String will be automatically null-terminated.
 		// Return array( <bytes written>, <resized>, <SHM ID> )
 		// If <resized> is true, segment was successfully resized and SHM ID has changed
@@ -448,15 +470,16 @@ class SHM_Cache {
 		if ( ( $shm_id === false || $shm_size_new > $shm_size || ! $size ) && $id !== null ) {
 			// Delete SHM segment if size is zero or larger than existing segment
 			$deleted = SHM_Cache::_delete( $shm_id );
+			//if ( $deleted && $group !== null ) $id = SHM_Cache::_get_id( $group, true );
 			// If new size is zero, we are done here
-			if ( ! $size ) return array( 0, $deleted, $shm_id );
-			// Re-create SHM segment with new size + 1 (null-terminated)
+			if ( ! $size ) return array( 0, $deleted, $shm_id, $id );
+			// Re-create SHM segment with new size
 			$shm_id = SHM_Cache::_open( $id, "n", 0600, $shm_size_new );
-			if ( $shm_id === false ) return array( false, $deleted, $shm_id );
+			if ( $shm_id === false ) return array( false, $deleted, $shm_id, $id );
 		}
 		else $deleted = null;
 		$bytes_written = shmop_write( $shm_id, $data . "\0", 0 );
-		return array( $bytes_written, $deleted, $shm_id );
+		return array( $bytes_written, $deleted, $shm_id, $id );
 	}
 
 	public static function _delete( $shm_id ) {
@@ -497,7 +520,14 @@ class SHM_Cache {
 		if ( $this->shm_id === false ) {
 			$this->open();  // Also sets $this->size if the SHM segment exists so we can check whether we need to re-create the segment
 		}
-		list( $bytes_written, $deleted, $shm_id ) = SHM_Cache::_write( $this->shm_id, $data, $this->size, $this->id );
+		list( $bytes_written, $deleted, $shm_id, $id ) = SHM_Cache::_write( $this->shm_id, $data, $this->size, $this->id, $this->group );
+		if ( $id != $this->id ) {
+			file_put_contents( __DIR__ . '/.SHM_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Reallocated SHM $this->shm_id -> $shm_id (key " . $this->get_id( true ) . " -> " . SHM_Cache::format_id( $id, true ) . ") for group '$this->group': $this->size -> $bytes_written bytes\n",
+							   FILE_APPEND );
+			$this->id = $id;
+		}
 		if ( $shm_id != $this->shm_id ) $this->shm_id = $shm_id;
 		if ( ! $bytes_written ) {
 			if ( $deleted ) $this->size = 0;
