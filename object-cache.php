@@ -959,12 +959,12 @@ class WP_Object_Cache {
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
 
-		foreach ($this->shm as $group => $shm) $shm->clear();
-
 		if ( ! $this->acquire_lock() ) {
 			if ($this->debug) $this->time_total += microtime(true) - $time_start;
 			return false;
 		}
+
+		foreach ($this->shm as $group => $shm) $shm->clear();
 
 		$dh = @ opendir($this->cache_dir);
 		if (!$dh) {
