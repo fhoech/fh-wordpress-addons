@@ -989,40 +989,6 @@ class WP_Object_Cache {
 		return true;
 	}
 
-	/* File-based object cache start */
-
-	/**
-	 * Retrieves the group contents, if it exists
-	 *
-	 * @param string $group Where the cache contents are grouped
-	 * @return mixed Group contents on success
-	 */
-	private function _get_group( $group = 'default' ) {
-		if ( $this->shm_enable ) {
-			if ($this->debug) $time_shm_read_start = microtime(true);
-			if ( ! isset( $this->shm[$group] ) ) $this->shm[$group] = new SHM_Cache( $group );
-			$data = $this->shm[$group]->get();
-			if ($this->debug) $this->time_shm_read += microtime(true) - $time_shm_read_start;
-			if ( $data !== false ) return $data;
-		}
-		if ($this->debug) $time_disk_read_start = microtime(true);
-		$cache_file = $this->cache_dir.$group.'.php';
-		$data = @ file_get_contents($cache_file);
-		if ($this->debug) $this->time_disk_read += microtime(true) - $time_disk_read_start;
-		return substr($data, strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER));
-	}
-
-	private function _mtime( $group = 'default' ) {
-		if ( $this->shm_enable ) {
-			if ( ! isset( $this->shm[$group] ) ) $this->shm[$group] = new SHM_Cache( $group );
-			return $this->shm[$group]->mtime();
-		}
-		$cache_file = $this->cache_dir.$group.'.php';
-		return filemtime($cache_file);
-	}
-
-	/* File-based object cache end */
-
 	/**
 	 * Retrieves the cache contents, if it exists
 	 *
@@ -1044,7 +1010,9 @@ class WP_Object_Cache {
 		if ( empty( $group ) )
 			$group = 'default';
 
+		/* File-based object cache start */
 		$id = $key;
+		/* File-based object cache end */
 		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
 			$key = $this->blog_prefix . $key;
 
@@ -1085,7 +1053,7 @@ class WP_Object_Cache {
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
 
-		if ( $this->_exists( $key, $group ) && ! $this->_expire( $key, $group ) ) {
+		if ( $this->_exists( $key, $group )/* File-based object cache start */ && ! $this->_expire( $key, $group ) /* File-based object cache end */) {
 			$found = true;
 			$this->cache_hits += 1;
 			/* File-based object cache start */
@@ -1128,6 +1096,40 @@ class WP_Object_Cache {
 		$this->cache_misses += 1;
 		return false;
 	}
+
+	/* File-based object cache start */
+
+	/**
+	 * Retrieves the group contents, if it exists
+	 *
+	 * @param string $group Where the cache contents are grouped
+	 * @return mixed Group contents on success
+	 */
+	private function _get_group( $group = 'default' ) {
+		if ( $this->shm_enable ) {
+			if ($this->debug) $time_shm_read_start = microtime(true);
+			if ( ! isset( $this->shm[$group] ) ) $this->shm[$group] = new SHM_Cache( $group );
+			$data = $this->shm[$group]->get();
+			if ($this->debug) $this->time_shm_read += microtime(true) - $time_shm_read_start;
+			if ( $data !== false ) return $data;
+		}
+		if ($this->debug) $time_disk_read_start = microtime(true);
+		$cache_file = $this->cache_dir.$group.'.php';
+		$data = @ file_get_contents($cache_file);
+		if ($this->debug) $this->time_disk_read += microtime(true) - $time_disk_read_start;
+		return substr($data, strlen(CACHE_SERIAL_HEADER), -strlen(CACHE_SERIAL_FOOTER));
+	}
+
+	private function _mtime( $group = 'default' ) {
+		if ( $this->shm_enable ) {
+			if ( ! isset( $this->shm[$group] ) ) $this->shm[$group] = new SHM_Cache( $group );
+			return $this->shm[$group]->mtime();
+		}
+		$cache_file = $this->cache_dir.$group.'.php';
+		return filemtime($cache_file);
+	}
+
+	/* File-based object cache end */
 
 	/**
 	 * Increment numeric cache item's value
@@ -1220,7 +1222,9 @@ class WP_Object_Cache {
 			}
 		}
 
+		/* File-based object cache start */
 		$this->resets += 1;
+		/* File-based object cache end */
 	}
 
 	/**
@@ -1399,8 +1403,8 @@ class WP_Object_Cache {
 	protected function _exists( $key, $group, $cache = null ) {
 		/* File-based object cache start */
 		if ($cache === null) $cache = &$this->cache;
-		return isset( $cache[ $group ] ) && ( isset( $cache[ $group ][ $key ] ) || array_key_exists( $key, $cache[ $group ] ) );
 		/* File-based object cache end */
+		return isset( $cache[ $group ] ) && ( isset( $cache[ $group ][ $key ] ) || array_key_exists( $key, $cache[ $group ] ) );
 	}
 
 	/* File-based object cache start */
