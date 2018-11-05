@@ -152,30 +152,44 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 
 			var start = <?php echo $start; ?>,
 				end = <?php echo $end; ?>,
-				f = ( hours - start ) / ( ( end - start ) / 2 );
+				f = ( hours - start ) / ( ( end - start ) / 2 ),
+				sun = document.getElementById( 'sun' );
 
 			if ( f > 1 ) f = 1 - ( f - 1 );
 			if ( f < 0 ) f = 0;
 			f = Math.sin( f * Math.PI / 2 );
 
 			document.body.style.backgroundPosition = '0 ' + ( 100 * f ) + '%';
-			var c = hours < start * 2 || hours > end - 1 ? 0xcc : 0;
-			document.body.style.color = 'rgb(' + c + ', ' + c + ', ' + c + ')';
-			document.getElementById( 'sun' ).style.top = -( 100 * f ) + ( 150 * ( 1 - f ) ) + '%';
-
-			var buttons = document.getElementsByTagName( 'button' ),
-				c = hours < start * 2 || hours > end - 1 ? 255 : 0;
-			for ( var i = 0; i < buttons.length; i ++ ) {
-				buttons[i].style.color = 'rgb(' + c + ', ' + c + ', ' + c + ')';
-			}
+			sun.style.top = -( 100 * f ) + ( 150 * ( 1 - f ) ) + '%';
 			
 		}
 
 		setInterval( update_day_night_cycle, 10000 );
 
+		setInterval( function () {
+
+			var sun = document.getElementById( 'sun' ),
+				buttons = document.getElementsByTagName( 'button' ),
+				day = sun.offsetTop < document.body.clientHeight;
+
+			var c = day ? 0 : 0xcc;
+			document.body.style.color = 'rgb(' + c + ', ' + c + ', ' + c + ')';
+
+			var c = day ? 0 : 255;
+			for ( var i = 0; i < buttons.length; i ++ ) {
+				buttons[i].style.color = 'rgb(' + c + ', ' + c + ', ' + c + ')';
+			}
+	
+		}, 1000 );
+
 		var three_state = [];
 
 		function toggle_day_night_cycle() {
+
+			if (toggle_day_night_cycle._reset_transition_timeout) {
+				clearTimeout(toggle_day_night_cycle._reset_transition_timeout);
+				toggle_day_night_cycle._reset_transition_timeout = undefined;
+			}
 
 			var date = new Date(),
 				hours = date.getHours() + date.getMinutes() / 60,
@@ -197,26 +211,20 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			three_state.unshift( cls );
 
 			document.body.style.transitionTimingFunction = 'ease, ease';
-			document.body.style.transitionDuration = '3s, 1s';
-			document.body.style.transitionDelay = '0s, ' + ( cls == 'day' ? '0s' : '1s' );
+			document.body.style.transitionDuration = '30s, 1s';
 			document.getElementById( 'sun' ).style.transitionTimingFunction = 'ease, ease, ease, ease';
-			document.getElementById( 'sun' ).style.transitionDuration = '3s, 3s, 3s, 3s';
-
-			var buttons = document.getElementsByTagName( 'button' );
-			for ( var i = 0; i < buttons.length; i ++ )
-				buttons[i].style.transitionDelay = cls == 'day' ? '0s' : '1s';
+			document.getElementById( 'sun' ).style.transitionDuration = '30s, 30s, 30s, 30s';
 
 			document.body.className = cls;
 
 			document.getElementById( 'toggle' ).innerHTML = 'Day/night mode: ' + ( cls == '' ? 'Auto' : cls[0].toUpperCase() + cls.slice(1) );
 
-			setTimeout( function () {
+			toggle_day_night_cycle._reset_transition_timeout = setTimeout( function () {
 				document.body.style.transitionTimingFunction = 'linear, ease';
 				document.body.style.transitionDuration = '10s, 1s';
-				document.body.style.transitionDelay = '0s, 0s';
 				document.getElementById( 'sun' ).style.transitionTimingFunction = 'linear, linear, linear, linear';
 				document.getElementById( 'sun' ).style.transitionDuration = '10s, 10s, 10s, 10s';
-			}, 3000 );
+			}, 30000 );
 
 		}
 
@@ -235,6 +243,12 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			return false;
 		}
 
+		function toggle_stats() {
+			var main = document.getElementsByTagName( 'main' )[0];
+			if ( main.className == 'hidden' ) main.className = '';
+			else main.className = 'hidden';
+		}
+
 	</script>
 	<style>
 		html, body {
@@ -246,7 +260,7 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			background: linear-gradient(to top, #fff 0%, #fff 8%, #ffefcf 40%, #c68666 72.5%, #282c30 90%, #080a0c 100%);
 			background-position: 0 <?php echo ( 100 * $f ); ?>%;
 			background-size: 100% 1600%;
-			color: <?php echo $hours < $start * 2 || $hours > $end - 1 ? '#ccc' : '#000'; ?>;
+			color: <?php echo $hours < $start + 1 || $hours > $end - 1 ? '#ccc' : '#000'; ?>;
 			font-family: monospace;
 			margin: 0 auto;
 			position: relative;
@@ -257,12 +271,6 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 		}
 		body.night {
 			background-position: 0 0% !important;
-		}
-		body.day {
-			color: #000 !important;
-		}
-		body.night {
-			color: #ccc !important;
 		}
 		a {
 			color: inherit;
@@ -285,13 +293,18 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			right: 0;
 			top: 0;
 			z-index: 1;
+			transition: opacity ease 1s;
+		}
+		.hidden {
+			opacity: 0;
+			pointer-events: none;
 		}
 		#cp {
-			background: inherit;
 			bottom: 0;
 			position: fixed;
 			padding: 0 1em;
 			right: 1em;
+			z-index: 9999;
 		}
 		#cp p {
 			text-align: right;
@@ -313,9 +326,11 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			top: -100% !important;
 		}
 		body.night #sun {
-			/* background: #f90;
-			box-shadow: 0 0 320px 160px #f90; */
 			top: 150% !important;
+		}
+		#sun.set {
+			background: #f90;
+			box-shadow: 0 0 320px 160px #f90;
 		}
 		table {
 			border-collapse: collapse;
@@ -350,18 +365,10 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 			background: rgba(128, 128, 128, .4);
 			border: 0;
 			border-radius: 0;
-			color: <?php echo $hours < $start * 2 || $hours > $end - 1 ? '#fff' : '#000'; ?>;
+			color: <?php echo $hours < $start + 1 || $hours > $end - 1 ? '#fff' : '#000'; ?>;
 			opacity: .796875;
 			padding: 8px 16px;
 			transition: color ease 1s;
-		}
-		body.day button,
-		body.day input[type="button"] {
-			color: #000 !important;
-		}
-		body.night button,
-		body.night input[type="button"] {
-			color: #fff !important;
 		}
 		button[name="clear_all"] {
 			background: rgba(255, 0, 0, .4);
@@ -379,7 +386,7 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 		}
 	</style>
 </head>
-<body data-class="<?php echo intval( date( 'H' ) ) > $start && intval( date( 'H' ) ) < $end ? 'day' : 'night'; ?>">
+<body>
 <main>
 <?php
 
@@ -603,6 +610,7 @@ else {
 }
 
 ?>
+</main>
 <form id="cp" action="<?php echo $_SERVER['SCRIPT_NAME']; ?>" method="post">
 <p>
 <?php
@@ -616,9 +624,9 @@ else {
 	}
 ?>
 	<button type="button" id="toggle" onclick="toggle_day_night_cycle()">Day/night mode: Auto</button>
+	<button type="button" onclick="toggle_stats()">Toggle stats</button>
 </p>
 </form>
-</main>
 <div id="sun"></div>
 </body>
 </html>
