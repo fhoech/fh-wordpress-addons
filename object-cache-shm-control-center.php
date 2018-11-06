@@ -404,7 +404,19 @@ else if ( $dump ) {
 	
 	$groups = SHM_Cache::get_groups();
 
-	if ( isset( $groups[$group] ) ) {
+	if ( $group == '.groups' ) {
+		if ( isset( $_REQUEST['json'] ) ) {
+			header( 'Content-Type: application/json' );
+			echo json_encode( $groups );
+			die();
+		}
+		else {
+			echo "<pre>";
+			echo htmlspecialchars( var_export( $groups, true ), ENT_COMPAT, 'UTF-8' );
+			echo "</pre>";
+		}
+	}
+	else if ( isset( $groups[$group] ) ) {
 		$shm_cache = new SHM_Cache( $group );
 		$data = $shm_cache->get();
 		if ( $data !== false ) {
@@ -461,7 +473,7 @@ else {
 <input type="hidden">
 <table>
 <thead>
-<tr><th>#</th><th>Group</th><th>Project ID</th><th>SHM key</th><th>Resource ID</th><th>Entries</th><th>.expires entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>% used</th><th>Last modified</th><th><?php if ( $admin ) { ?>Admin<?php } ?></th></tr>
+<tr><th>#</th><th>Group</th><th>Project ID</th><th>SHM key</th><th>Resource ID</th><th>Entries</th><th>.expires entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>Max entry size</th><th>% used</th><th>Last modified</th><th><?php if ( $admin ) { ?>Admin<?php } ?></th></tr>
 </thead>
 <tbody>
 <?php
@@ -476,7 +488,9 @@ else {
 										   'message_meta' => true);
 
 	// Init cache
+	$time_groups_get_start = microtime( true );
 	$groups = SHM_Cache::get_groups();
+	$time_groups_get = microtime( true ) - $time_groups_get_start;
 
 	$persistent_groups = array();
 	foreach ( $groups as $group => $proj_id_mtime ) {
@@ -520,7 +534,9 @@ else {
 	$r = 102 * ( 2 - $used );
 	$g = min( 153 * ( .5 + $used ), 204 );
 
-	echo "<tr><td>0</td><td>Groups to (proj_id, mtime) mapping</td><td>0</td><td>" . SHM_Cache::get_groups_id( true ) . "</td><td>" . SHM_Cache::get_groups_shm_id() . "</td><td>" . count( $groups ) . "</td><td>N/A</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td><td></td></tr>";
+	echo "<tr><td>0</td><td>Groups to (proj_id, mtime) mapping</td><td>0</td><td>" . SHM_Cache::get_groups_id( true ) . "</td><td>" . substr( strval( SHM_Cache::get_groups_shm_id() ), 13 ) . "</td><td>" . count( $groups ) . " (" . round( $time_entry_unserialize, 3 ) . "s)</td><td>N/A</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td></td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
+	echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
+	echo "</tr>";
 
 	$bytes_sum = $groups_bytes;
 	$bytes_allocated_sum = $groups_bytes_allocated;
@@ -528,6 +544,7 @@ else {
 	$expires = array();
 	$corrupt = 0;
 	$total_entries_count = 0;
+	$keys = array();
 	foreach ( $groups as $group => $proj_id_mtime ) {
 		$shm_cache = new SHM_Cache( $group );
 		if ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) $shm_cache->clear();
@@ -536,20 +553,33 @@ else {
 		echo "<td>$n</td><td>$group</td><td>" . $groups[$group][0] . "</td><td>" . ( $exists ? $shm_cache->get_id( true ) : "Not allocated" ) . "</td>";
 		$expires_count = isset( $expires[$group] ) ? count( $expires[$group] ) : 0;
 		if ( $exists ) {
-			echo "<td>" . $shm_cache->get_shm_id() . "</td>";
+			echo "<td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td>";
 			if ( $trim || ! ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) ) $data = $shm_cache->get();
 			if ( $trim ) $shm_cache->clear();
 			if ( $data !== false ) {
 				if ( $trim ) $shm_cache->put( $data );
 				$bytes = strlen( addcslashes( $data, "\0\\" ) ) + 6;  // 5 bytes header + terminating null
 				$bytes_sum += $bytes;
+				$time_entry_unserialize_start = microtime( true );
 				$entries = unserialize( $data );
+				$time_entry_unserialize = microtime( true ) - $time_entry_unserialize_start;
 				echo "<td>";
+				$entry_max_size_key = '';
+				$entry_max_size = 0;
 				if ( is_array( $entries ) ) {
 					$count = count( $entries );
 					$total_entries_count += $count;
-					echo $count;
+					echo $count . " (" . round( $time_entry_unserialize, 3 ) . "s)";
 					if ( $group == ".expires" ) $expires = $entries;
+					// Find largest key
+					foreach ( $entries as $key => $entry ) {
+						$keys[] = $group . ':' . $key;
+						$entry_size = strlen( serialize( $entry ) );
+						if ( $entry_size > $entry_max_size ) {
+							$entry_max_size_key = $key;
+							$entry_max_size = $entry_size;
+						}
+					}
 				}
 				else if ( $entries !== false ) echo "Unexpected data type: " . gettype( $data );
 				else {
@@ -558,7 +588,7 @@ else {
 				}
 				echo "</td>";
 				echo "<td" . ( $group != ".expires" && $expires_count != $count ? " class='error'" : "" ) . ">" . ( $group != ".expires" ? $expires_count : "N/A" ) . "</td>";
-				echo "<td>" . $bytes . "</td><td>" . human_size( $bytes ) . "</td><td>" . $shm_cache->get_size() . "</td><td>" . human_size( $shm_cache->get_size() ) . "</td>";
+				echo "<td>" . $bytes . "</td><td>" . human_size( $bytes ) . "</td><td>" . $shm_cache->get_size() . "</td><td>" . human_size( $shm_cache->get_size() ) . "</td><td>" . human_size( $entry_max_size ) . "</td>";
 				$bytes_allocated_sum +=  $shm_cache->get_size();
 				$used = $shm_cache->get_size() ? $bytes / $shm_cache->get_size() : 0;
 				$r = 102 * ( 2 - $used );
@@ -571,16 +601,16 @@ else {
 			else {
 				if ( $clear_corrupt ) {
 					$shm_cache->clear();
-					echo "<td colspan='9' class='error'>Discarded</td>";
+					echo "<td colspan='10' class='error'>Discarded</td>";
 				}
-				else echo "<td colspan='9' class='error'>ERROR reading shared memory</td>";
+				else echo "<td colspan='10' class='error'>ERROR reading shared memory</td>";
 				$corrupt ++;
 			}
 		}
 		else {
 			echo "<td colspan='2'></td>";
 			echo "<td>" . ( $group != ".expires" ? $expires_count : "N/A" ) . "</td>";
-			echo "<td colspan='7'></td>";
+			echo "<td colspan='8'></td>";
 		}
 		echo "</tr>\n";
 		$n ++;
