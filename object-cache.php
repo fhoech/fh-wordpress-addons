@@ -1976,8 +1976,10 @@ class WP_Object_Cache {
 		if ($this->ajax) $this->_log("DOING_AJAX");
 		if ($this->cron) $this->_log("DOING_CRON");
 
-		if ( $this->shm_enable === 2 )
+		if ( $this->shm_enable === 2 ) {
 			$this->shm = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
+			$this->non_persistent_groups = array();
+		}
 		else {
 			$this->_set_expires();
 
