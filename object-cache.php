@@ -631,6 +631,438 @@ class SHM_Cache {
 
 }
 
+class SHM_SYSV_Cache {
+
+	private $id;
+	private $res = false;
+	private $expires = array();
+	private $mtimes = array();
+
+	public function __construct( $size = 16 * 1024 * 1024 ) {
+		$this->id = ftok( __FILE__, "\xff" );
+		if ( ! $this->res = @ shm_attach( $this->id, $size, 0600 ) ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_SYSV_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_SYSV_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't attach SHM segment (key " . $this->id . "): " .
+							   $error['message'] . "\n", FILE_APPEND );
+		}
+	}
+
+	public function __destruct() {
+		if ( $this->res !== false ) shm_detach( $this->res );
+		return true;
+	}
+
+	public function get( $key, $group = 'default' ) {
+		if ( $this->res === false ) return false;
+		$group_key = $this->_get_group_key( $key, $group );
+		$result = shm_get_var( $this->res, $this->_crc32( $group_key ) );
+		if ( $result === false || ! is_array( $result ) || count ( $result ) != 3 ) return false;
+		list( $data, $expire, $mtime ) = $result;
+		$this->expires[ $group_key ] = $expire;
+		$this->mtimes[ $group_key ] = $mtime;
+		return $data;
+	}
+
+	public function set( $key, $data, $group = 'default', $expire = 0 ) {
+		if ( $this->res === false ) return false;
+		$mtime = time();
+		$group_key = $this->_get_group_key( $key, $group );
+		$result = @ shm_put_var( $this->res, $this->_crc32( $group_key ), array( &$data, $expire, $mtime ) );
+		if ( $result === false ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_SYSV_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_SYSV_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't set '$group_key' in SHM segment (key " . $this->id . "): " .
+							   $error['message'] . "\n", FILE_APPEND );
+			return false;
+		}
+		$this->mtimes[ $group_key ] = $mtime;
+		return $result;
+	}
+
+	public function delete( $key, $group = 'default' ) {
+		if ( $this->res === false ) return false;
+		$group_key = $this->_get_group_key( $key, $group );
+		$result = shm_remove_var( $this->res, $this->_crc32( $group_key ) );
+		if ( $result === false ) return false;
+		$this->mtimes[ $group_key ] = time();
+		return $result;
+	}
+
+	private function _get_group_key( $key, $group = 'default' ) {
+		return $group . ':' . $key;
+	}
+
+	private function _crc32( $str ) {
+		return crc32( $str ) & 0xffffffff;
+	}
+
+}
+
+class SHM_Partitioned_Cache {
+
+	private $id;
+	private $res = false;
+	private $size = 0;
+	private $partition = array();
+	private $partition_table = null;
+	private $partition_size = -1;
+	private $data_offset = -1;
+	private $next = -1;
+	private $cache = array();
+	private $expires = array();
+	private $mtime = array();
+	private $now;
+
+	public function __construct( $size = 16 * 1024 * 1024 ) {
+		$this->now = time();
+		$this->id = ftok( __FILE__, "\xff" );
+		if ( ! $this->res = @ shmop_open( $this->id, 'c', 0600, $size ) ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't open SHM segment (key " . $this->get_id( true ) . ", size $size): " .
+							   $error['message'] . "\n", FILE_APPEND );
+		}
+		else {
+			$this->size = shmop_size( $this->res );
+			$this->data_offset = (int) round( $this->size / 8 );
+			// Partition table is in the first 1/8 of total SHM segment size.
+			// Data begins directly after that.
+			$this->read_partition_table();
+		}
+	}
+
+	private function read_partition_table() {
+		// Actual size of partition table is in first four bytes
+		$result = @ shmop_read( $this->res, 0, 4 );
+		if ( $result !== false ) {
+			$this->partition_size = unpack( 'N', $result )[1];
+			$this->partition_table = $this->partition_size ? shmop_read( $this->res, 4, $this->partition_size ) : '';
+			// Get offset and length for last data chunk
+			// (always last 8 bytes in partition table regardless of order)
+			if ( $this->partition_size >= 8 ) {
+				$start = unpack( 'N', substr( $this->partition_table, $this->partition_size - 8, 4 ) )[1];
+				$count = unpack( 'N', substr( $this->partition_table, $this->partition_size - 4, 4 ) )[1];
+			}
+			else {
+				$start = 0;
+				$count = 0;
+			}
+			// Offset for next data chunk
+			if ( ! $start ) $start = $this->data_offset;
+			$this->next = $start + $count;
+		}
+		else {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read partition table from SHM segment (key " . $this->get_id( true ) . "): " .
+							   $error['message'] . "\n", FILE_APPEND );
+		}
+	}
+
+	public function __destruct() {
+		if ( $this->res !== false && shmop_close( $this->res ) !== null ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't close SHM segment (key " . $this->get_id( true ) . "): " .
+							   $error['message'] . "\n", FILE_APPEND );
+		}
+		return true;
+	}
+
+	public function clear() {
+		if ( $this->res === false ) return false;
+
+		if ( ! @ shmop_write( $this->res, "\0\0\0\0", 0 ) ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't set partition table size to zero in SHM segment (key " . $this->get_id( true ) . "): " .
+							   $error['message'] . "\n", FILE_APPEND );
+			return false;
+		}
+
+		$this->partition = array();
+		$this->partition_table = '';
+		$this->partition_size = 0;
+		$this->next = $this->data_offset;
+		$this->cache = array();
+		$this->expires = array();
+		$this->mtime = array();
+
+		return true;
+	}
+
+	public function flush() {
+		return $this->clear();
+	}
+
+	public function defrag() {
+		if ( $this->res === false ) return false;
+
+		$cache = $this->cache;
+		//$expires = $this->expires;
+
+		$this->clear();
+
+		foreach ( $cache as $group => $entries ) {
+			foreach ( $entries as $key => $data ) {
+				list( $value, $expire, $mtime ) = $data;
+				if ( ! $this->set( $key, $value, $group, $expire ) )
+					return false;
+			}
+		}
+
+		return true;
+	}
+
+	public function get( $key, $group = 'default' ) {
+		if ( $this->res === false ) return false;
+
+		//if ( isset( $this->cache[ $group ][ $key ] ) ) return $this->cache[ $group ][ $key ];
+
+		//$this->cache[ $group ][ $key ] = false;
+
+		$group_key = $this->_get_group_key( $key, $group );
+
+		$partition_entry = $this->_get_partition_entry( $group_key );
+		if ( $partition_entry === false ) return false;
+		list( $pos, $start, $count ) = $partition_entry;
+		if ( $start + $count > $this->size ) return false;
+
+		$result = @ shmop_read( $this->res, $start, $count );
+		if ( $result === false ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read '$group_key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start: " .
+							   $error['message'] . ". Deleting.\n", FILE_APPEND );
+			$this->delete( $key, $group );
+			return false;
+		}
+		$result = unserialize( $result );
+		if ( $result === false || ! is_array( $result ) || count ( $result ) != 3 ) return false;
+
+		list( $value, $expire, $mtime ) = $result;
+
+		//$this->cache[ $group ][ $key ] = $result;
+		//$this->expires[ $group ][ $key ] = $expire;
+		if ( ! isset( $this->mtime[ $group ] ) ||
+			 $mtime > $this->mtime[ $group ] )
+			$this->mtime[ $group ] = $mtime;
+
+		return $result;
+	}
+
+	public function set( $key, $value, $group = 'default', $expire = 0 ) {
+		if ( $this->res === false ) return false;
+
+		$group_key = $this->_get_group_key( $key, $group );
+
+		$mtime = time();
+		$data = serialize( array( &$value, $this->now + $expire, $mtime ) );
+		$data_len = strlen( $data );
+
+		$partition_entry = $this->_get_partition_entry( $group_key );
+		if ( $partition_entry !== false ) {
+			// Update existing partition entry
+			list( $pos, $offset, $count ) = $partition_entry;
+			if ( $offset + $count > $this->size ) $count = -1;
+		}
+		else {
+			// Create new partition entry
+			$pos = $this->partition_size;
+			$count = -1;
+		}
+
+		if ( $data_len > $count ) {
+			// Create new partition entry or update existing
+			$offset = $this->next;
+			if ( $offset + $data_len > $this->size ) {
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group_key' ($data_len bytes) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: Allocated space for data exceeded. Flushing cache.\n", FILE_APPEND );
+				$this->flush();
+				return false;
+			}
+			$data_offset_count = pack( 'N', $offset ) . pack( 'N', $data_len );
+			$partition_size = $this->partition_size;
+			if ( $pos == $this->partition_size ) {
+				// This is a new partition entry, need to increase partition size
+				$partition_size += strlen( $group_key ) + 16;
+				if ( $partition_size >= $this->data_offset ) {
+					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+									   date( 'Y-m-d H:i:s,v' ) .
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write partition table entry for '$group_key' to SHM segment (key " . $this->get_id( true ) . "): Allocated space for partition table exceeded. Flushing cache.\n", FILE_APPEND );
+					$this->flush();
+					return false;
+				}
+			}
+			$this->next += $data_len;
+			if ( ! @ shmop_write( $this->res, $group_key . $data_offset_count, 4 + $pos ) ||
+				 ! @ shmop_write( $this->res, $data_offset_count, 4 + $partition_size - 8 ) ) {
+				$error = error_get_last();
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write partition table entry for '$group_key' to SHM segment (key " . $this->get_id( true ) . "): " .
+								   $error['message'] . "\n", FILE_APPEND );
+				return false;
+			}
+			$this->partition[ $group_key ] = array( $pos, $offset, $data_len );
+			if ( $pos == $this->partition_size ) {
+				// This is a new partition entry, need to update partition size
+				$this->partition_size = $partition_size;
+				if ( ! @ shmop_write( $this->res, pack( 'N', $partition_size ), 0 ) ) {
+					$error = error_get_last();
+					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+									   date( 'Y-m-d H:i:s,v' ) .
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't increase partition table size for '$group_key' in SHM segment (key " . $this->get_id( true ) . "): " .
+									   $error['message'] . "\n", FILE_APPEND );
+					return false;
+				}
+			}
+		}
+
+		$bytes_written = @ shmop_write( $this->res, $data, $offset );
+		if ( $bytes_written === false ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group_key' ($data_len bytes) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: " .
+							   $error['message'] . "\n", FILE_APPEND );
+			return false;
+		}
+
+		$this->mtime[ $group ] = $mtime;
+
+		return $bytes_written !== false;
+	}
+
+	public function delete( $key, $group = 'default' ) {
+		if ( $this->res === false ) return false;
+
+		$group_key = $this->_get_group_key( $key, $group );
+
+		$partition_entry = $this->_get_partition_entry( $group_key );
+		if ( $partition_entry === false ) return false;
+		list( $pos, $offset, $count ) = $partition_entry;
+
+		if ( ! @ shmop_write( $this->res, "\0\0\0\0", 4 + $pos + strlen( $group_key ) + 4 ) ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't truncate partition table entry for '$group_key' in SHM segment (key " . $this->get_id( true ) . "): " .
+							   $error['message'] . "\n", FILE_APPEND );
+			return false;
+		}
+
+		$this->partition[ $group_key ] = false;
+		//unset( $this->cache[ $group ][ $key ] );
+		//unset( $this->expires[ $group ][ $key ] );
+		$this->mtime[ $group ] = time();
+
+		return true;
+	}
+
+	public function get_size() {
+		return $this->size;
+	}
+
+	public function get_groups() {
+		$groups = array();
+
+		if ( $this->res !== false ) {
+			
+		}
+
+		return $groups;
+	}
+
+	public function get_id( $hex = false ) {
+		return SHM_Cache::format_id( $this->id, $hex );
+	}
+
+	public function get_shm_id( $hex = false ) {
+		return $this->res;
+	}
+
+	public function has_key( $key, $group = 'default', $fetch = true ) {
+		if ( $this->res === false ) return false;
+
+		$group_key = $this->_get_group_key( $key, $group );
+
+		if ( ! $fetch ) return isset( $this->partition[ $group_key ] );
+
+		$partition_entry = $this->_get_partition_entry( $group_key );
+		if ( $partition_entry === false ) return false;
+		list( $pos, $offset, $count ) = $partition_entry;
+
+		return $offset + $count <= $this->size;
+	}
+
+	public function stats() {
+		echo "SHM_Partitioned_Cache stats\n";
+		echo "===========================\n";
+		echo "SHM key: " . $this->get_id( true ) . "\n";
+		echo "Resource: " . $this->res . "\n";
+		echo "Size: " . $this->size . " bytes (" . round( $this->size / 1024, 2 ) . " KiB)\n";
+		echo "\nPartition table\n";
+		echo "---------------\n";
+		echo "Partition table size: " . $this->partition_size . " bytes (" . round( $this->partition_size / 1024, 2 ) . " KiB)\n";
+		echo "Key data offset: " . $this->data_offset . " bytes (" . round( $this->data_offset / 1024, 2 ) . " KiB)\n";
+		echo "Next free key data segment offset: " . $this->next . " bytes (" . round( $this->next / 1024, 2 ) . " KiB)\n";
+		$time_start = microtime( true );
+		$this->read_partition_table();
+		echo "Time to re-read partition table for stats: " . round( microtime( true ) - $time_start, 3 ) . "s\n";
+		$pos = strrpos( $this->partition_table, ':' );
+		if ( $pos !== false ) {
+			echo "Last added key partition table entry offset: " . $pos . " bytes\n";
+			$key_len = $this->partition_size - 16 - $pos - 1;
+			echo "Last added key: " . addcslashes( substr( $this->partition_table, $pos + 1, $key_len ), "\x00..\x19\x7e..\xff" ) . "\n";
+			echo "Last added key data offset: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len, 4 ) )[1] . " bytes\n";
+			echo "Last added key data size: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len + 4, 4 ) )[1] . " bytes\n";
+			echo "Last changed key data offset: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len + 8, 4 ) )[1] . " bytes\n";
+			echo "Last changed key data size: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len + 12, 4 ) )[1] . " bytes\n";
+		}
+		$last_added_partition_entry = end( $this->partition );
+		if ( $last_added_partition_entry !== false ) {
+			echo "\nAccessed partition entries for this request\n";
+			echo "-------------------------------------------\n";
+			list( $pos, $start, $count ) = $last_added_partition_entry;
+			echo "Last added key partition table entry offset: " . $pos . " bytes\n";
+			echo "Last added key: " . key( $this->partition ) . "\n";
+		}
+	}
+
+	private function _get_group_key( $key, $group = 'default' ) {
+		// Concatenate group and key, return the result
+		return $group . ':' . $key;
+	}
+
+	private function _get_partition_entry( $group_key ) {
+		// Return partition entry for group key. May be false if entry does
+		// not exist or has been deleted.
+		if ( isset( $this->partition[ $group_key ] ) ) return $this->partition[ $group_key ];
+		$pos = strpos( $this->partition_table, $group_key );
+		if ( $pos === false ) $partition_entry = false;
+		else {
+			// <group_key (variable length)><start (4 bytes)><count (4 bytes)>
+			$offset = $pos + strlen( $group_key );
+			$start = unpack( 'N', substr( $this->partition_table, $offset, 4 ) )[1];
+			$count = unpack( 'N', substr( $this->partition_table, $offset + 4, 4 ) )[1];
+			$partition_entry = array( $pos, $start, $count );
+		}
+		$this->partition[ $group_key ] = $partition_entry;
+		return $partition_entry;
+	}
+
+}
+
 if ( ! function_exists( 'ftok' ) ) {  // Windows
 
 	function ftok($pathname, $proj_id) {
@@ -684,6 +1116,9 @@ class WP_Object_Cache {
 	private $ajax;
 	private $cron;
 	private $skip;
+	private $file_cache_reads = 0;
+	private $file_cache_misses = 0;
+	private $file_cache_expirations = 0;
 	private $file_cache_hits = 0;
 	private $cache_hits_groups = array();
 	private $file_cache_hits_groups = array();
@@ -894,7 +1329,13 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
+        if ($this->shm_enable === 2) {
+			if ($this->debug) $time_write_start = microtime(true);
+			$this->shm->set( $key, $this->cache[ $group ][ $key ], $group );
+			$this->time_disk_write += microtime(true) - $time_write_start;
+		}
 		$this->dirty_groups[$group] = true;
+		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -934,8 +1375,14 @@ class WP_Object_Cache {
 		unset( $this->cache[$group][$key] );
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
+        if ($this->shm_enable === 2) {
+			if ($this->debug) $time_write_start = microtime(true);
+			$this->shm->delete( $key, $group );
+			$this->time_disk_write += microtime(true) - $time_write_start;
+		}
         $this->deleted[$group][$key] = true;
 		unset( $this->expires[$group][$key] );
+		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
 		$this->cache_deletions += 1;
 		if ($this->debug) {
@@ -965,7 +1412,8 @@ class WP_Object_Cache {
 			return false;
 		}
 
-		foreach ($this->shm as $group => $shm) $shm->clear();
+		if ($this->shm_enable === 2) $this->shm->clear();
+		else foreach ($this->shm as $group => $shm) $shm->clear();
 
 		$dh = @ opendir($this->cache_dir);
 		if (!$dh) {
@@ -1025,8 +1473,40 @@ class WP_Object_Cache {
 			if ($this->_exists( $key, $group ))
 				$this->_log("BEFORE REFETCH: $group.$key = " . json_encode($this->cache[$group][$key], JSON_PRETTY_PRINT));
 		}
-		if ($is_persistent_group && ($force || (!$this->skip && !isset($this->file_cache_groups[$group])))) {
-			if ($this->_group_exists($group)) {
+		if ($is_persistent_group &&
+			($force ||
+			 (!$this->skip &&
+			  ($this->shm_enable === 2 ?
+			   !isset($this->file_cache_groups[$group][$key]) :
+			   !isset($this->file_cache_groups[$group]))))) {
+			$this->file_cache_reads += 1;
+			if ($this->shm_enable === 2) {
+				if ($this->debug) $time_shm_read_start = microtime(true);
+				$result = $this->shm->get($key, $group);
+				if ($this->debug) {
+					$this->time_shm_read += microtime(true) - $time_shm_read_start;
+					$this->time_read = $this->time_shm_read;
+				}
+				if ($result !== false) {
+					list($value, $expire, $mtime) = $result;
+					if ($expire > $this->now) {
+						$this->cache[$group][$key] = $value;
+						$this->expires[$group][$key] = $expire;
+						$this->file_cache_groups[$group][$key] = true;
+						if (!isset($this->mtime[$group]) ||
+							$mtime > $this->mtime[$group]) $this->mtime[$group] = $mtime;
+					}
+					else {
+						$this->file_cache_groups[$group][$key] = false;
+						$this->file_cache_expirations += 1;
+					}
+				}
+				else {
+					$this->file_cache_groups[$group][$key] = false;
+					$this->file_cache_misses += 1;
+				}
+			}
+			else if ($this->_group_exists($group)) {
 				if ($this->debug) $time_read_start = microtime(true);
 				$this->file_cache_groups[$group] = unserialize($this->_get_group($group));
 				if ($this->debug) $this->time_read += microtime(true) - $time_read_start;
@@ -1035,6 +1515,7 @@ class WP_Object_Cache {
 				if (false === $this->file_cache_groups[$group]) {
 					$this->file_cache_errors_groups[$group] = true;
 					$this->file_cache_groups[$group] = array();
+					$this->file_cache_misses += 1;
 				}
 				else {
 					if (!$force && isset($this->deleted[$group])) foreach ($this->deleted[$group] as $deleted => $value) unset($this->file_cache_groups[$group][$deleted]);
@@ -1049,7 +1530,10 @@ class WP_Object_Cache {
 						$this->_log("GET $group.$key\n");
 				}
 			}
-			else $this->file_cache_groups[$group] = array();
+			else {
+				$this->file_cache_groups[$group] = array();
+				$this->file_cache_misses += 1;
+			}
 		}
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -1066,7 +1550,7 @@ class WP_Object_Cache {
 					$this->cache_hits_groups[$group] = 1;
 				else
 					$this->cache_hits_groups[$group] += 1;
-				if ($this->_exists( $key, $group, $this->file_cache_groups )) {
+				if (!empty($this->file_cache_groups[$group][$key])) {
 					$this->file_cache_hits += 1;
 					if (!isset($this->file_cache_hits_groups[$group]))
 						$this->file_cache_hits_groups[$group] = 1;
@@ -1164,7 +1648,13 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
+        if ($this->shm_enable === 2) {
+			if ($this->debug) $time_write_start = microtime(true);
+			$this->shm->set( $key, $this->cache[ $group ][ $key ], $group );
+			$this->time_disk_write += microtime(true) - $time_write_start;
+		}
 		$this->dirty_groups[$group] = true;
+		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -1261,8 +1751,10 @@ class WP_Object_Cache {
 			$is_complex = $exists && ( is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] ) );
 			if (!$exists ||
 				(!$is_complex && $this->cache[$group][$key] != $data) ||
-				($is_complex && serialize($this->cache[$group][$key]) != serialize($data)))
-				$this->dirty_groups[$group] = true;
+				($is_complex && serialize($this->cache[$group][$key]) != serialize($data))) {
+					$this->dirty_groups[$group] = true;
+					$this->mtime[$group] = time();
+				}
 		}
         if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -1271,9 +1763,14 @@ class WP_Object_Cache {
 		if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
 		if (!$expire) $expire = $this->expiration_time;
+        if ($this->shm_enable === 2) {
+			if ($this->debug) $time_write_start = microtime(true);
+			$this->shm->set($key, $data, $group, $expire);
+			$this->time_disk_write += microtime(true) - $time_write_start;
+		}
 		if ($expire) $this->expires[$group][$key] = $this->now + $expire;
 		unset($this->deleted[$group][$key]);
-        unset($this->file_cache_groups[$group][$key]);
+        //unset($this->file_cache_groups[$group][$key]);
 		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -1298,6 +1795,7 @@ class WP_Object_Cache {
 		$minutes = floor( ( $this->expiration_time - $hours * 60 * 60 ) / 60 );
 		$seconds = $this->expiration_time - $hours * 60 * 60 - $minutes * 60;
 		echo "<strong>Cache Lifetime (if unspecified for entry):</strong> $hours hours $minutes minutes $seconds soconds<br />";
+		echo "<strong>Persistent Cache Reads:</strong> {$this->file_cache_reads} ({$this->file_cache_misses} misses, {$this->file_cache_expirations} expired)<br />";
 		echo "<strong>Cache Hits:</strong> {$this->cache_hits}";
 		if ( $this->debug ) echo " ({$this->file_cache_hits} from persistent cache)";
 		echo "</p>";
@@ -1307,7 +1805,7 @@ class WP_Object_Cache {
 		foreach ($this->cache as $group => $cache) {
 			$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : ( $this->debug ? 0 : 'N/A' );
 			$file_cache_hits_groups = isset($this->file_cache_hits_groups[$group]) ? $this->file_cache_hits_groups[$group] : ( $this->debug ? 0 : 'N/A' );
-			$shm = isset($this->shm[$group]) ? 'Yes' : 'No';
+			$shm = ($this->shm_enable === 2 ? !empty($this->file_cache_groups[$group]) : isset($this->shm[$group])) ? 'Yes' : 'No';
 			$updated = isset($this->dirty_groups[$group]) ? 'Now' : (isset($this->mtime[$group]) ? human_time_diff( $this->mtime[$group] ) : 'Unknown');
 			$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
 			$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
@@ -1321,7 +1819,9 @@ class WP_Object_Cache {
 		}
 		echo '</table>';
 		echo "<p>";
-		echo "<strong>Cache Entries:</strong> $total_entries ({$this->expirations} expired, {$this->cache_deletions} deleted)<br />";
+		echo "<strong>Expired Cache Entries:</strong> {$this->expirations}<br />";
+		echo "<strong>Deleted Cache Entries:</strong> {$this->cache_deletions}<br />";
+		echo "<strong>Remaining Cache Entries:</strong> $total_entries<br />";
 		$overhead = strlen(str_repeat(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER, count($this->cache))) / 1024;
 		echo "<strong>Cache Size:</strong> " . number_format( $total_size, 2 ) . " KiB (" . number_format( $total_size + $overhead, 2 ) . " KiB on disk)<br />";
 		if ( $this->debug ) {
@@ -1354,10 +1854,17 @@ class WP_Object_Cache {
 		if (!empty($this->file_cache_errors_groups)) echo "<strong>File Cache Read Errors:</strong> " . implode(', ', array_keys($this->file_cache_errors_groups));
 		if (!empty($this->file_cache_persist_errors_groups)) echo "<strong>File Cache Write Errors:</strong> " . implode(', ', array_keys($this->file_cache_persist_errors_groups));
 		echo "</p>";
+		if ($this->shm_enable === 2) {
+			echo "<pre>";
+			$this->shm->stats();
+			echo "</pre>";
+		}
 		/* File-based object cache end */
 
 		/* OPcache */
 		if ( defined( 'FH_OBJECT_CACHE_OPCACHE_DEBUG' ) ) {
+			echo "<pre>OPcache\n";
+			echo "=======\n";
 			if (function_exists('opcache_get_configuration')) {
 				$conf = opcache_get_configuration();
 
@@ -1365,7 +1872,7 @@ class WP_Object_Cache {
 				var_dump($conf);
 				$contents = preg_replace("/=>\s+/", "=>", ob_get_contents());
 				ob_end_clean();
-				echo '<pre>OPcache configuration: ' . $contents . "</pre>\n";
+				echo "OPcache configuration: " . $contents . "\n";
 			}
 			if (function_exists('opcache_get_status')) {
 				$status = opcache_get_status(false);
@@ -1374,8 +1881,9 @@ class WP_Object_Cache {
 				var_dump($status);
 				$contents = preg_replace("/=>\s+/", "=>", ob_get_contents());
 				ob_end_clean();
-				echo '<pre>OPcache status: ' . $contents . "</pre>\n";
+				echo "OPcache status: " . $contents . "\n";
 			}
+			echo "</pre>\n";
 		}
 	}
 
@@ -1448,7 +1956,8 @@ class WP_Object_Cache {
 		else
 			// Using the correct separator eliminates some cache flush errors on Windows
 			$this->cache_dir = ABSPATH.'wp-content'.DIRECTORY_SEPARATOR.'cache'.DIRECTORY_SEPARATOR.'fh-object-cache'.DIRECTORY_SEPARATOR;
-		$this->shm_enable = defined('FH_OBJECT_CACHE_SHM') ? FH_OBJECT_CACHE_SHM && function_exists( 'shmop_open' ) : false;
+		if (defined('FH_OBJECT_CACHE_SHM') && function_exists( 'shmop_open' ))
+			$this->shm_enable = FH_OBJECT_CACHE_SHM;
 
 		$this->ajax = defined('DOING_AJAX') && DOING_AJAX;
 		$this->cron = defined('DOING_CRON') && DOING_CRON;
@@ -1460,9 +1969,13 @@ class WP_Object_Cache {
 		if ($this->ajax) $this->_log("DOING_AJAX");
 		if ($this->cron) $this->_log("DOING_CRON");
 
-		$this->_set_expires();
+		if ( $this->shm_enable === 2 )
+			$this->shm = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
+		else {
+			$this->_set_expires();
 
-		add_action( 'edit_post', array( &$this, 'flush_taxonomies' ), 10, 1 );
+			add_action( 'edit_post', array( &$this, 'flush_taxonomies' ), 10, 1 );
+		}
 
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -1513,6 +2026,11 @@ class WP_Object_Cache {
 	}
 
 	public function persist($groups=null) {
+		if ($this->shm_enable === 2) {
+			$this->dirty_groups = array();
+			return true;
+		}
+
         if ($this->debug) $time_start = microtime(true);
         $this->persists += 1;
 
@@ -1611,6 +2129,7 @@ class WP_Object_Cache {
 	}
 
 	private function _check_persist( $key, $group ) {
+		if ($this->shm_enable === 2) return;
 		if ($group == 'options' && $key == 'alloptions') {
 			if (isset($this->cache[$group][$key]['cron'])) $this->_log("$group.$key.cron = " . json_encode(unserialize($this->cache[$group][$key]['cron']), JSON_PRETTY_PRINT), 3);
 			$this->_log("SET $group.$key.cron = " . json_encode(unserialize($this->cache[$group][$key]['cron']), JSON_PRETTY_PRINT), 3);
