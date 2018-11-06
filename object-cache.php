@@ -1850,7 +1850,7 @@ class WP_Object_Cache {
 		if ( ! empty( $this->cache_misses_groups ) ) {
 			echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Misses</th></tr>';
 			foreach ($this->cache_misses_groups as $group => $count) {
-				echo "<tr style='" . (!isset($this->non_persistent_groups[$group]) ? "opacity: .5;" : "") . "'><td style='" . (isset($this->global_groups[$group]) ? "font-style: oblique;" : "") . "padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count</td></tr>";
+				echo "<tr style='" . (isset($this->non_persistent_groups[$group]) ? "opacity: .5;" : "") . "'><td style='" . (isset($this->global_groups[$group]) ? "font-style: oblique;" : "") . "padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count</td></tr>";
 			}
 			echo '</table>';
 		}
