@@ -1504,6 +1504,7 @@ class WP_Object_Cache {
 					else {
 						$this->file_cache_groups[$group][$key] = false;
 						$this->file_cache_expirations += 1;
+						$this->expirations += 1;
 					}
 				}
 				else {
