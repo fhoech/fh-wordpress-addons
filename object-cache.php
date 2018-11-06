@@ -1799,12 +1799,13 @@ class WP_Object_Cache {
 		echo "<strong>Cache Hits:</strong> {$this->cache_hits}";
 		if ( $this->debug ) echo " ({$this->file_cache_hits} from persistent cache)";
 		echo "</p>";
-		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Hits</th><th style="padding: .1em .3em">From Persistent Cache</th><th style="padding: .1em .3em">SHM</th><th style="padding: .1em .3em">Freshness</th><th style="padding: .1em .3em">Persist</th><th style="padding: .1em .3em">Global</th><th style="padding: .1em .3em">Entries</th><th style="padding: .1em .3em">Expired</th><th style="padding: .1em .3em">Deleted</th><th style="padding: .1em .3em">Size (KiB)</th></tr>';
+		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Hits</th><th style="padding: .1em .3em">From Persistent Cache</th><th style="padding: .1em .3em">Misses</th><th style="padding: .1em .3em">SHM</th><th style="padding: .1em .3em">Freshness</th><th style="padding: .1em .3em">Persist</th><th style="padding: .1em .3em">Global</th><th style="padding: .1em .3em">Entries</th><th style="padding: .1em .3em">Expired</th><th style="padding: .1em .3em">Deleted</th><th style="padding: .1em .3em">Size (KiB)</th></tr>';
 		$total_entries = 0;
 		$total_size = 0;
 		foreach ($this->cache as $group => $cache) {
 			$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : ( $this->debug ? 0 : 'N/A' );
 			$file_cache_hits_groups = isset($this->file_cache_hits_groups[$group]) ? $this->file_cache_hits_groups[$group] : ( $this->debug ? 0 : 'N/A' );
+			$cache_misses_groups = isset($this->cache_misses_groups[$group]) ? $this->cache_misses_groups[$group] : ( $this->debug ? 0 : 'N/A' );
 			$shm = ($this->shm_enable === 2 ? !empty($this->file_cache_groups[$group]) : isset($this->shm[$group])) ? 'Yes' : 'No';
 			$updated = isset($this->dirty_groups[$group]) ? 'Now' : (isset($this->mtime[$group]) ? human_time_diff( $this->mtime[$group] ) : 'Unknown');
 			$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
@@ -1815,15 +1816,16 @@ class WP_Object_Cache {
 			$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : ( $this->debug ? 0 : 'N/A' );
 			$size = strlen( serialize( $cache ) ) / 1024;
 			$total_size += $size;
-			echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$cache_hits_groups</td><td style='padding: .1em .3em'>$file_cache_hits_groups</td><td style='padding: .1em .3em'>$shm</td><td style='padding: .1em .3em'>$updated</td><td style='padding: .1em .3em'>$persist</td><td style='padding: .1em .3em'>$global</td><td style='padding: .1em .3em'>$entries</td><td style='padding: .1em .3em'>$expired</td><td style='padding: .1em .3em'>$deleted</td><td style='padding: .1em .3em'>" . number_format( $size, 2 ) . "</td></tr>";
+			echo "<tr style='" . ($persist === "No" ? "opacity: .5;" : "") . "'><td style='" . ($global === "Yes" ? "font-style: oblique;" : "") . "padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$cache_hits_groups</td><td style='padding: .1em .3em'>$file_cache_hits_groups</td><td style='padding: .1em .3em'>$cache_misses_groups</td><td style='padding: .1em .3em'>$shm</td><td style='padding: .1em .3em'>$updated</td><td style='padding: .1em .3em'>$persist</td><td style='padding: .1em .3em'>$global</td><td style='padding: .1em .3em'>$entries</td><td style='padding: .1em .3em'>$expired</td><td style='padding: .1em .3em'>$deleted</td><td style='padding: .1em .3em'>" . number_format( $size, 2 ) . "</td></tr>";
 		}
 		echo '</table>';
 		echo "<p>";
+		echo "<strong>Cache Writes:</strong> {$this->cache_writes}<br />";
 		echo "<strong>Expired Cache Entries:</strong> {$this->expirations}<br />";
 		echo "<strong>Deleted Cache Entries:</strong> {$this->cache_deletions}<br />";
 		echo "<strong>Remaining Cache Entries:</strong> $total_entries<br />";
 		$overhead = strlen(str_repeat(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER, count($this->cache))) / 1024;
-		echo "<strong>Cache Size:</strong> " . number_format( $total_size, 2 ) . " KiB (" . number_format( $total_size + $overhead, 2 ) . " KiB on disk)<br />";
+		echo "<strong>Cache Size:</strong> " . number_format( $total_size, 2 ) . " KiB (" . number_format( $total_size + $overhead, 2 ) . " KiB with overhead)<br />";
 		if ( $this->debug ) {
 			echo "<strong>Persistent Cache Overall Performance:</strong> " . number_format( $this->time_total, 3) . "s<br />";
 			echo "<strong>Persistent Cache Disk Read Performance:</strong> " . number_format( $this->time_disk_read, 3) . "s<br />";
@@ -1838,19 +1840,18 @@ class WP_Object_Cache {
 		if ( ! empty( $this->cache_misses_groups ) ) {
 			echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Misses</th></tr>';
 			foreach ($this->cache_misses_groups as $group => $count) {
-				echo "<tr><td style='padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count</td></tr>";
+				echo "<tr style='" . (!isset($this->non_persistent_groups[$group]) ? "opacity: .5;" : "") . "'><td style='" . (isset($this->global_groups[$group]) ? "font-style: oblique;" : "") . "padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count</td></tr>";
 			}
 			echo '</table>';
 		}
 		echo "<p>";
-		echo "<strong>Cache Writes:</strong> {$this->cache_writes}<br />";
 		echo "<strong>Cache Persists:</strong> {$this->actual_persists} ({$this->persists} calls)<br />";
 		echo "<strong>Cache Flushes:</strong> {$this->flushes}<br />";
 		echo "<strong>Cache Resets (deprecated):</strong> {$this->resets}";
 		echo "</p>";
 		echo "<p>";
-		echo "<strong>Global Groups:</strong> " . implode(', ', array_keys($this->global_groups)) . "<br />";
-		echo "<strong>Non-Persistent Groups:</strong> " . implode(', ', array_keys($this->non_persistent_groups)) . "<br />";
+		echo "<strong>Global Groups:</strong> <span style='font-style: oblique'>" . implode(', ', array_keys($this->global_groups)) . "</span><br />";
+		echo "<strong>Non-Persistent Groups:</strong> <span style='opacity: .5'>" . implode(', ', array_keys($this->non_persistent_groups)) . "</span><br />";
 		if (!empty($this->file_cache_errors_groups)) echo "<strong>File Cache Read Errors:</strong> " . implode(', ', array_keys($this->file_cache_errors_groups));
 		if (!empty($this->file_cache_persist_errors_groups)) echo "<strong>File Cache Write Errors:</strong> " . implode(', ', array_keys($this->file_cache_persist_errors_groups));
 		echo "</p>";
