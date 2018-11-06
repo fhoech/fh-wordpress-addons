@@ -1335,6 +1335,7 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
+		$this->cache_writes ++;
         if ($this->shm_enable === 2) {
 			if ($this->debug) $time_write_start = microtime(true);
 			$this->shm->set( $key, $this->cache[ $group ][ $key ], $group );
@@ -1663,6 +1664,7 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
+		$this->cache_writes ++;
         if ($this->shm_enable === 2) {
 			if ($this->debug) $time_write_start = microtime(true);
 			$this->shm->set( $key, $this->cache[ $group ][ $key ], $group );
