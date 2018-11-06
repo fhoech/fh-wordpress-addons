@@ -1340,6 +1340,7 @@ class WP_Object_Cache {
 			$this->time_disk_write += microtime(true) - $time_write_start;
 		}
 		$this->dirty_groups[$group] = true;
+        $this->file_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
@@ -1387,6 +1388,7 @@ class WP_Object_Cache {
 		}
         $this->deleted[$group][$key] = true;
 		unset( $this->expires[$group][$key] );
+        $this->file_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
 		$this->cache_deletions += 1;
@@ -1660,6 +1662,7 @@ class WP_Object_Cache {
 			$this->time_disk_write += microtime(true) - $time_write_start;
 		}
 		$this->dirty_groups[$group] = true;
+        $this->file_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
@@ -1776,7 +1779,7 @@ class WP_Object_Cache {
 		}
 		if ($expire) $this->expires[$group][$key] = $this->now + $expire;
 		unset($this->deleted[$group][$key]);
-        //unset($this->file_cache_groups[$group][$key]);
+        $this->file_cache_groups[$group][$key] = false;
 		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
