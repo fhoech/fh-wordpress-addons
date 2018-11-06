@@ -709,6 +709,7 @@ class SHM_Partitioned_Cache {
 	private $partition = array();
 	private $partition_table = null;
 	private $partition_size = -1;
+	private $block_size = 128;
 	private $data_offset = -1;
 	private $next = -1;
 	private $cache = array();
@@ -728,7 +729,7 @@ class SHM_Partitioned_Cache {
 		}
 		else {
 			$this->size = shmop_size( $this->res );
-			$this->data_offset = (int) round( $this->size / 8 );
+			$this->data_offset = (int) ceil( $this->size / 8 / $this->block_size ) * $this->block_size;
 			// Partition table is in the first 1/8 of total SHM segment size.
 			// Data begins directly after that.
 			$this->read_partition_table();
@@ -753,7 +754,7 @@ class SHM_Partitioned_Cache {
 			}
 			// Offset for next data chunk
 			if ( ! $start ) $start = $this->data_offset;
-			$this->next = $start + $count;
+			$this->next = $start + (int) ceil( $count / $this->block_size ) * $this->block_size;
 		}
 		else {
 			$error = error_get_last();
@@ -867,6 +868,10 @@ class SHM_Partitioned_Cache {
 		$mtime = time();
 		$data = serialize( array( &$value, $this->now + $expire, $mtime ) );
 		$data_len = strlen( $data );
+		if ( is_array( $value ) || is_object( $value ) )
+			$padded_len = (int) ceil( $data_len / $this->block_size ) * $this->block_size;
+		else
+			$padded_len = $data_len;
 
 		$partition_entry = $this->_get_partition_entry( $group_key );
 		if ( $partition_entry !== false ) {
@@ -880,13 +885,13 @@ class SHM_Partitioned_Cache {
 			$count = -1;
 		}
 
-		if ( $data_len > $count ) {
+		if ( $padded_len > $count ) {
 			// Create new partition entry or update existing
 			$offset = $this->next;
-			if ( $offset + $data_len > $this->size ) {
+			if ( $offset + $padded_len > $this->size ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group_key' ($data_len bytes) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: Allocated space for data exceeded. Flushing cache.\n", FILE_APPEND );
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group_key' ($data_len bytes, padded $padded_len) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: Allocated space for data exceeded. Flushing cache.\n", FILE_APPEND );
 				$this->flush();
 				return false;
 			}
@@ -903,7 +908,7 @@ class SHM_Partitioned_Cache {
 					return false;
 				}
 			}
-			$this->next += $data_len;
+			$this->next += $padded_len;
 			if ( ! @ shmop_write( $this->res, $group_key . $data_offset_count, 4 + $pos ) ||
 				 ! @ shmop_write( $this->res, $data_offset_count, 4 + $partition_size - 8 ) ) {
 				$error = error_get_last();
