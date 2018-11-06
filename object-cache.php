@@ -636,7 +636,7 @@ class SHM_SYSV_Cache {
 	private $id;
 	private $res = false;
 	private $expires = array();
-	private $mtimes = array();
+	private $mtime = array();
 
 	public function __construct( $size = 16 * 1024 * 1024 ) {
 		$this->id = ftok( __FILE__, "\xff" );
@@ -661,7 +661,7 @@ class SHM_SYSV_Cache {
 		if ( $result === false || ! is_array( $result ) || count ( $result ) != 3 ) return false;
 		list( $data, $expire, $mtime ) = $result;
 		$this->expires[ $group_key ] = $expire;
-		$this->mtimes[ $group_key ] = $mtime;
+		$this->mtime[ $group_key ] = $mtime;
 		return $data;
 	}
 
@@ -678,7 +678,7 @@ class SHM_SYSV_Cache {
 							   $error['message'] . "\n", FILE_APPEND );
 			return false;
 		}
-		$this->mtimes[ $group_key ] = $mtime;
+		$this->mtime[ $group_key ] = $mtime;
 		return $result;
 	}
 
@@ -687,7 +687,7 @@ class SHM_SYSV_Cache {
 		$group_key = $this->_get_group_key( $key, $group );
 		$result = shm_remove_var( $this->res, $this->_crc32( $group_key ) );
 		if ( $result === false ) return false;
-		$this->mtimes[ $group_key ] = time();
+		$this->mtime[ $group_key ] = time();
 		return $result;
 	}
 
