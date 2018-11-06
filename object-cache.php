@@ -1508,6 +1508,12 @@ class WP_Object_Cache {
 						$this->file_cache_groups[$group][$key] = false;
 						$this->file_cache_expirations += 1;
 						$this->expirations += 1;
+						if ($this->debug) {
+							if ( ! isset($this->expirations_groups[$group]) )
+								$this->expirations_groups[$group] = 1;
+							else
+								$this->expirations_groups[$group] += 1;
+						}
 					}
 				}
 				else {
