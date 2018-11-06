@@ -834,7 +834,7 @@ class SHM_Partitioned_Cache {
 		$partition_entry = $this->_get_partition_entry( $group_key );
 		if ( $partition_entry === false ) return false;
 		list( $pos, $start, $count ) = $partition_entry;
-		if ( $start + $count > $this->size ) return false;
+		if ( ! $count || $start + $count > $this->size ) return false;
 
 		$result = @ shmop_read( $this->res, $start, $count );
 		if ( $result === false ) {
@@ -877,12 +877,12 @@ class SHM_Partitioned_Cache {
 		if ( $partition_entry !== false ) {
 			// Update existing partition entry
 			list( $pos, $offset, $count ) = $partition_entry;
-			if ( $offset + $count > $this->size ) $count = -1;
+			if ( $offset + $count > $this->size ) $count = 0;
 		}
 		else {
 			// Create new partition entry
 			$pos = $this->partition_size;
-			$count = -1;
+			$count = 0;
 		}
 
 		if ( $padded_len > $count ) {
@@ -957,6 +957,7 @@ class SHM_Partitioned_Cache {
 		if ( $partition_entry === false ) return false;
 		list( $pos, $offset, $count ) = $partition_entry;
 
+		// Set size to zero in partition table entry to mark as deleted
 		if ( ! @ shmop_write( $this->res, "\0\0\0\0", 4 + $pos + strlen( $group_key ) + 4 ) ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -1001,13 +1002,13 @@ class SHM_Partitioned_Cache {
 
 		$group_key = $this->_get_group_key( $key, $group );
 
-		if ( ! $fetch ) return isset( $this->partition[ $group_key ] );
+		if ( ! $fetch ) return ! empty( $this->partition[ $group_key ] );
 
 		$partition_entry = $this->_get_partition_entry( $group_key );
 		if ( $partition_entry === false ) return false;
 		list( $pos, $offset, $count ) = $partition_entry;
 
-		return $offset + $count <= $this->size;
+		return $count && $offset + $count <= $this->size;
 	}
 
 	public function stats() {
