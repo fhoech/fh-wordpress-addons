@@ -853,9 +853,9 @@ class SHM_Partitioned_Cache {
 
 		//$this->cache[ $group ][ $key ] = $result;
 		//$this->expires[ $group ][ $key ] = $expire;
-		if ( ! isset( $this->mtime[ $group ] ) ||
-			 $mtime > $this->mtime[ $group ] )
-			$this->mtime[ $group ] = $mtime;
+		//if ( ! isset( $this->mtime[ $group ] ) ||
+		//	 $mtime > $this->mtime[ $group ] )
+		//	$this->mtime[ $group ] = $mtime;
 
 		return $result;
 	}
@@ -943,7 +943,7 @@ class SHM_Partitioned_Cache {
 			return false;
 		}
 
-		$this->mtime[ $group ] = $mtime;
+		//$this->mtime[ $group ] = $mtime;
 
 		return $bytes_written !== false;
 	}
@@ -970,7 +970,7 @@ class SHM_Partitioned_Cache {
 		$this->partition[ $group_key ] = false;
 		//unset( $this->cache[ $group ][ $key ] );
 		//unset( $this->expires[ $group ][ $key ] );
-		$this->mtime[ $group ] = time();
+		//$this->mtime[ $group ] = time();
 
 		return true;
 	}
