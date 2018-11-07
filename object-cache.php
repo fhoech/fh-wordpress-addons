@@ -1001,6 +1001,10 @@ class SHM_Partitioned_Cache {
 		return $this->size;
 	}
 
+	public function get_next() {
+		return $this->next;
+	}
+
 	public function get_groups() {
 		$groups = array();
 
