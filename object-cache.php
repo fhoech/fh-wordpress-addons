@@ -866,7 +866,7 @@ class SHM_Partitioned_Cache {
 		$group_key = $this->_get_group_key( $key, $group );
 
 		$mtime = time();
-		$data = serialize( array( &$value, $this->now + $expire, $mtime ) );
+		$data = serialize( array( &$value, $expire, $mtime ) );
 		$data_len = strlen( $data );
 		if ( is_array( $value ) || is_object( $value ) )
 			$padded_len = (int) ceil( $data_len / $this->block_size ) * $this->block_size;
@@ -1388,12 +1388,7 @@ class WP_Object_Cache {
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
-        if ($this->shm_enable === 2 && !isset($this->non_persistent_groups[$group])) {
-			if ($this->debug) $time_write_start = microtime(true);
-			$this->shm->set( $key, $this->cache[ $group ][ $key ], $group );
-			$this->time_disk_write += microtime(true) - $time_write_start;
-		}
-		$this->dirty_groups[$group] = true;
+		$this->dirty_groups[$group][$key] = true;
         $this->file_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
@@ -1428,18 +1423,15 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
-		if (!isset($this->dirty_groups[$group]))
-			$this->dirty_groups[$group] = true;
+		if ($this->shm_enable === 2 ?
+			!isset($this->dirty_groups[$group][$key]) :
+			!isset($this->dirty_groups[$group]))
+			$this->dirty_groups[$group][$key] = false;
         if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
 		unset( $this->cache[$group][$key] );
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
-        if ($this->shm_enable === 2) {
-			if ($this->debug) $time_write_start = microtime(true);
-			$this->shm->delete( $key, $group );
-			$this->time_disk_write += microtime(true) - $time_write_start;
-		}
         $this->deleted[$group][$key] = true;
 		unset( $this->expires[$group][$key] );
         $this->file_cache_groups[$group][$key] = false;
@@ -1550,6 +1542,7 @@ class WP_Object_Cache {
 				}
 				if ($result !== false) {
 					list($value, $expire, $mtime) = $result;
+					if (!$expire) $expire = $this->now + $this->expiration_time;
 					if ($expire > $this->now) {
 						$this->cache[$group][$key] = $value;
 						$this->expires[$group][$key] = $expire;
@@ -1606,7 +1599,8 @@ class WP_Object_Cache {
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
 
-		if ( $this->_exists( $key, $group )/* File-based object cache start */ && ! $this->_expire( $key, $group ) /* File-based object cache end */) {
+		if ( $this->_exists( $key, $group )/* File-based object cache start */ &&
+			 ( $this->shm_enable === 2 || ! $this->_expire( $key, $group ) )/* File-based object cache end */ ) {
 			$found = true;
 			$this->cache_hits += 1;
 			/* File-based object cache start */
@@ -1717,12 +1711,7 @@ class WP_Object_Cache {
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
-        if ($this->shm_enable === 2 && !isset($this->non_persistent_groups[$group])) {
-			if ($this->debug) $time_write_start = microtime(true);
-			$this->shm->set( $key, $this->cache[ $group ][ $key ], $group );
-			$this->time_disk_write += microtime(true) - $time_write_start;
-		}
-		$this->dirty_groups[$group] = true;
+		$this->dirty_groups[$group][$key] = true;
         $this->file_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
@@ -1774,7 +1763,7 @@ class WP_Object_Cache {
 
 				/* File-based object cache start */
 				if ($this->debug) $time_start = microtime(true);
-				$this->dirty_groups[$group] = true;
+				$this->dirty_groups[$group] = array();
 				unset( $this->deleted[$group] );
 				unset( $this->expires[$group] );
 				unset($this->file_cache_groups[$group]);
@@ -1816,13 +1805,15 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
 		if ($this->debug) $time_start = microtime(true);
-		if (!isset($this->dirty_groups[$group])) {
+		if ($this->shm_enable === 2 ?
+			!isset($this->dirty_groups[$group][$key]) :
+			!isset($this->dirty_groups[$group])) {
 			$exists = $this->_exists($key, $group);
 			$is_complex = $exists && ( is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] ) );
 			if (!$exists ||
-				(!$is_complex && $this->cache[$group][$key] != $data) ||
+				(!$is_complex && $this->cache[$group][$key] !== $data) ||
 				($is_complex && serialize($this->cache[$group][$key]) != serialize($data))) {
-					$this->dirty_groups[$group] = true;
+					$this->dirty_groups[$group][$key] = true;
 					$this->mtime[$group] = time();
 				}
 		}
@@ -1833,11 +1824,6 @@ class WP_Object_Cache {
 		if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
 		if (!$expire) $expire = $this->expiration_time;
-        if ($this->shm_enable === 2 && !isset($this->non_persistent_groups[$group])) {
-			if ($this->debug) $time_write_start = microtime(true);
-			$this->shm->set($key, $data, $group, $expire);
-			$this->time_disk_write += microtime(true) - $time_write_start;
-		}
 		if ($expire) $this->expires[$group][$key] = $this->now + $expire;
 		unset($this->deleted[$group][$key]);
         $this->file_cache_groups[$group][$key] = false;
@@ -2099,18 +2085,15 @@ class WP_Object_Cache {
 	}
 
 	public function persist($groups=null) {
-		if ($this->shm_enable === 2) {
-			$this->dirty_groups = array();
-			return true;
-		}
-
         if ($this->debug) $time_start = microtime(true);
         $this->persists += 1;
 
-		// Remove expired entries
-		foreach ($this->cache as $group => $keys) {
-			foreach ($keys as $key => $value) {
-				$this->_expire( $key, $group );
+		if ($this->shm_enable !== 2) {
+			// Remove expired entries
+			foreach ($this->cache as $group => $keys) {
+				foreach ($keys as $key => $value) {
+					$this->_expire( $key, $group );
+				}
 			}
 		}
 
@@ -2133,20 +2116,32 @@ class WP_Object_Cache {
 			foreach ($this->dirty_groups as $group => $dirty) {
 				if (!isset($this->non_persistent_groups[$group]) &&
 					isset($this->cache[$group]) &&
-					($groups == null || in_array($group, $groups))) {
-					if ($this->_persist_group($group, serialize($this->cache[$group])) !== false) {
+					($groups === null || in_array($group, $groups))) {
+					if ($this->shm_enable === 2) {
+						$result = true;
+						foreach ( $dirty as $key => $undeleted ) {
+							if ( $undeleted === false )
+								$result = $this->shm->delete( $key, $group );
+							else
+								$result = $this->shm->set( $key, $this->cache[$group][$key], $group,
+														   isset( $this->expires[$group][$key] ) ?
+														   $this->expires[$group][$key] :
+														   $this->now + $this->expiration_time );
+						}
+					}
+					else if (($result = $this->_persist_group($group, serialize($this->cache[$group]))) !== false) {
 						$this->mtime[$group] = time();
 						$persisted = true;
 						unset($this->dirty_groups[$group]);
 					}
-					else {
+					if ($result === false) {
 						$errors += 1;
 						$this->file_cache_persist_errors_groups[$group] = true;
 					}
 				}
 			}
 
-			if ($persisted) {
+			if ($this->shm_enable !== 2 && $persisted) {
 				foreach ($this->expires as $group => $keys) {
 					if (isset($this->cache[$group])) {
 						foreach ($keys as $key => $value) {
@@ -2231,7 +2226,7 @@ class WP_Object_Cache {
 			unset( $this->cache[$group][$key] );
 			$this->mtime[$group] = time();
 			unset( $this->expires[$group][$key] );
-			$this->dirty_groups[$group] = true;
+			$this->dirty_groups[$group][$key] = false;
 			$this->expirations += 1;
 			if ($this->debug) {
 				if ( ! isset($this->expirations_groups[$group]) )
