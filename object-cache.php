@@ -975,6 +975,10 @@ class SHM_Partitioned_Cache {
 		return true;
 	}
 
+	public function get_block_size() {
+		return $this->block_size;
+	}
+
 	public function get_size() {
 		return $this->size;
 	}
@@ -983,7 +987,29 @@ class SHM_Partitioned_Cache {
 		$groups = array();
 
 		if ( $this->res !== false ) {
-			
+			$chunk = '';
+			// XXX: This assumes partition_size is <= 4294967040L
+			// so we have guaranteed NULL bytes
+			for ( $i = 0; $i < $this->partition_size; $i ++ ) {
+				$c = $this->partition_table[ $i ];
+				if ( $c === "\0" ) {
+					if ( strpos( $chunk, ':' ) !== false ) {
+						list( $group, $key ) = explode( ':', $chunk, 2 );
+						if ( $group !== '' ) {
+							$group = addcslashes( $group, "\x00..\x19\x7f..\xff\\" );
+							$key = addcslashes( $key, "\x00..\x19\x7f..\xff\\" );
+							$size = unpack( 'N', substr( $this->partition_table, $i + 4, 4 ) )[1];
+							if ( ! isset( $groups[ $group ] ) ) $groups[ $group ] = array( 'entries_count' => 0, 'entries_size' => 0, 'keys' => array() );
+							$groups[ $group ][ 'entries_count' ] += 1;
+							$groups[ $group ][ 'entries_size' ] += $size;
+							$groups[ $group ][ 'keys' ][] = $key;
+						}
+					}
+					$i += 7;
+					$chunk = '';
+				}
+				else $chunk .= $c;
+			}
 		}
 
 		return $groups;
@@ -995,6 +1021,14 @@ class SHM_Partitioned_Cache {
 
 	public function get_shm_id( $hex = false ) {
 		return $this->res;
+	}
+
+	public function get_partition_size() {
+		return $this->partition_size;
+	}
+
+	public function get_data_offset() {
+		return $this->data_offset;
 	}
 
 	public function has_key( $key, $group = 'default', $fetch = true ) {
@@ -1029,7 +1063,7 @@ class SHM_Partitioned_Cache {
 		if ( $pos !== false ) {
 			echo "Last added key partition table entry offset: " . $pos . " bytes\n";
 			$key_len = $this->partition_size - 16 - $pos - 1;
-			echo "Last added key: " . addcslashes( substr( $this->partition_table, $pos + 1, $key_len ), "\x00..\x19\x7e..\xff" ) . "\n";
+			echo "Last added key: " . addcslashes( substr( $this->partition_table, $pos + 1, $key_len ), "\x00..\x19\x7e..\xff\\" ) . "\n";
 			echo "Last added key data offset: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len, 4 ) )[1] . " bytes\n";
 			echo "Last added key data size: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len + 4, 4 ) )[1] . " bytes\n";
 			echo "Last changed key data offset: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len + 8, 4 ) )[1] . " bytes\n";
