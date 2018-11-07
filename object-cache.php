@@ -2155,7 +2155,7 @@ class WP_Object_Cache {
 			}
 			if ($this->debug) $this->time_disk_write += microtime(true) - $time_disk_write_start;
 
-			if ( $this->shm_enable ) SHM_Cache::_persist_groups();
+			if ( $this->shm_enable && $this->shm_enable !== 2 ) SHM_Cache::_persist_groups();
 
 			$this->release_lock();
 		}
@@ -2199,7 +2199,6 @@ class WP_Object_Cache {
 	}
 
 	private function _check_persist( $key, $group ) {
-		if ($this->shm_enable === 2) return;
 		if ($group == 'options' && $key == 'alloptions') {
 			if (isset($this->cache[$group][$key]['cron'])) $this->_log("$group.$key.cron = " . json_encode(unserialize($this->cache[$group][$key]['cron']), JSON_PRETTY_PRINT), 3);
 			$this->_log("SET $group.$key.cron = " . json_encode(unserialize($this->cache[$group][$key]['cron']), JSON_PRETTY_PRINT), 3);
