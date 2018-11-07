@@ -1107,23 +1107,28 @@ class SHM_Partitioned_Cache {
 		$time_start = microtime( true );
 		$this->read_partition_table();
 		echo "Time to re-read partition table for stats: " . round( microtime( true ) - $time_start, 3 ) . "s\n";
-		$pos = strrpos( $this->partition_table, ':' );
+		$pos = strrpos( $this->partition_table, '$key=' );
 		if ( $pos !== false ) {
-			echo "Last added key partition table entry offset: " . $pos . " bytes\n";
-			$key_len = $this->partition_size - 16 - $pos - 1;
-			echo "Last added key: " . addcslashes( substr( $this->partition_table, $pos + 1, $key_len ), "\x00..\x19\x7e..\xff\\" ) . "\n";
-			echo "Last added key data offset: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len, 4 ) )[1] . " bytes\n";
-			echo "Last added key data size: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len + 4, 4 ) )[1] . " bytes\n";
-			echo "Last changed key data offset: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len + 8, 4 ) )[1] . " bytes\n";
-			echo "Last changed key data size: " . unpack( 'N', substr( $this->partition_table, $pos + 1 + $key_len + 12, 4 ) )[1] . " bytes\n";
+			echo "Last added key partition table entry offset: " . $pos . " bytes (" . round( $pos / 1024, 2 ) . " KiB)\n";
+			$end = strpos( $this->partition_table, ';', $pos );
+			$key_len = $end - $pos - 5;
+			echo "Last added key: " . addcslashes( substr( $this->partition_table, $pos + 5, $key_len ), "\x00..\x19\x7e..\xff\\" ) . "\n";
+			$offset = unpack( 'N', substr( $this->partition_table, $pos + 5 + $key_len + 1, 4 ) )[1];
+			echo "Last added key data offset: " . $offset . " bytes (" . round( $offset / 1024, 2 ) . " KiB)\n";
+			$size = unpack( 'N', substr( $this->partition_table, $pos + 5 + $key_len + 1 + 4, 4 ) )[1];
+			echo "Last added key data size: " . $size . " bytes (" . round( $size / 1024, 2 ) . " KiB)\n";
+			//echo "Last changed key data offset: " . unpack( 'N', substr( $this->partition_table, 4, 4 ) )[1] . " bytes\n";
+			//echo "Last changed key data size: " . unpack( 'N', substr( $this->partition_table, 8, 4 ) )[1] . " bytes\n";
 		}
 		$last_added_partition_entry = end( $this->partition );
 		if ( $last_added_partition_entry !== false ) {
 			echo "\nAccessed partition entries for this request\n";
 			echo "-------------------------------------------\n";
-			list( $pos, $start, $count ) = $last_added_partition_entry;
-			echo "Last added key partition table entry offset: " . $pos . " bytes\n";
-			echo "Last added key: " . key( $this->partition ) . "\n";
+			list( $pos, $offset, $size ) = $last_added_partition_entry;
+			echo "Last accessed key partition table entry offset: " . $pos . " bytes (" . round( $pos / 1024, 2 ) . " KiB)\n";
+			echo "Last accessed key: " . substr( key( $this->partition ), 5, -1 ) . "\n";
+			echo "Last accessed key data offset: " . $offset . " bytes (" . round( $offset / 1024, 2 ) . " KiB)\n";
+			echo "Last accessed key data size: " . $size . " bytes (" . round( $size / 1024, 2 ) . " KiB)\n";
 		}
 	}
 
