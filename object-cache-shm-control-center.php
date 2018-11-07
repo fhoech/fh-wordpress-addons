@@ -534,7 +534,7 @@ else {
 	$r = 102 * ( 2 - $used );
 	$g = min( 153 * ( .5 + $used ), 204 );
 
-	echo "<tr><td>0</td><td>Groups to (proj_id, mtime) mapping</td><td>0</td><td>" . SHM_Cache::get_groups_id( true ) . "</td><td>" . substr( strval( SHM_Cache::get_groups_shm_id() ), 13 ) . "</td><td>" . count( $groups ) . " (" . round( $time_entry_unserialize, 3 ) . "s)</td><td>N/A</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td></td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
+	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>Groups to (proj_id, mtime) mapping</td><td>0</td><td>" . SHM_Cache::get_groups_id( true ) . "</td><td>" . substr( strval( SHM_Cache::get_groups_shm_id() ), 13 ) . "</td><td>" . count( $groups ) . " (" . round( $time_groups_get, 3 ) . "s)</td><td>N/A</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td></td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
 	echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
 	echo "</tr>";
 
