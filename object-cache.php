@@ -1017,10 +1017,12 @@ class SHM_Partitioned_Cache {
 							$group = addcslashes( $group, "\x00..\x19\x7f..\xff\\" );
 							$key = addcslashes( $key, "\x00..\x19\x7f..\xff\\" );
 							$size = unpack( 'N', substr( $this->partition_table, $i + 4, 4 ) )[1];
-							if ( ! isset( $groups[ $group ] ) ) $groups[ $group ] = array( 'entries_count' => 0, 'entries_size' => 0, 'keys' => array() );
-							$groups[ $group ][ 'entries_count' ] += 1;
-							$groups[ $group ][ 'entries_size' ] += $size;
-							$groups[ $group ][ 'keys' ][] = $key;
+							if ( $size ) {
+								if ( ! isset( $groups[ $group ] ) ) $groups[ $group ] = array( 'entries_count' => 0, 'entries_size' => 0, 'keys' => array() );
+								$groups[ $group ][ 'entries_count' ] += 1;
+								$groups[ $group ][ 'entries_size' ] += $size;
+								$groups[ $group ][ 'keys' ][] = $key;
+							}
 						}
 					}
 					$i += 7;
