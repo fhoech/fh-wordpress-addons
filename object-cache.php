@@ -1370,7 +1370,7 @@ class WP_Object_Cache {
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
-        if ($this->shm_enable === 2) {
+        if ($this->shm_enable === 2 && !isset($this->non_persistent_groups[$group])) {
 			if ($this->debug) $time_write_start = microtime(true);
 			$this->shm->set( $key, $this->cache[ $group ][ $key ], $group );
 			$this->time_disk_write += microtime(true) - $time_write_start;
@@ -1699,7 +1699,7 @@ class WP_Object_Cache {
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
-        if ($this->shm_enable === 2) {
+        if ($this->shm_enable === 2 && !isset($this->non_persistent_groups[$group])) {
 			if ($this->debug) $time_write_start = microtime(true);
 			$this->shm->set( $key, $this->cache[ $group ][ $key ], $group );
 			$this->time_disk_write += microtime(true) - $time_write_start;
@@ -1815,7 +1815,7 @@ class WP_Object_Cache {
 		if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
 		if (!$expire) $expire = $this->expiration_time;
-        if ($this->shm_enable === 2) {
+        if ($this->shm_enable === 2 && !isset($this->non_persistent_groups[$group])) {
 			if ($this->debug) $time_write_start = microtime(true);
 			$this->shm->set($key, $data, $group, $expire);
 			$this->time_disk_write += microtime(true) - $time_write_start;
