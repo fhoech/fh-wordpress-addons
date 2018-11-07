@@ -613,7 +613,7 @@ class SHM_Cache {
 
 	public static function format_id( $id, $hex = false ) {
 		if ( $hex )  // Formatted like ipcs -m
-			$id = '0x' . str_pad( dechex( $id ), 8, '0', STR_PAD_LEFT );
+			$id = '0x' . str_pad( dechex( $id & 0xffffffff ), 8, '0', STR_PAD_LEFT );
 		return $id;
 	}
 
