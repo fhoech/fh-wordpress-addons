@@ -404,7 +404,7 @@ else if ( $dump ) {
 	
 	$groups = SHM_Cache::get_groups();
 
-	if ( $group == '.groups' ) {
+	if ( $group === '.groups' ) {
 		if ( isset( $_REQUEST['json'] ) ) {
 			header( 'Content-Type: application/json' );
 			echo json_encode( $groups );
@@ -497,7 +497,7 @@ else {
 		if ( ! isset( $non_persistent_groups[$group] ) ) $persistent_groups[$group] = $proj_id_mtime;
 	}
 
-	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) $GLOBALS['wp_object_cache']->acquire_lock();
+	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear === $group ) $GLOBALS['wp_object_cache']->acquire_lock();
 
 	if ( $update_groups || $trim ) {
 		// Update SHM groups
@@ -547,14 +547,14 @@ else {
 	$keys = array();
 	foreach ( $groups as $group => $proj_id_mtime ) {
 		$shm_cache = new SHM_Cache( $group );
-		if ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) $shm_cache->clear();
+		if ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear === $group ) $shm_cache->clear();
 		$exists = $shm_cache->open();
 		echo "<tr data-group='$group'" . ( ! $exists ? " class='unallocated'" : ( $admin ? " onclick='get( this )'" : "" ) ) . ( time() - $groups[$group][1] > HOUR_IN_SECONDS ? " class='stale'" : "" ) . ">";
 		echo "<td>$n</td><td>$group</td><td>" . $groups[$group][0] . "</td><td>" . ( $exists ? $shm_cache->get_id( true ) : "Not allocated" ) . "</td>";
 		$expires_count = isset( $expires[$group] ) ? count( $expires[$group] ) : 0;
 		if ( $exists ) {
 			echo "<td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td>";
-			if ( $trim || ! ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) ) $data = $shm_cache->get();
+			if ( $trim || ! ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear === $group ) ) $data = $shm_cache->get();
 			if ( $trim ) $shm_cache->clear();
 			if ( $data !== false ) {
 				if ( $trim ) $shm_cache->put( $data );
@@ -570,7 +570,7 @@ else {
 					$count = count( $entries );
 					$total_entries_count += $count;
 					echo $count . " (" . round( $time_entry_unserialize, 3 ) . "s)";
-					if ( $group == ".expires" ) $expires = $entries;
+					if ( $group === ".expires" ) $expires = $entries;
 					// Find largest key
 					foreach ( $entries as $key => $entry ) {
 						$keys[] = $group . ':' . $key;
@@ -616,7 +616,7 @@ else {
 		$n ++;
 	}
 
-	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear == $group ) $GLOBALS['wp_object_cache']->release_lock();
+	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear === $group ) $GLOBALS['wp_object_cache']->release_lock();
 
 	//echo "<pre>";
 	//print_r($expires);
