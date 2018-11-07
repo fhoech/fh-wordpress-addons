@@ -975,6 +975,24 @@ class SHM_Partitioned_Cache {
 		return true;
 	}
 
+	public function delete_group( $group ) {
+		if ( $this->res === false ) return false;
+
+		$groups = $this->get_groups();
+
+		$result = false;
+
+		foreach ( $groups as $key => $stats ) {
+			if ( $key === $group ) {
+				foreach ( $groups[ $group ][ 'keys' ] as $key ) {
+					$result = $this->delete( $key, $group );
+				}
+			}
+		}
+
+		return $result;
+	}
+
 	public function get_block_size() {
 		return $this->block_size;
 	}
