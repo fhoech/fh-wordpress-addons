@@ -738,15 +738,40 @@ class SHM_Partitioned_Cache {
 
 	private function read_partition_table() {
 		// Actual size of partition table is in first four bytes
-		$result = @ shmop_read( $this->res, 0, 4 );
-		if ( $result !== false ) {
-			$this->partition_size = unpack( 'N', $result )[1];
-			$this->partition_table = $this->partition_size ? shmop_read( $this->res, 4, $this->partition_size ) : '';
-			// Get offset and length for last data chunk
-			// (always last 8 bytes in partition table regardless of order)
-			if ( $this->partition_size >= 8 ) {
-				$start = unpack( 'N', substr( $this->partition_table, $this->partition_size - 8, 4 ) )[1];
-				$count = unpack( 'N', substr( $this->partition_table, $this->partition_size - 4, 4 ) )[1];
+		$partition_size = @ shmop_read( $this->res, 0, 4 );
+		if ( $partition_size !== false ) {
+			$this->partition_size = unpack( 'N', $partition_size )[1];
+			$start_data = @ shmop_read( $this->res, 4, 4 );
+			$count_data = @ shmop_read( $this->res, 8, 4 );
+			// Get offset and length of last data chunk
+			if ( $start_data !== false && $count_data !== false ) {
+				// XXX: Partition table format check only valid for partition size < 512 MiB
+				if ( $this->partition_size < 536870912 && ord( $start_data[0] ) >= 32 ) {
+					// Old table format had offset and length of last data block in last 8 bytes of table
+					$this->partition_table = $this->partition_size ? shmop_read( $this->res, 4, $this->partition_size ) : "\0\0\0\0\0\0\0\0";
+					$start_data = substr( $this->partition_table, $this->partition_size - 8, 4 );
+					$count_data = substr( $this->partition_table, $this->partition_size - 4, 4 );
+					$this->partition_size -= 8;
+					// Write out new format
+					if ( ! @ shmop_write( $this->res, pack( 'N', $this->partition_size ) . $start_data . $count_data . substr( $this->partition_table, 0, $this->partition_size ), 0 ) ) {
+						$error = error_get_last();
+						file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+										   date( 'Y-m-d H:i:s,v' ) .
+										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write new partition table format to SHM segment (key " . $this->get_id( true ) . "): " .
+										   $error['message'] . "\n", FILE_APPEND );
+					}
+					else {
+						file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+										   date( 'Y-m-d H:i:s,v' ) .
+										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Wrote new partition table format to SHM segment (key " . $this->get_id( true ) . ")\n", FILE_APPEND );
+					}
+				}
+				else {
+					// Current format has offset and length of last data block in first 8 bytes of table
+					$this->partition_table = $this->partition_size ? shmop_read( $this->res, 12, $this->partition_size ) : "";
+				}
+				$start = unpack( 'N', $start_data )[1];
+				$count = unpack( 'N', $count_data )[1];
 			}
 			else {
 				$start = 0;
@@ -841,7 +866,7 @@ class SHM_Partitioned_Cache {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read '$group_key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start: " .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start: " .
 							   $error['message'] . ". Deleting.\n", FILE_APPEND );
 			$this->delete( $key, $group );
 			return false;
@@ -891,7 +916,7 @@ class SHM_Partitioned_Cache {
 			if ( $offset + $padded_len > $this->size ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group_key' ($data_len bytes, padded $padded_len) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: Allocated space for data exceeded. Flushing cache.\n", FILE_APPEND );
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group:$key' ($data_len bytes, padded $padded_len) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: Allocated space for data exceeded. Flushing cache.\n", FILE_APPEND );
 				$this->flush();
 				return false;
 			}
@@ -899,46 +924,48 @@ class SHM_Partitioned_Cache {
 			$partition_size = $this->partition_size;
 			if ( $pos == $this->partition_size ) {
 				// This is a new partition entry, need to increase partition size
-				$partition_size += strlen( $group_key ) + 16;
+				$partition_size += strlen( $group_key ) + 8;
 				if ( $partition_size >= $this->data_offset ) {
 					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 									   date( 'Y-m-d H:i:s,v' ) .
-									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write partition table entry for '$group_key' to SHM segment (key " . $this->get_id( true ) . "): Allocated space for partition table exceeded. Flushing cache.\n", FILE_APPEND );
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write partition table entry for '$group:$key' to SHM segment (key " . $this->get_id( true ) . "): Allocated space for partition table exceeded. Flushing cache.\n", FILE_APPEND );
 					$this->flush();
 					return false;
 				}
 			}
 			$this->next += $padded_len;
-			if ( ! @ shmop_write( $this->res, $group_key . $data_offset_count, 4 + $pos ) ||
-				 ! @ shmop_write( $this->res, $data_offset_count, 4 + $partition_size - 8 ) ) {
+			// Write partition entries
+			if ( ! @ shmop_write( $this->res, $group_key . $data_offset_count, 12 + $pos ) ||
+				 ! @ shmop_write( $this->res, $data_offset_count, 4 ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write partition table entry for '$group_key' to SHM segment (key " . $this->get_id( true ) . "): " .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write partition table entry for '$group:$key' to SHM segment (key " . $this->get_id( true ) . "): " .
 								   $error['message'] . "\n", FILE_APPEND );
 				return false;
 			}
 			$this->partition[ $group_key ] = array( $pos, $offset, $data_len );
 			if ( $pos == $this->partition_size ) {
-				// This is a new partition entry, need to update partition size
+				// This is a new partition entry, need to write updated partition size
 				$this->partition_size = $partition_size;
 				if ( ! @ shmop_write( $this->res, pack( 'N', $partition_size ), 0 ) ) {
 					$error = error_get_last();
 					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 									   date( 'Y-m-d H:i:s,v' ) .
-									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't increase partition table size for '$group_key' in SHM segment (key " . $this->get_id( true ) . "): " .
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't increase partition table size for '$group:$key' in SHM segment (key " . $this->get_id( true ) . "): " .
 									   $error['message'] . "\n", FILE_APPEND );
 					return false;
 				}
 			}
 		}
 
+		// Write data
 		$bytes_written = @ shmop_write( $this->res, $data, $offset );
 		if ( $bytes_written === false ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group_key' ($data_len bytes) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: " .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group:$key' ($data_len bytes) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: " .
 							   $error['message'] . "\n", FILE_APPEND );
 			return false;
 		}
@@ -958,11 +985,11 @@ class SHM_Partitioned_Cache {
 		list( $pos, $offset, $count ) = $partition_entry;
 
 		// Set size to zero in partition table entry to mark as deleted
-		if ( ! @ shmop_write( $this->res, "\0\0\0\0", 4 + $pos + strlen( $group_key ) + 4 ) ) {
+		if ( ! @ shmop_write( $this->res, "\0\0\0\0", 12 + $pos + strlen( $group_key ) + 4 ) ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't truncate partition table entry for '$group_key' in SHM segment (key " . $this->get_id( true ) . "): " .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't truncate partition table entry for '$group:$key' in SHM segment (key " . $this->get_id( true ) . "): " .
 							   $error['message'] . "\n", FILE_APPEND );
 			return false;
 		}
@@ -1009,30 +1036,23 @@ class SHM_Partitioned_Cache {
 		$groups = array();
 
 		if ( $this->res !== false ) {
-			$chunk = '';
-			// XXX: This assumes partition_size is <= 4294967040L
-			// so we have guaranteed NULL bytes
-			for ( $i = 0; $i < $this->partition_size; $i ++ ) {
-				$c = $this->partition_table[ $i ];
-				if ( $c === "\0" ) {
-					if ( strpos( $chunk, ':' ) !== false ) {
-						list( $group, $key ) = explode( ':', $chunk, 2 );
-						if ( $group !== '' ) {
-							$group = addcslashes( $group, "\x00..\x19\x7f..\xff\\" );
-							$key = addcslashes( $key, "\x00..\x19\x7f..\xff\\" );
-							$size = unpack( 'N', substr( $this->partition_table, $i + 4, 4 ) )[1];
-							if ( $size ) {
-								if ( ! isset( $groups[ $group ] ) ) $groups[ $group ] = array( 'entries_count' => 0, 'entries_size' => 0, 'keys' => array() );
-								$groups[ $group ][ 'entries_count' ] += 1;
-								$groups[ $group ][ 'entries_size' ] += $size;
-								$groups[ $group ][ 'keys' ][] = $key;
-							}
-						}
+			$start = 0;
+			while ( ( $start = strpos( $this->partition_table, '$key=', $start ) ) !== false ) {
+				$end = strpos( $this->partition_table, ';', $start );
+				if ( $end <= $start ) break;
+				$group_key = substr( $this->partition_table, $start + 5, $end - $start - 5 );
+				if ( strpos( $group_key, ':' ) !== false ) {
+					list( $group, $key ) = explode( ':', $group_key, 2 );
+					$end += 5;
+					$size = unpack( 'N', substr( $this->partition_table, $end, 4 ) )[1];
+					if ( $size ) {
+						if ( ! isset( $groups[ $group ] ) ) $groups[ $group ] = array( 'entries_count' => 0, 'entries_size' => 0, 'keys' => array() );
+						$groups[ $group ][ 'entries_count' ] += 1;
+						$groups[ $group ][ 'entries_size' ] += $size;
+						$groups[ $group ][ 'keys' ][] = $key;
 					}
-					$i += 7;
-					$chunk = '';
 				}
-				else $chunk .= $c;
+				$start = $end;
 			}
 		}
 
@@ -1049,6 +1069,10 @@ class SHM_Partitioned_Cache {
 
 	public function get_partition_size() {
 		return $this->partition_size;
+	}
+
+	public function get_partition_table() {
+		return $this->partition_table;
 	}
 
 	public function get_data_offset() {
@@ -1105,7 +1129,7 @@ class SHM_Partitioned_Cache {
 
 	private function _get_group_key( $key, $group = 'default' ) {
 		// Concatenate group and key, return the result
-		return $group . ':' . $key;
+		return '$key=' . $group . ':' . $key . ';';
 	}
 
 	private function _get_partition_entry( $group_key ) {
