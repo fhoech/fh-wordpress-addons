@@ -1425,8 +1425,7 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
-		if ($this->shm_enable === 2 ?
-			!isset($this->dirty_groups[$group][$key]) :
+		if ($this->shm_enable === 2 ||
 			!isset($this->dirty_groups[$group]))
 			$this->dirty_groups[$group][$key] = false;
         if ($this->debug) $this->time_total += microtime(true) - $time_start;
@@ -1807,8 +1806,7 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
 		if ($this->debug) $time_start = microtime(true);
-		if ($this->shm_enable === 2 ?
-			!isset($this->dirty_groups[$group][$key]) :
+		if ($this->shm_enable === 2 ||
 			!isset($this->dirty_groups[$group])) {
 			$exists = $this->_exists($key, $group);
 			$is_complex = $exists && ( is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] ) );
@@ -2129,6 +2127,8 @@ class WP_Object_Cache {
 														   isset( $this->expires[$group][$key] ) ?
 														   $this->expires[$group][$key] :
 														   $this->now + $this->expiration_time );
+							if ( $result !== false )
+								unset( $this->dirty_groups[$group][$key] );
 						}
 					}
 					else if (($result = $this->_persist_group($group, serialize($this->cache[$group]))) !== false) {
