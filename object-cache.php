@@ -1045,11 +1045,14 @@ class SHM_Partitioned_Cache {
 					list( $group, $key ) = explode( ':', $group_key, 2 );
 					$end += 5;
 					$size = unpack( 'N', substr( $this->partition_table, $end, 4 ) )[1];
+					if ( ! isset( $groups[ $group ] ) ) $groups[ $group ] = array( 'entries_count' => 0, 'entries_size' => 0, 'keys' => array(), 'deleted_keys' => array() );
 					if ( $size ) {
-						if ( ! isset( $groups[ $group ] ) ) $groups[ $group ] = array( 'entries_count' => 0, 'entries_size' => 0, 'keys' => array() );
 						$groups[ $group ][ 'entries_count' ] += 1;
 						$groups[ $group ][ 'entries_size' ] += $size;
 						$groups[ $group ][ 'keys' ][] = $key;
+					}
+					else {
+						$groups[ $group ][ 'deleted_keys' ][] = $key;
 					}
 				}
 				$start = $end;
