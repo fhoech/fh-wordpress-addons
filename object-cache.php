@@ -716,9 +716,11 @@ class SHM_Partitioned_Cache {
 	private $expires = array();
 	private $mtime = array();
 	private $now;
+	private $debug;
 
 	public function __construct( $size = 16 * 1024 * 1024 ) {
 		$this->now = time();
+		$this->debug = defined('FH_OBJECT_CACHE_SHM_DEBUG') ? FH_OBJECT_CACHE_SHM_DEBUG : 0;
 		$this->id = ftok( __FILE__, "\xff" );
 		if ( ! $this->res = @ shmop_open( $this->id, 'c', 0600, $size ) ) {
 			$error = error_get_last();
@@ -866,23 +868,31 @@ class SHM_Partitioned_Cache {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start: " .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
 							   $error['message'] . ". Deleting.\n", FILE_APPEND );
 			$this->delete( $key, $group );
 			return false;
 		}
-		$result = unserialize( $result );
-		if ( $result === false || ! is_array( $result ) || count ( $result ) != 3 ) return false;
+		$unserialized = @ unserialize( $result );
+		if ( $unserialized === false || ! is_array( $unserialized ) || count ( $unserialized ) != 3 ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
+							   $error['message'] . ( $this->debug > 1 ?  ": " . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) : "" ) . ". Deleting.\n", FILE_APPEND );
+			$this->delete( $key, $group );
+			return false;
+		}
 
-		list( $value, $expire, $mtime ) = $result;
+		list( $value, $expire, $mtime ) = $unserialized;
 
-		//$this->cache[ $group ][ $key ] = $result;
+		//$this->cache[ $group ][ $key ] = $unserialized;
 		//$this->expires[ $group ][ $key ] = $expire;
 		//if ( ! isset( $this->mtime[ $group ] ) ||
 		//	 $mtime > $this->mtime[ $group ] )
 		//	$this->mtime[ $group ] = $mtime;
 
-		return $result;
+		return $unserialized;
 	}
 
 	public function set( $key, $value, $group = 'default', $expire = 0 ) {
