@@ -902,15 +902,19 @@ class SHM_Partitioned_Cache {
 		if ( $partition_entry !== false ) {
 			// Update existing partition entry
 			list( $pos, $offset, $count ) = $partition_entry;
-			if ( $offset + $count > $this->size ) $count = 0;
+			if ( $offset + $count > $this->size ) $padded_count = 0;
+			else if ( $padded_len > $data_len )
+				$padded_count = (int) ceil( $count / $this->block_size ) * $this->block_size;
+			else
+				$padded_count = $count;
 		}
 		else {
 			// Create new partition entry
 			$pos = $this->partition_size;
-			$count = 0;
+			$padded_count = 0;
 		}
 
-		if ( $padded_len > $count ) {
+		if ( $padded_len > $padded_count ) {
 			// Create new partition entry or update existing
 			$offset = $this->next;
 			if ( $offset + $padded_len > $this->size ) {
