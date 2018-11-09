@@ -711,12 +711,15 @@ class SHM_Partitioned_Cache {
 	private $partition_size = -1;
 	private $block_size = 128;
 	private $data_offset = -1;
+	private $last_key_data_offset = -1;
+	private $last_key_data_size = -1;
 	private $next = -1;
 	private $cache = array();
 	private $expires = array();
 	private $mtime = array();
 	private $now;
 	private $debug;
+	private $time_read = 0;
 
 	public function __construct( $size = 16 * 1024 * 1024 ) {
 		$this->now = time();
@@ -779,6 +782,8 @@ class SHM_Partitioned_Cache {
 				$start = 0;
 				$count = 0;
 			}
+			$this->last_key_data_offset = $start;
+			$this->last_key_data_size = $count;
 			// Offset for next data chunk
 			if ( ! $start ) $start = $this->data_offset;
 			$this->next = $start + (int) ceil( $count / $this->block_size ) * $this->block_size;
@@ -856,6 +861,8 @@ class SHM_Partitioned_Cache {
 
 		//$this->cache[ $group ][ $key ] = false;
 
+		$time_start = microtime( true );
+
 		$group_key = $this->_get_group_key( $key, $group );
 
 		$partition_entry = $this->_get_partition_entry( $group_key );
@@ -864,6 +871,7 @@ class SHM_Partitioned_Cache {
 		if ( ! $count || $start + $count > $this->size ) return false;
 
 		$result = @ shmop_read( $this->res, $start, $count );
+		$this->time_read += microtime( true ) - $time_start;
 		if ( $result === false ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -1034,6 +1042,10 @@ class SHM_Partitioned_Cache {
 		return $result;
 	}
 
+	public function __get( $name ) {
+		return $this->$name;
+	}
+
 	public function get_block_size() {
 		return $this->block_size;
 	}
@@ -1111,42 +1123,39 @@ class SHM_Partitioned_Cache {
 	}
 
 	public function stats() {
-		echo "SHM_Partitioned_Cache stats\n";
-		echo "===========================\n";
-		echo "SHM key: " . $this->get_id( true ) . "\n";
-		echo "Resource: " . $this->res . "\n";
-		echo "Size: " . $this->size . " bytes (" . round( $this->size / 1024, 2 ) . " KiB)\n";
-		echo "\nPartition table\n";
-		echo "---------------\n";
-		echo "Partition table size: " . $this->partition_size . " bytes (" . round( $this->partition_size / 1024, 2 ) . " KiB)\n";
-		echo "Key data offset: " . $this->data_offset . " bytes (" . round( $this->data_offset / 1024, 2 ) . " KiB)\n";
-		echo "Next free key data segment offset: " . $this->next . " bytes (" . round( $this->next / 1024, 2 ) . " KiB)\n";
+		echo '<h4>Shared Memory</h4>';
+		echo '<table><tbody>';
+		echo '<tr><th>Key</th><td>' . $this->get_id( true ) . "</td></tr>\n";
+		echo '<tr><th>Resource</th><td>' . $this->res . "</td></tr>\n";
+		echo '<tr><th>Size</th><td>' . $this->size . ' bytes (' . number_format( $this->size / 1024, 2 ) . " KiB)</td></tr>\n";
+		echo '<tr><th>Partition Table Size</th><td>' . $this->partition_size . ' bytes (' . number_format( $this->partition_size / 1024, 2 ) . " KiB)</td></tr>\n";
+		echo '<tr><th>Data Offset</th><td>' . $this->data_offset . ' bytes (' . number_format( $this->data_offset / 1024, 2 ) . " KiB)</td></tr>\n";
+		echo '<tr><th>Next Free Data Segment Offset</th><td>' . $this->next . ' bytes (' . number_format( $this->next / 1024, 2 ) . " KiB)</td></tr>\n";
 		$time_start = microtime( true );
 		$this->read_partition_table();
-		echo "Time to re-read partition table for stats: " . round( microtime( true ) - $time_start, 3 ) . "s\n";
+		echo '<tr><th>Partition Table Read Time</th><td>' . number_format( microtime( true ) - $time_start, 4 ) . "s</td></tr>\n";
 		$pos = strrpos( $this->partition_table, '$key=' );
 		if ( $pos !== false ) {
-			echo "Last added key partition table entry offset: " . $pos . " bytes (" . round( $pos / 1024, 2 ) . " KiB)\n";
+			echo '<tr><th>Last Added Key Partition Table Entry Offset</th><td>' . $pos . ' bytes (' . number_format( $pos / 1024, 2 ) . " KiB)</td></tr>\n";
 			$end = strpos( $this->partition_table, ';', $pos );
 			$key_len = $end - $pos - 5;
-			echo "Last added key: " . addcslashes( substr( $this->partition_table, $pos + 5, $key_len ), "\x00..\x19\x7e..\xff\\" ) . "\n";
+			echo '<tr><th>Last Added Key</th><td>' . addcslashes( substr( $this->partition_table, $pos + 5, $key_len ), "\x00..\x19\x7e..\xff\\" ) . "</td></tr>\n";
 			$offset = unpack( 'N', substr( $this->partition_table, $pos + 5 + $key_len + 1, 4 ) )[1];
-			echo "Last added key data offset: " . $offset . " bytes (" . round( $offset / 1024, 2 ) . " KiB)\n";
+			echo '<tr><th>Last Added Key Data Offset</th><td>' . $offset . ' bytes (' . number_format( $offset / 1024, 2 ) . " KiB)</td></tr>\n";
 			$size = unpack( 'N', substr( $this->partition_table, $pos + 5 + $key_len + 1 + 4, 4 ) )[1];
-			echo "Last added key data size: " . $size . " bytes (" . round( $size / 1024, 2 ) . " KiB)\n";
-			//echo "Last changed key data offset: " . unpack( 'N', substr( $this->partition_table, 4, 4 ) )[1] . " bytes\n";
-			//echo "Last changed key data size: " . unpack( 'N', substr( $this->partition_table, 8, 4 ) )[1] . " bytes\n";
+			echo '<tr><th>Last Added Key Data Size</th><td>' . $size . ' bytes (' . number_format( $size / 1024, 2 ) . " KiB)</td></tr>\n";
+			echo '<tr><th>Last Changed Key Data Offset</th><td>' . $this->last_key_data_offset . ' bytes (' . number_format( $this->last_key_data_offset / 1024, 2 ) . " KiB)</td></tr>\n";
+			echo '<tr><th>Last Changed Key Data Size</th><td>' . $this->last_key_data_size . ' bytes (' . number_format( $this->last_key_data_size / 1024, 2 ) . " KiB)</td></tr>\n";
 		}
 		$last_added_partition_entry = end( $this->partition );
 		if ( $last_added_partition_entry !== false ) {
-			echo "\nAccessed partition entries for this request\n";
-			echo "-------------------------------------------\n";
 			list( $pos, $offset, $size ) = $last_added_partition_entry;
-			echo "Last accessed key partition table entry offset: " . $pos . " bytes (" . round( $pos / 1024, 2 ) . " KiB)\n";
-			echo "Last accessed key: " . substr( key( $this->partition ), 5, -1 ) . "\n";
-			echo "Last accessed key data offset: " . $offset . " bytes (" . round( $offset / 1024, 2 ) . " KiB)\n";
-			echo "Last accessed key data size: " . $size . " bytes (" . round( $size / 1024, 2 ) . " KiB)\n";
+			echo '<tr><th>Last Accessed Key Partition Table Entry Offset</th><td>' . $pos . ' bytes (' . number_format( $pos / 1024, 2 ) . " KiB)</td></tr>\n";
+			echo '<tr><th>Last Accessed Key</th><td>' . substr( key( $this->partition ), 5, -1 ) . "</td></tr>\n";
+			echo '<tr><th>Last Accessed Key Data Offset</th><td>' . $offset . ' bytes (' . number_format( $offset / 1024, 2 ) . " KiB)</td></tr>\n";
+			echo '<tr><th>Last Accessed Key Data Size</th><td>' . $size . ' bytes (' . number_format( $size / 1024, 2 ) . " KiB)</td></tr>\n";
 		}
+		echo '</table></tbody>';
 	}
 
 	private function _get_group_key( $key, $group = 'default' ) {
@@ -1228,7 +1237,6 @@ class WP_Object_Cache {
 	private $skip;
 	private $file_cache_reads = 0;
 	private $file_cache_misses = 0;
-	private $file_cache_expirations = 0;
 	private $file_cache_hits = 0;
 	private $cache_hits_groups = array();
 	private $file_cache_hits_groups = array();
@@ -1588,8 +1596,8 @@ class WP_Object_Cache {
 				if ($this->debug) $time_shm_read_start = microtime(true);
 				$result = $this->shm->get($key, $group);
 				if ($this->debug) {
-					$this->time_shm_read += microtime(true) - $time_shm_read_start;
-					$this->time_read = $this->time_shm_read;
+					$this->time_shm_read = $this->shm->time_read;
+					$this->time_read += microtime(true) - $time_shm_read_start;
 				}
 				if ($result !== false) {
 					list($value, $expire, $mtime) = $result;
@@ -1603,7 +1611,6 @@ class WP_Object_Cache {
 					}
 					else {
 						$this->file_cache_groups[$group][$key] = false;
-						$this->file_cache_expirations += 1;
 						$this->expirations += 1;
 						if ($this->debug) {
 							if ( ! isset($this->expirations_groups[$group]) )
@@ -1894,25 +1901,43 @@ class WP_Object_Cache {
 	public function stats() {
 		/* File-based object cache start */
 		if ( ! $this->debug ) {
-			echo "<p>Define FH_OBJECT_CACHE_DEBUG for additional stats</p>";
+			echo '<p>Define FH_OBJECT_CACHE_DEBUG for additional stats</p>';
 		}
-		echo "<p>";
+		echo '<table><tbody>';
+		echo "<tr><th>Cache Hits</th><td>{$this->cache_hits}";
+		if ( $this->debug ) echo " ({$this->file_cache_hits} from persistent cache)";
+		echo '</td></tr>';
+		echo "<tr><th>Cache Misses</th><td>{$this->cache_misses}</td></tr>";
+		$total = $this->cache_misses + $this->cache_hits;
+		echo '<tr><th>Hit Rate</th><td>' . number_format( 100 / $total * $this->cache_hits, 1 ) . '%</td></tr>';
 		$hours = floor( $this->expiration_time / 60 / 60 );
 		$minutes = floor( ( $this->expiration_time - $hours * 60 * 60 ) / 60 );
 		$seconds = $this->expiration_time - $hours * 60 * 60 - $minutes * 60;
-		echo "<strong>Cache Lifetime (if unspecified for entry):</strong> $hours hours $minutes minutes $seconds soconds<br />";
-		echo "<strong>Persistent Cache Reads:</strong> {$this->file_cache_reads} ({$this->file_cache_misses} misses, {$this->file_cache_expirations} expired)<br />";
-		echo "<strong>Cache Hits:</strong> {$this->cache_hits}";
-		if ( $this->debug ) echo " ({$this->file_cache_hits} from persistent cache)";
-		echo "</p>";
-		echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Hits</th><th style="padding: .1em .3em">From Persistent Cache</th><th style="padding: .1em .3em">Misses</th><th style="padding: .1em .3em">SHM</th><th style="padding: .1em .3em">Freshness</th><th style="padding: .1em .3em">Persist</th><th style="padding: .1em .3em">Global</th><th style="padding: .1em .3em">Entries</th><th style="padding: .1em .3em">Expired</th><th style="padding: .1em .3em">Deleted</th><th style="padding: .1em .3em">Size (KiB)</th></tr>';
+		echo "<tr><th>Persistent Cache Reads (incl. misses)</th><td>{$this->file_cache_reads} ({$this->file_cache_misses} misses)</td></tr>";
+		if ( $this->debug ) {
+			if ($this->shm_enable !== 2) echo '<tr><th>Persistent Cache Disk Read Time</th><td>' . number_format( $this->time_disk_read, 4) . 's</td></tr>';
+			if ($this->shm_enable) echo '<tr><th>Persistent Cache Shared Memory Read Time</th><td>' . number_format( $this->time_shm_read, 4) . 's</td></tr>';
+			echo '<tr><th>Persistent Cache Parse Time</th><td>' . number_format( $this->time_read - $this->time_disk_read - $this->time_shm_read, 4) . 's</td></tr>';
+		}
+		echo "<tr><th>Persistent Cache Entry Default Lifetime</th><td>{$hours}h {$minutes}m {$seconds}s</td></tr>";
+		echo "<tr><th>Persistent Cache Entry Expirations</th><td>{$this->expirations}</td></tr>";
+		echo "<tr><th>Cache Entry Writes (w/o deletions)</th><td>{$this->cache_writes}</td></tr>";
+		echo "<tr><th>Cache Entry Deletions</th><td>{$this->cache_deletions}</td></tr>";
+		echo "<tr><th>Cache Persists</th><td>{$this->actual_persists}</td></tr>";
+		echo "<tr><th>Cache Flushes</th><td>{$this->flushes}</td></tr>";
+		echo "<tr><th>Cache Resets (deprecated)</th><td>{$this->resets}";
+		if ( $this->debug ) {
+			echo '<tr><th>Persistent Cache Write Time</th><td>' . number_format( $this->time_disk_write, 4) . 's</td></tr>';
+			echo '<tr><th>Cache Processing Total Time</th><td>' . number_format( $this->time_total, 4) . 's</td></tr>';
+		}
 		$total_entries = 0;
 		$total_size = 0;
+		$table_rows = array();
 		foreach ($this->cache as $group => $cache) {
 			$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : ( $this->debug ? 0 : 'N/A' );
 			$file_cache_hits_groups = isset($this->file_cache_hits_groups[$group]) ? $this->file_cache_hits_groups[$group] : ( $this->debug ? 0 : 'N/A' );
 			$cache_misses_groups = isset($this->cache_misses_groups[$group]) ? $this->cache_misses_groups[$group] : ( $this->debug ? 0 : 'N/A' );
-			$shm = ($this->shm_enable === 2 ? !empty($this->file_cache_groups[$group]) : isset($this->shm[$group])) ? 'Yes' : 'No';
+			$shm = !isset($this->non_persistent_groups[$group]) && ($this->shm_enable === 2 ? !empty($this->file_cache_groups[$group]) : isset($this->shm[$group])) ? 'Yes' : 'No';
 			$updated = isset($this->dirty_groups[$group]) ? 'Now' : (isset($this->mtime[$group]) ? human_time_diff( $this->mtime[$group] ) : 'Unknown');
 			$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
 			$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
@@ -1922,76 +1947,32 @@ class WP_Object_Cache {
 			$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : ( $this->debug ? 0 : 'N/A' );
 			$size = strlen( serialize( $cache ) ) / 1024;
 			$total_size += $size;
-			echo "<tr style='" . ($persist === "No" ? "opacity: .5;" : "") . "'><td style='" . ($global === "Yes" ? "font-style: oblique;" : "") . "padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$cache_hits_groups</td><td style='padding: .1em .3em'>$file_cache_hits_groups</td><td style='padding: .1em .3em'>$cache_misses_groups</td><td style='padding: .1em .3em'>$shm</td><td style='padding: .1em .3em'>$updated</td><td style='padding: .1em .3em'>$persist</td><td style='padding: .1em .3em'>$global</td><td style='padding: .1em .3em'>$entries</td><td style='padding: .1em .3em'>$expired</td><td style='padding: .1em .3em'>$deleted</td><td style='padding: .1em .3em'>" . number_format( $size, 2 ) . "</td></tr>";
+			$table_rows[] = '<tr' . ($persist === 'No' ? ' style="opacity: .5"' : '') . '><td' . ($global === 'Yes' ? ' style="font-style: oblique !important"' : '') . ">$group</td><td>$cache_hits_groups</td><td>$file_cache_hits_groups</td><td>$cache_misses_groups</td><td>$shm</td><td>$updated</td><td>$persist</td><td>$global</td><td>$entries</td><td>$expired</td><td>$deleted</td><td>" . number_format( $size, 2 ) . '</td></tr>';
 		}
-		echo '</table>';
-		echo "<p>";
-		echo "<strong>Cache Writes:</strong> {$this->cache_writes}<br />";
-		echo "<strong>Expired Cache Entries:</strong> {$this->expirations}<br />";
-		echo "<strong>Deleted Cache Entries:</strong> {$this->cache_deletions}<br />";
-		echo "<strong>Remaining Cache Entries:</strong> $total_entries<br />";
+		echo "<tr><th>Cache Entries</th><td>$total_entries</td></tr>";
 		$overhead = strlen(str_repeat(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER, count($this->cache))) / 1024;
-		echo "<strong>Cache Size:</strong> " . number_format( $total_size, 2 ) . " KiB (" . number_format( $total_size + $overhead, 2 ) . " KiB with overhead)<br />";
-		if ( $this->debug ) {
-			echo "<strong>Persistent Cache Overall Performance:</strong> " . number_format( $this->time_total, 3) . "s<br />";
-			echo "<strong>Persistent Cache Disk Read Performance:</strong> " . number_format( $this->time_disk_read, 3) . "s<br />";
-			echo "<strong>Persistent Cache SHM Read Performance:</strong> " . number_format( $this->time_shm_read, 3) . "s<br />";
-			echo "<strong>Persistent Cache Total Read &amp; Parse Performance:</strong> " . number_format( $this->time_read, 3) . "s<br />";
-			echo "<strong>Persistent Cache Write Performance:</strong> " . number_format( $this->time_disk_write, 3) . "s";
-		}
-		echo "</p>";
-		echo "<p>";
-		echo "<strong>Cache Misses:</strong> {$this->cache_misses}<br />";
-		echo "</p>";
+		echo '<tr><th>Cache Size</th><td>' . number_format( $total_size, 2 ) . ' KiB (' . number_format( $total_size + $overhead, 2 ) . ' KiB with overhead)</td></tr>';
+		echo '<tr><th>Global Groups</th><td><span style="font-style: oblique !important">' . implode(', ', array_keys($this->global_groups)) . '</span></td></tr>';
+		echo '<tr><th>Non-Persistent Groups</th><td><span style="opacity: .5">' . implode(', ', array_keys($this->non_persistent_groups)) . '</span></td></tr>';
+		if (!empty($this->file_cache_errors_groups)) echo '<tr><th>File Cache Read Errors</th><td>' . implode(', ', array_keys($this->file_cache_errors_groups)) . '</td></tr>';
+		if (!empty($this->file_cache_persist_errors_groups)) echo '<tr><th>File Cache Write Errors</th><td>' . implode(', ', array_keys($this->file_cache_persist_errors_groups)) . '</td></tr>';
+		echo '</tbody></table>';
+		echo '<h4>Cache Hits</h4>';
+		echo '<table><thead><tr><th>Group</th><th>Hits</th><th>From Persistent Cache</th><th>Misses</th><th>SHM</th><th>Freshness</th><th>Persist</th><th>Global</th><th>Entries</th><th>Expired</th><th>Deleted</th><th>Size (KiB)</th></tr></thead><tbody>';
+		echo implode( "\n", $table_rows );
+		echo '</tbody></table>';
 		if ( ! empty( $this->cache_misses_groups ) ) {
-			echo '<table border="1" style="border-collapse: collapse"><tr><th style="padding: .1em .3em">Group</th><th style="padding: .1em .3em">Misses</th></tr>';
+			echo '<h4>Cache Misses</h4>';
+			echo '<table><thead><tr><th>Group</th><th>Misses</th></tr></thead><tbody>';
 			foreach ($this->cache_misses_groups as $group => $count) {
-				echo "<tr style='" . (isset($this->non_persistent_groups[$group]) ? "opacity: .5;" : "") . "'><td style='" . (isset($this->global_groups[$group]) ? "font-style: oblique;" : "") . "padding: .1em .3em'>$group</td><td style='padding: .1em .3em'>$count</td></tr>";
+				echo '<tr' . (isset($this->non_persistent_groups[$group]) ? ' style="opacity: .5"' : '') . '><td' . (isset($this->global_groups[$group]) ? ' style="font-style: oblique !important"' : '') . ">$group</td><td>$count</td></tr>";
 			}
-			echo '</table>';
+			echo '</tbody></table>';
 		}
-		echo "<p>";
-		echo "<strong>Cache Persists:</strong> {$this->actual_persists} ({$this->persists} calls)<br />";
-		echo "<strong>Cache Flushes:</strong> {$this->flushes}<br />";
-		echo "<strong>Cache Resets (deprecated):</strong> {$this->resets}";
-		echo "</p>";
-		echo "<p>";
-		echo "<strong>Global Groups:</strong> <span style='font-style: oblique'>" . implode(', ', array_keys($this->global_groups)) . "</span><br />";
-		echo "<strong>Non-Persistent Groups:</strong> <span style='opacity: .5'>" . implode(', ', array_keys($this->non_persistent_groups)) . "</span><br />";
-		if (!empty($this->file_cache_errors_groups)) echo "<strong>File Cache Read Errors:</strong> " . implode(', ', array_keys($this->file_cache_errors_groups));
-		if (!empty($this->file_cache_persist_errors_groups)) echo "<strong>File Cache Write Errors:</strong> " . implode(', ', array_keys($this->file_cache_persist_errors_groups));
-		echo "</p>";
 		if ($this->shm_enable === 2) {
-			echo "<pre>";
 			$this->shm->stats();
-			echo "</pre>";
 		}
 		/* File-based object cache end */
-
-		/* OPcache */
-		if ( defined( 'FH_OBJECT_CACHE_OPCACHE_DEBUG' ) ) {
-			echo "<pre>OPcache\n";
-			echo "=======\n";
-			if (function_exists('opcache_get_configuration')) {
-				$conf = opcache_get_configuration();
-
-				ob_start();
-				var_dump($conf);
-				$contents = preg_replace("/=>\s+/", "=>", ob_get_contents());
-				ob_end_clean();
-				echo "OPcache configuration: " . $contents . "\n";
-			}
-			if (function_exists('opcache_get_status')) {
-				$status = opcache_get_status(false);
-
-				ob_start();
-				var_dump($status);
-				$contents = preg_replace("/=>\s+/", "=>", ob_get_contents());
-				ob_end_clean();
-				echo "OPcache status: " . $contents . "\n";
-			}
-			echo "</pre>\n";
-		}
 	}
 
 	/**
