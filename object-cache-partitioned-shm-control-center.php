@@ -599,13 +599,13 @@ else {
 </form>
 <?php
 
-	$wasted_bytes = $shm_cache->get_size() - $bytes_allocated_sum;
+	$wasted_bytes = $shm_cache->get_next() - $shm_cache->get_data_offset() - $bytes_allocated_sum;
 
 	$wasted = $shm_cache->get_size() ? $wasted_bytes / $shm_cache->get_size() : 0;
 	$r = 102 * ( 2 - ( 1 - $wasted ) );
 	$g = min( 153 * ( .5 + ( 1 - $wasted ) ), 204 );
 
-	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free, " . human_size( $wasted_bytes ) . " wasted (<span style='color: rgb($r, $g, 0);'>" . round( $wasted * 100, 2 ) . "%</span>)</p>";
+	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", effective " . human_size( $shm_cache->get_size() - $shm_cache->get_data_offset() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free, " . human_size( $wasted_bytes ) . " wasted (<span style='color: rgb($r, $g, 0);'>" . round( $wasted * 100, 2 ) . "%</span>)</p>";
 
 	$used = $bytes_allocated_sum ? $bytes_sum / $bytes_allocated_sum : 0;
 	$r = 102 * ( 2 - $used );
