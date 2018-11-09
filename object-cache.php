@@ -1009,7 +1009,7 @@ class SHM_Partitioned_Cache {
 		return $bytes_written !== false;
 	}
 
-	public function delete( $key, $group = 'default' ) {
+	public function delete( $key, $group = 'default', $permanent = false ) {
 		if ( $this->res === false ) return false;
 
 		$group_key = $this->_get_group_key( $key, $group );
@@ -1018,8 +1018,16 @@ class SHM_Partitioned_Cache {
 		if ( $partition_entry === false ) return false;
 		list( $pos, $offset, $count ) = $partition_entry;
 
-		// Set size to zero in partition table entry to mark as deleted
-		if ( ! @ shmop_write( $this->res, "\0\0\0\0", 12 + $pos + strlen( $group_key ) + 4 ) ) {
+		if ( $permanent ) {
+			// Overwrite whole entry with binary zeros to permanently delete
+			$data = str_repeat( "\0", strlen( $group_key ) + 8 );
+		}
+		else {
+			// Set size to zero in partition table entry to mark as deleted
+			$data = "\0\0\0\0";
+			$pos += strlen( $group_key ) + 4;
+		}
+		if ( ! @ shmop_write( $this->res, $data, 12 + $pos ) ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
@@ -1036,7 +1044,7 @@ class SHM_Partitioned_Cache {
 		return true;
 	}
 
-	public function delete_group( $group ) {
+	public function delete_group( $group, $permanent = false ) {
 		if ( $this->res === false ) return false;
 
 		$groups = $this->get_groups();
@@ -1045,8 +1053,10 @@ class SHM_Partitioned_Cache {
 
 		foreach ( $groups as $key => $stats ) {
 			if ( $key === $group ) {
-				foreach ( $groups[ $group ][ 'keys' ] as $key ) {
-					$result = $this->delete( $key, $group );
+				$keys = $stats[ 'keys' ];
+				if ( $permanent ) $keys = array_merge( $keys, $stats[ 'deleted_keys' ] );
+				foreach ( $keys as $key ) {
+					$result = $this->delete( $key, $group, $permanent );
 				}
 			}
 		}
