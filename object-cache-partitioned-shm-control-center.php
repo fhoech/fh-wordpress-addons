@@ -523,7 +523,7 @@ else {
 	$total_entries_count = 0;
 	$keys = array();
 	foreach ( $groups as $group => $stats ) {
-		if ( isset( $non_persistent_groups[$group] ) || $clear === $group ) $exists = ! $shm_cache->delete_group( $group );
+		if ( isset( $non_persistent_groups[$group] ) || $clear === $group ) $exists = ! $shm_cache->delete_group( $group, $stats[ 'entries_size' ] === 0 );
 		else $exists = $stats[ 'entries_size' ] > 0;
 		$mtime = time();
 		echo "<tr data-group='$group'" . ( ! $exists ? " class='unallocated'" : ( $admin ? " onclick='get( this )'" : "" ) ) . ( time() - $mtime > HOUR_IN_SECONDS ? " class='stale'" : "" ) . ">";
@@ -562,16 +562,17 @@ else {
 					//var_dump( $data );
 				}
 				echo "</td>";
-				echo "<td>" . $bytes . "</td><td>" . human_size( $bytes ) . "</td><td>" . ( ceil( $bytes / $shm_cache->get_block_size() ) * $shm_cache->get_block_size() ) . "</td><td>" . human_size( ( ceil( $bytes / $shm_cache->get_block_size() ) * $shm_cache->get_block_size() ) ) . "</td><td>" . human_size( $entry_max_size ) . "</td>";
-				$bytes_allocated_sum +=  ceil( $bytes / $shm_cache->get_block_size() ) * $shm_cache->get_block_size();
-				$used = $bytes ? $bytes / ( ceil( $bytes / $shm_cache->get_block_size() ) * $shm_cache->get_block_size() ) : 0;
+				$bytes_allocated = ceil( $bytes / $shm_cache->get_block_size() ) * $shm_cache->get_block_size();
+				echo "<td>" . $bytes . "</td><td>" . human_size( $bytes ) . "</td><td>$bytes_allocated</td><td>" . human_size( $bytes_allocated ) . "</td><td>" . human_size( $entry_max_size ) . "</td>";
+				$bytes_allocated_sum +=  $bytes_allocated;
+				$used = $bytes ? $bytes / $bytes_allocated : 0;
 				$r = 102 * ( 2 - $used );
 				$g = min( 144 * ( .5 + $used ), 204 );
 				echo "<td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td>";
 				//if ( in_array( $group, array( 'themes', 'post_format_relationships', 'bp_member_member_type' ) ) ) var_dump( $data );
 				//echo "<td>" . date( 'Y-m-d H:i:s', $mtime ) . ", " . fh_human_time_diff( $mtime ) . "</td>";
 				echo "<td>Unknown</td>";
-				echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=$group' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=$group&amp;json' title='Dump cache contents as JSON'>JSON</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?clear=$group' title='Clear cache contents' onclick='return confirm( &quot;Are you sure you want to clear cache data for group $group?&quot; ) && submit( this )' data-action='clear' data-value='$group'>Clear</a>" : "" ) . "</td>";
+				echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=" . rawurlencode( $group ) . "' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=" . rawurlencode( $group ) . "&amp;json' title='Dump cache contents as JSON'>JSON</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?clear=" . rawurlencode( $group ) . "' title='Clear cache contents' onclick='return confirm( &quot;Are you sure you want to clear cache data for group $group?&quot; ) && submit( this )' data-action='clear' data-value='$group'>Clear</a>" : "" ) . "</td>";
 			}
 			else {
 				if ( $clear_corrupt ) {
@@ -583,8 +584,8 @@ else {
 			}
 		}
 		else {
-			echo "<td colspan='2'></td>";
-			echo "<td colspan='8'></td>";
+			echo "<td colspan='9'></td>";
+			echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?clear=" . rawurlencode( $group ) . "' title='Permanently delete entry' onclick='return confirm( &quot;Are you sure you want to permanently delete $group?&quot; ) && submit( this )' data-action='clear' data-value='$group'>Delete</a>" : "" ) . "</td>";
 		}
 		echo "</tr>\n";
 		$n ++;
@@ -598,7 +599,13 @@ else {
 </form>
 <?php
 
-	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free</p>";
+	$wasted_bytes = $shm_cache->get_size() - $bytes_allocated_sum;
+
+	$wasted = $shm_cache->get_size() ? $wasted_bytes / $shm_cache->get_size() : 0;
+	$r = 102 * ( 2 - ( 1 - $wasted ) );
+	$g = min( 153 * ( .5 + ( 1 - $wasted ) ), 204 );
+
+	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free, " . human_size( $wasted_bytes ) . " wasted (<span style='color: rgb($r, $g, 0);'>" . round( $wasted * 100, 2 ) . "%</span>)</p>";
 
 	$used = $bytes_allocated_sum ? $bytes_sum / $bytes_allocated_sum : 0;
 	$r = 102 * ( 2 - $used );
