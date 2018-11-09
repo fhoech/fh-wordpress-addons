@@ -231,7 +231,7 @@ if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
 		function get( tr ) {
 			if ( document.forms[0].elements[0].name ) return;
 			var group = tr.getAttribute( 'data-group' );
-			location.href = "<?php echo $_SERVER['SCRIPT_NAME']; ?>?get=" + group + '&json';
+			location.href = "<?php echo $_SERVER['SCRIPT_NAME']; ?>?get=" + encodeURIComponent( group ) + '&json';
 		}
 
 		function submit( a ) {
@@ -400,7 +400,7 @@ else if ( ! function_exists('shmop_open') ) {
 }
 else if ( $dump ) {
 
-	$group = $dump;
+	$group = stripcslashes( $dump );
 
 	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
 	$groups = $shm_cache->get_groups();
@@ -496,8 +496,10 @@ else {
 	$time_groups_get = microtime( true ) - $time_groups_get_start;
 
 	$persistent_groups = array();
+	$partition_table_entries = 0;
 	foreach ( $groups as $group => $stats ) {
 		if ( ! isset( $non_persistent_groups[$group] ) ) $persistent_groups[$group] = true;
+		$partition_table_entries += count( $stats[ 'keys' ] ) + count( $stats[ 'deleted_keys' ] );
 	}
 
 	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear === $group ) $GLOBALS['wp_object_cache']->acquire_lock();
@@ -508,7 +510,7 @@ else {
 	$r = 102 * ( 2 - $used );
 	$g = min( 153 * ( .5 + $used ), 204 );
 
-	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>&lt;Partition table&gt;</td><td>255</td><td>" . $shm_cache->get_id( true ) . "</td><td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td><td>" . count( $groups ) . " (" . round( $time_groups_get, 3 ) . "s)</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td></td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
+	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>&lt;Partition table&gt;</td><td>255</td><td>" . $shm_cache->get_id( true ) . "</td><td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td><td>$partition_table_entries (" . round( $time_groups_get, 3 ) . "s)</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td></td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
 	echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
 	echo "</tr>";
 
@@ -603,6 +605,55 @@ else {
 	echo "<p>" . $total_entries_count . " entries using " . human_size( $bytes_sum ) . " (<span style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated</p>\n";
 
 	printf( "<p>WordPress loaded in %.3f seconds, page generated in %.3f seconds</p>\n", round( $time_wp_load, 3 ), round( microtime( true ) - $time_start, 3 ) );
+
+	//echo "<pre style='white-space: pre-wrap'>" . preg_replace( '/([^0-9A-Za-z $+,\-.:;=@[\]_]+)/', "<span style='color: #f33; font-weight: bold'>\\1</span>", preg_replace_callback( '/(\$key=[^;]+;)(.{4})(.{4})/s', function ( $matches ) {
+	//	return $matches[1] . unpack( 'N', $matches[2] )[1] . "," . unpack( 'N', $matches[3] )[1] . "\n";
+	//}, $shm_cache->get_partition_table() ) ) . "</pre>\n";
+
+	//$partition_table = $shm_cache->get_partition_table();
+
+	//$time_start = microtime( true );
+	//$partition = array();
+	//$start = 0;
+	//while ( ( $start = strpos( $partition_table, '$key=', $start ) ) !== false ) {
+		//$end = strpos( $partition_table, ';', $start );
+		//if ( $end <= $start ) break;
+		//$group_key = substr( $partition_table, $start, $end - $start + 1 );
+		//$end += 1;
+		//$offset = unpack( 'N', substr( $partition_table, $end, 4 ) )[1];
+		//$end += 4;
+		//$size = unpack( 'N', substr( $partition_table, $end, 4 ) )[1];
+		//$partition[ $group_key ] = array( 'offset' => $offset, 'size' => $size );
+		//$start = $end;
+	//}
+	//$time_parse_partition = round( microtime( true ) - $time_start, 3 );
+	//echo "<p>Parsed partition in {$time_parse_partition}s</p>";
+
+	//$time_start = microtime( true );
+	//$serialized = serialize($partition);
+	//$time_serialize = round( microtime( true ) - $time_start, 3 );
+	//echo "<p>Serialized partition in {$time_serialize}s</p>";
+
+	//$time_start = microtime( true );
+	//$unserialized = unserialize( $serialized );
+	//$time_unserialize = round( microtime( true ) - $time_start, 3 );
+	//echo "<p>Unserialized partition in {$time_unserialize}s</p>";
+
+	//$first_partition_entry = current( $partition );
+	//list( $group, $key ) = explode( ':', substr( key( $partition ), 5, -1 ), 2 );
+	//$time_start = microtime( true );
+	//$result = $shm_cache->get( $key, $group );
+	//$time_get_first = round( microtime( true ) - $time_start, 3 );
+	//echo "<p>Got first key $group:$key in {$time_get_first}s</p>";
+	//if ( ! $result ) echo "<p>Got no result for first key $group:$key partition entry: " . key( $partition ) . " => " . var_export( $first_partition_entry, true ) . "</p>";
+
+	//$last_partition_entry = end( $partition );
+	//list( $group, $key ) = explode( ':', substr( key( $partition ), 5, -1 ), 2 );
+	//$time_start = microtime( true );
+	//$result = $shm_cache->get( $key, $group );
+	//$time_get_last = round( microtime( true ) - $time_start, 3 );
+	//echo "<p>Got last key $group:$key in {$time_get_last}s</p>";
+	//if ( ! $result ) echo "<p>Got no result for last key $group:$key partition entry: " . key( $partition ) . " => " . var_export( $last_partition_entry, true ) . "</p>";
 
 }
 
