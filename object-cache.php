@@ -890,9 +890,9 @@ class SHM_Partitioned_Cache {
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
-							   $error['message'] . ( $this->debug > 1 ?  ": " . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) : "" ) . "\n", FILE_APPEND );
+							   $error['message'] . ( $this->debug > 1 ?  ": '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "'" : "" ) . ". Deleting.\n", FILE_APPEND );
 			$this->failed[ $group_key ] = true;
-			unset( $this->partition[ $group_key ] );
+			$this->delete( $key, $group );
 			return false;
 		}
 
