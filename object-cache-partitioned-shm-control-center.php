@@ -424,7 +424,9 @@ else if ( $dump ) {
 			$result = $shm_cache->get( $key, $group );
 			if ( $result !== false ) {
 				list( $value, $expire, $mtime ) = $result;
-				$entries[$key] = $value;
+				$entries[$key] = array( 'mtime' => $mtime,
+										'expire' => $expire,
+										'data' => $value );
 			}
 		}
 		if ( $result !== false || count( $entries ) ) {
