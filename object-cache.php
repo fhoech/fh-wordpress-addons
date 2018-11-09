@@ -40,17 +40,19 @@ function wp_cache_add( $key, $data, $group = '', $expire = 0 ) {
 
 /* File-based object cache start */
 /**
- * Closes and persists the cache.
+ * Closes the cache.
  *
  * @since 2.0.0
  *
- * @return true if cache was successfully persisted, false on failure
+ * @return true Always returns true.
  */
 function wp_cache_close() {
 	global $wp_object_cache;
 
 	if (isset($wp_object_cache))
-		return $wp_object_cache->persist();
+		$wp_object_cache->close();
+
+	return true;
 }
 /* File-based object cache end */
 
@@ -888,9 +890,9 @@ class SHM_Partitioned_Cache {
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
-							   $error['message'] . ( $this->debug > 1 ?  ": " . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) : "" ) . ". Deleting.\n", FILE_APPEND );
+							   $error['message'] . ( $this->debug > 1 ?  ": " . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) : "" ) . "\n", FILE_APPEND );
 			$this->failed[ $group_key ] = true;
-			$this->delete( $key, $group );
+			unset( $this->partition[ $group_key ] );
 			return false;
 		}
 
@@ -909,6 +911,14 @@ class SHM_Partitioned_Cache {
 		if ( $this->res === false ) return false;
 
 		$group_key = $this->_get_group_key( $key, $group );
+
+		// When read failed, probably race, so don't attempt to write
+		if ( isset( $this->failed[ $group_key ] ) ) {
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Skipped writing '$group:$key' to SHM segment (key " . $this->get_id( true ) . ")\n", FILE_APPEND );
+			return false;
+		}
 
 		$mtime = time();
 		$data = serialize( array( &$value, $expire, $mtime ) );
@@ -992,12 +1002,6 @@ class SHM_Partitioned_Cache {
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group:$key' ($data_len bytes) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: " .
 							   $error['message'] . "\n", FILE_APPEND );
 			return false;
-		}
-		else if ( isset( $this->failed[ $group_key ] ) ) {
-			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Wrote '$group:$key' ($data_len bytes) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset\n", FILE_APPEND );
-			unset( $this->failed[ $group_key ] );
 		}
 
 		//$this->mtime[ $group ] = $mtime;
@@ -1271,6 +1275,7 @@ class WP_Object_Cache {
 	private $shm_enable = false;
 	private $shm = array();
 	public $cache_writes = 0;
+	private $closed = false;
 	/* File-based object cache end */
 
 	/**
@@ -2118,7 +2123,7 @@ class WP_Object_Cache {
 		 * @todo This should be moved to the PHP4 style constructor, PHP5
 		 * already calls __destruct()
 		 */
-		register_shutdown_function( array( $this, '__destruct' ) );
+		//register_shutdown_function( array( $this, '__destruct' ) );
 	}
 
 	/* File-based object cache start */
@@ -2143,11 +2148,22 @@ class WP_Object_Cache {
 	 */
 	public function __destruct() {
 		/* File-based object cache start */
-		$this->persist();
+		$this->close();
 		/* File-based object cache end */
 
 		return true;
 	}
+
+	/* File-based object cache start */
+	public function close() {
+		if ( ! $this->closed ) {
+			$this->persist();
+			$this->closed = true;
+		}
+
+		return true;
+	}
+	/* File-based object cache end */
 
 	/* File-based object cache start */
 	public function flush_taxonomies( $post_id ) {
@@ -2184,6 +2200,12 @@ class WP_Object_Cache {
 				if ($this->debug) $this->time_total += microtime(true) - $time_start;
 				return false;
 			}
+
+			//$callee = fh_get_callee();
+
+			//file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   //date( 'Y-m-d H:i:s,v' ) .
+							   //" > $callee\n", FILE_APPEND );
 
 			if ($this->debug) $time_disk_write_start = microtime(true);
 			$errors = 0;
@@ -2231,6 +2253,10 @@ class WP_Object_Cache {
 			if ($this->debug) $this->time_disk_write += microtime(true) - $time_disk_write_start;
 
 			if ( $this->shm_enable && $this->shm_enable !== 2 ) SHM_Cache::_persist_groups();
+
+			//file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   //date( 'Y-m-d H:i:s,v' ) .
+							   //" < $callee\n", FILE_APPEND );
 
 			$this->release_lock();
 		}
@@ -2351,4 +2377,13 @@ class WP_Object_Cache {
 		fclose($this->mutex);
 	}
 	/* File-based object cache end */
+}
+
+function fh_get_callee() {
+	$backtrace = debug_backtrace();
+	$sequence = array();
+	while ( $next = next( $backtrace ) ) {
+		$sequence[] = ( isset( $next['class'] ) ? $next['class'] . $next['type'] : '' ) . $next['function'];
+	}
+	return implode( ' -> ', array_reverse( $sequence ) );
 }
