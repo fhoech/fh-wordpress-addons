@@ -720,6 +720,7 @@ class SHM_Partitioned_Cache {
 	private $now;
 	private $debug;
 	private $time_read = 0;
+	private $failed = array();
 
 	public function __construct( $size = 16 * 1024 * 1024 ) {
 		$this->now = time();
@@ -888,6 +889,7 @@ class SHM_Partitioned_Cache {
 							   date( 'Y-m-d H:i:s,v' ) .
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
 							   $error['message'] . ( $this->debug > 1 ?  ": " . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) : "" ) . ". Deleting.\n", FILE_APPEND );
+			$this->failed[ $group_key ] = true;
 			$this->delete( $key, $group );
 			return false;
 		}
@@ -990,6 +992,12 @@ class SHM_Partitioned_Cache {
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group:$key' ($data_len bytes) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: " .
 							   $error['message'] . "\n", FILE_APPEND );
 			return false;
+		}
+		else if ( isset( $this->failed[ $group_key ] ) ) {
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Wrote '$group:$key' ($data_len bytes) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset\n", FILE_APPEND );
+			unset( $this->failed[ $group_key ] );
 		}
 
 		//$this->mtime[ $group ] = $mtime;
