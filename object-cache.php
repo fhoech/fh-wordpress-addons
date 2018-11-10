@@ -722,7 +722,6 @@ class SHM_Partitioned_Cache {
 	private $now;
 	private $debug;
 	private $time_read = 0;
-	private $failed = array();
 
 	public function __construct( $size = 16 * 1024 * 1024 ) {
 		$this->now = time();
@@ -891,7 +890,6 @@ class SHM_Partitioned_Cache {
 							   date( 'Y-m-d H:i:s,v' ) .
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
 							   $error['message'] . ( $this->debug > 1 ?  ": '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "'" : "" ) . ". Deleting.\n", FILE_APPEND );
-			$this->failed[ $group_key ] = true;
 			$this->delete( $key, $group );
 			return false;
 		}
@@ -911,14 +909,6 @@ class SHM_Partitioned_Cache {
 		if ( $this->res === false ) return false;
 
 		$group_key = $this->_get_group_key( $key, $group );
-
-		// When read failed, probably race, so don't attempt to write
-		if ( isset( $this->failed[ $group_key ] ) ) {
-			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Skipped writing '$group:$key' to SHM segment (key " . $this->get_id( true ) . ")\n", FILE_APPEND );
-			return false;
-		}
 
 		$mtime = time();
 		$data = serialize( array( &$value, $expire, $mtime ) );
@@ -1541,6 +1531,7 @@ class WP_Object_Cache {
         if ($this->debug) $time_start = microtime(true);
 
 		if ( ! $this->acquire_lock() ) {
+			$this->_log( "Couldn't acquire exclusive lock", 1 );
 			if ($this->debug) $this->time_total += microtime(true) - $time_start;
 			return false;
 		}
@@ -1559,7 +1550,8 @@ class WP_Object_Cache {
 				@ unlink($this->cache_dir . $file);
 		}
 
-		$this->release_lock();
+		if ( ! $this->acquire_lock( LOCK_SH ) )
+			$this->_log( "Couldn't acquire shared lock", 1 );
 		$this->deleted = array();
 		$this->dirty_groups = array();
 		$this->flushes += 1;
@@ -2110,6 +2102,9 @@ class WP_Object_Cache {
 		if ($this->ajax) $this->_log("DOING_AJAX");
 		if ($this->cron) $this->_log("DOING_CRON");
 
+		if ( ! $this->acquire_lock( LOCK_SH ) )
+			$this->_log( "Couldn't acquire shared lock", 1 );
+
 		if ( $this->shm_enable === 2 ) {
 			$this->shm = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
 			$this->non_persistent_groups = array();
@@ -2165,6 +2160,8 @@ class WP_Object_Cache {
 			$this->closed = true;
 		}
 
+		$this->release_lock();
+
 		return true;
 	}
 	/* File-based object cache end */
@@ -2201,6 +2198,7 @@ class WP_Object_Cache {
 			}
 
 			if ( ! $this->acquire_lock() ) {
+				$this->_log( "Couldn't acquire exclusive lock", 1 );
 				if ($this->debug) $this->time_total += microtime(true) - $time_start;
 				return false;
 			}
@@ -2262,7 +2260,8 @@ class WP_Object_Cache {
 							   //date( 'Y-m-d H:i:s,v' ) .
 							   //" < $callee\n", FILE_APPEND );
 
-			$this->release_lock();
+			if ( ! $this->acquire_lock( LOCK_SH ) )
+				$this->_log( "Couldn't acquire shared lock", 1 );
 		}
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 
@@ -2353,7 +2352,7 @@ class WP_Object_Cache {
 			$secs = floor($time);
 			$ms = sprintf("%03d", ($time - $secs) * 1000);
 			$log = strftime("%Y-%m-%d %H:%M:%S") . ",$ms $msg\n";
-			@file_put_contents($this->cache_dir . 'object-cache.log', $log, FILE_APPEND);
+			@file_put_contents($this->cache_dir . '.object-cache.log', $log, FILE_APPEND);
 		}
 	}
 
@@ -2364,21 +2363,21 @@ class WP_Object_Cache {
 		$this->non_persistent_groups = array_merge( $this->non_persistent_groups, $groups );
 	}
 
-	function acquire_lock() {
-		// Acquire a write lock.
-		$this->mutex = @fopen($this->cache_dir.$this->flock_filename, 'w');
+	function acquire_lock( $operation = LOCK_EX ) {
+		$this->mutex = @fopen($this->cache_dir.$this->flock_filename, 'c+');
 		if ( false == $this->mutex)
 			return false;
 		else {
-			flock($this->mutex, LOCK_EX);
-			return true;
+			return flock($this->mutex, $operation);
 		}
 	}
 
 	function release_lock() {
-		// Release write lock.
-		flock($this->mutex, LOCK_UN);
-		fclose($this->mutex);
+		if ( $this->mutex ) {
+			flock($this->mutex, LOCK_UN);
+			fclose($this->mutex);
+			$this->mutex = null;
+		}
 	}
 	/* File-based object cache end */
 }
