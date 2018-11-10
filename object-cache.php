@@ -711,7 +711,7 @@ class SHM_Partitioned_Cache {
 	private $partition = array();
 	private $partition_table = null;
 	private $partition_size = -1;
-	private $block_size = 128;
+	private $block_size = 64;
 	private $data_offset = -1;
 	private $last_key_data_offset = -1;
 	private $last_key_data_size = -1;
@@ -789,7 +789,7 @@ class SHM_Partitioned_Cache {
 			$this->last_key_data_size = $count;
 			// Offset for next data chunk
 			if ( ! $start ) $start = $this->data_offset;
-			$this->next = $start + (int) ceil( $count / $this->block_size ) * $this->block_size;
+			$this->next = (int) ceil( ( $start + $count ) / $this->block_size ) * $this->block_size;
 		}
 		else {
 			$error = error_get_last();
@@ -923,20 +923,14 @@ class SHM_Partitioned_Cache {
 		$mtime = time();
 		$data = serialize( array( &$value, $expire, $mtime ) );
 		$data_len = strlen( $data );
-		if ( is_array( $value ) || is_object( $value ) )
-			$padded_len = (int) ceil( $data_len / $this->block_size ) * $this->block_size;
-		else
-			$padded_len = $data_len;
+		$padded_len = (int) ceil( $data_len / $this->block_size ) * $this->block_size;
 
 		$partition_entry = $this->_get_partition_entry( $group_key );
 		if ( $partition_entry !== false ) {
 			// Update existing partition entry
 			list( $pos, $offset, $count ) = $partition_entry;
 			if ( $offset + $count > $this->size ) $padded_count = 0;
-			else if ( $padded_len > $data_len )
-				$padded_count = (int) ceil( $count / $this->block_size ) * $this->block_size;
-			else
-				$padded_count = $count;
+			else $padded_count = (int) ceil( $count / $this->block_size ) * $this->block_size;
 		}
 		else {
 			// Create new partition entry
