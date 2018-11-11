@@ -102,9 +102,10 @@ $clear_corrupt = isset( $_REQUEST['clear_corrupt'] );
 $clear_all = isset( $_REQUEST['clear_all'] );
 $clear = ! empty( $_REQUEST['clear'] ) ? $_REQUEST['clear'] : false;
 $trim = isset( $_REQUEST['trim'] );
-$dump = ! empty( $_REQUEST['get'] ) ? $_REQUEST['get'] : false;
+$get = ! empty( $_REQUEST['get'] ) ? $_REQUEST['get'] : false;
+$dump = isset( $_REQUEST['dump'] );
 
-if ( ( $update_groups || $clear_corrupt || $clear_all || $clear || $trim || $dump ) && ! $admin ) {
+if ( ( $update_groups || $clear_corrupt || $clear_all || $clear || $trim || $get || $dump ) && ! $admin ) {
 	http_response_code( 403 );
 
 	if ( isset( $_REQUEST['json'] ) ) {
@@ -117,12 +118,13 @@ if ( ( $update_groups || $clear_corrupt || $clear_all || $clear || $trim || $dum
 	$clear_all = false;
 	$clear = false;
 	$trim = false;
+	$get = false;
 	$dump = false;
 
 	define( 'FORBIDDEN', true );
 }
 
-if ( ! $dump || ! isset( $_REQUEST['json'] ) ) {
+if ( ! $get || ! isset( $_REQUEST['json'] ) ) {
 
 	$hours = floatval( date( 'H' ) ) + floatval( date( 'i' ) ) / 60 + floatval( date( 's' ) ) / 60 / 60;
 	$tzoffset = get_option('gmt_offset');
@@ -398,9 +400,9 @@ if ( defined( 'FORBIDDEN' ) ) {
 else if ( ! function_exists('shmop_open') ) {
 	echo "<p>shmop support disabled</p>\n";
 }
-else if ( $dump ) {
+else if ( $get ) {
 
-	$group = stripcslashes( $dump );
+	$group = stripcslashes( $get );
 
 	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
 	$groups = $shm_cache->get_groups();
@@ -424,8 +426,9 @@ else if ( $dump ) {
 			$result = $shm_cache->get( $key, $group );
 			if ( $result !== false ) {
 				list( $value, $expire, $mtime ) = $result;
-				$entries[$key] = array( 'mtime' => $mtime,
-										'expire' => $expire,
+				$entries[$key] = array( 'mtime' => date( 'Y-m-d H:i:s T', $mtime ),
+										'expire' => date( 'Y-m-d H:i:s T', $expire ),
+										'expired' => $expire < time(),
 										'data' => $value );
 			}
 		}
@@ -491,6 +494,11 @@ else {
 	// Init cache
 	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
 
+	if ( $dump ) {
+		echo "<p>Dumping cache contents to .object_cache_shm_dump.bin</p>\n";
+		file_put_contents( __DIR__ . '/.object_cache_shm_dump.bin', shmop_read( $shm_cache->res, 0, $shm_cache->size ) );
+	}
+
 	if ( $clear_all ) $shm_cache->clear();
 
 	$time_groups_get_start = microtime( true );
@@ -516,53 +524,37 @@ else {
 	echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
 	echo "</tr>";
 
-	$bytes_sum = $groups_bytes;
-	$bytes_allocated_sum = $groups_bytes_allocated;
+	$bytes_sum = 0;
+	$bytes_allocated_sum = 0;
 	$n = 1;
 	$corrupt = 0;
 	$total_entries_count = 0;
 	$keys = array();
 	foreach ( $groups as $group => $stats ) {
-		if ( isset( $non_persistent_groups[$group] ) || $clear === $group ) $exists = ! $shm_cache->delete_group( $group, $stats[ 'entries_size' ] === 0 );
-		else $exists = $stats[ 'entries_size' ] > 0;
-		$mtime = time();
+		if ( isset( $non_persistent_groups[$group] ) || $clear === $group ) {
+			$exists = ! $shm_cache->delete_group( $group, ! $stats[ 'bytes_allocated' ] );
+			if ( ! $stats[ 'bytes_allocated' ] ) continue;
+		}
+		else $exists = $stats[ 'bytes_allocated' ] > 0;
+		$mtime = $stats[ 'mtime' ];
 		echo "<tr data-group='$group'" . ( ! $exists ? " class='unallocated'" : ( $admin ? " onclick='get( this )'" : "" ) ) . ( time() - $mtime > HOUR_IN_SECONDS ? " class='stale'" : "" ) . ">";
-		echo "<td>$n</td><td>$group</td><td>255</td><td>" . ( $exists ? $shm_cache->get_id( true ) : "Not allocated" ) . "</td>";
+		echo "<td>$n</td><td>$group</td><td>255</td><td>" . $shm_cache->get_id( true ) . "</td>";
+		echo "<td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td>";
 		if ( $exists ) {
-			echo "<td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td>";
 			//if ( $trim || ! ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear === $group ) ) $data = $shm_cache->get_group( $group );
 			//if ( $trim ) $shm_cache->delete_group( $group );
 			if ( $stats !== false ) {
 				//if ( $trim ) $shm_cache->set_group( $group, $data );
-				$bytes = $stats[ 'entries_size' ];
+				$bytes = $stats[ 'bytes_used' ];
 				$bytes_sum += $bytes;
-				$time_entry_unserialize_start = microtime( true );
-				$entries = array();
-				$time_entry_unserialize = microtime( true ) - $time_entry_unserialize_start;
 				echo "<td>";
-				$entry_max_size_key = '';
-				$entry_max_size = 0;
-				if ( is_array( $entries ) ) {
-					$count = $stats[ 'entries_count' ];
-					$total_entries_count += $count;
-					echo $count . " (" . round( $time_entry_unserialize, 3 ) . "s)";
-					// Find largest key
-					foreach ( $entries as $key => $entry ) {
-						$keys[] = $group . ':' . $key;
-						$entry_size = strlen( serialize( $entry ) );
-						if ( $entry_size > $entry_max_size ) {
-							$entry_max_size_key = $key;
-							$entry_max_size = $entry_size;
-						}
-					}
-				}
-				else if ( $entries !== false ) echo "Unexpected data type: " . gettype( $data );
-				else {
-					echo "Unserializing failed";
-					//var_dump( $data );
-				}
+				$entry_max_size_key = $stats[ 'entry_max_size_key' ];
+				$entry_max_size = $stats[ 'entry_max_size' ];
+				$count = $stats[ 'entries_count' ];
+				$total_entries_count += $count;
+				echo $count;
 				echo "</td>";
-				$bytes_allocated = ceil( $bytes / $shm_cache->get_block_size() ) * $shm_cache->get_block_size();
+				$bytes_allocated = $stats[ 'bytes_allocated' ];
 				echo "<td>" . $bytes . "</td><td>" . human_size( $bytes ) . "</td><td>$bytes_allocated</td><td>" . human_size( $bytes_allocated ) . "</td><td>" . human_size( $entry_max_size ) . "</td>";
 				$bytes_allocated_sum +=  $bytes_allocated;
 				$used = $bytes ? $bytes / $bytes_allocated : 0;
@@ -570,7 +562,7 @@ else {
 				$g = min( 144 * ( .5 + $used ), 204 );
 				echo "<td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td>";
 				//if ( in_array( $group, array( 'themes', 'post_format_relationships', 'bp_member_member_type' ) ) ) var_dump( $data );
-				//echo "<td>" . date( 'Y-m-d H:i:s', $mtime ) . ", " . fh_human_time_diff( $mtime ) . "</td>";
+				echo "<td>" . date( 'Y-m-d H:i:s', $mtime ) . ", " . fh_human_time_diff( $mtime ) . "</td>";
 				echo "<td>Unknown</td>";
 				echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=" . rawurlencode( $group ) . "' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=" . rawurlencode( $group ) . "&amp;json' title='Dump cache contents as JSON'>JSON</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?clear=" . rawurlencode( $group ) . "' title='Clear cache contents' onclick='return confirm( &quot;Are you sure you want to clear cache data for group $group?&quot; ) && submit( this )' data-action='clear' data-value='$group'>Clear</a>" : "" ) . "</td>";
 			}
@@ -584,7 +576,7 @@ else {
 			}
 		}
 		else {
-			echo "<td colspan='9'></td>";
+			echo "<td colspan='8'>Not allocated</td>";
 			echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?clear=" . rawurlencode( $group ) . "' title='Permanently delete entry' onclick='return confirm( &quot;Are you sure you want to permanently delete $group?&quot; ) && submit( this )' data-action='clear' data-value='$group'>Delete</a>" : "" ) . "</td>";
 		}
 		echo "</tr>\n";
@@ -601,7 +593,7 @@ else {
 
 	$wasted_bytes = $shm_cache->get_next() - $shm_cache->get_data_offset() - $bytes_allocated_sum;
 
-	$wasted = $shm_cache->get_size() ? $wasted_bytes / $shm_cache->get_size() : 0;
+	$wasted = $shm_cache->get_size() ? $wasted_bytes / ( $shm_cache->get_size() - $shm_cache->get_data_offset() ) : 0;
 	$r = 102 * ( 2 - ( 1 - $wasted ) );
 	$g = min( 153 * ( .5 + ( 1 - $wasted ) ), 204 );
 
@@ -671,8 +663,9 @@ else {
 <form id="cp" action="<?php echo $_SERVER['SCRIPT_NAME']; ?>" method="post">
 <p>
 <?php
-	if ( function_exists( 'shmop_open' ) && $admin && ! $dump ) {
+	if ( function_exists( 'shmop_open' ) && $admin && ! $get ) {
 ?>
+	<button type="submit" name="dump">Dump SHM to file</button>
 	<button type="submit" name="trim">Trim</button>
 	<button type="submit" name="clear_corrupt"<?php if ( ! $corrupt )?> disabled<?php ; ?>>Clear corrupt</button>
 	<button type="submit" name="clear_all" onclick="return confirm( 'Are you sure you want to clear all cache data?' )">Clear all</button>
