@@ -1196,7 +1196,7 @@ class SHM_Partitioned_Cache {
 			}
 			foreach ( $this->partition as $group_key => $entry ) {
 				list( $group, $key ) = explode( ':', substr( $group_key, 5, -1 ), 2 );
-				if ( $this->partition[ $group_key ] === false ) $size = 0;
+				if ( $this->partition[ $group_key ] === false ) $count = 0;
 				else list( $pos, $offset, $count ) = $this->partition[ $group_key ];
 				$result = @ shmop_read( $this->res, $offset, 12 );
 				if ( $result === false ) {
@@ -1216,7 +1216,7 @@ class SHM_Partitioned_Cache {
 											   'entry_max_size' => 0,
 											   'entry_max_size_key' => null,
 											   'mtime' => 0 );
-				if ( $size ) {
+				if ( $count ) {
 					$groups[ $group ][ 'entries_count' ] += 1;
 					$groups[ $group ][ 'bytes_used' ] += $size;
 					$groups[ $group ][ 'keys' ][] = $key;
