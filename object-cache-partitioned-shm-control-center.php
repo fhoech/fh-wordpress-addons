@@ -563,7 +563,6 @@ else {
 				echo "<td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td>";
 				//if ( in_array( $group, array( 'themes', 'post_format_relationships', 'bp_member_member_type' ) ) ) var_dump( $data );
 				echo "<td>" . date( 'Y-m-d H:i:s', $mtime ) . ", " . fh_human_time_diff( $mtime ) . "</td>";
-				echo "<td>Unknown</td>";
 				echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=" . rawurlencode( $group ) . "' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=" . rawurlencode( $group ) . "&amp;json' title='Dump cache contents as JSON'>JSON</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?clear=" . rawurlencode( $group ) . "' title='Clear cache contents' onclick='return confirm( &quot;Are you sure you want to clear cache data for group $group?&quot; ) && submit( this )' data-action='clear' data-value='$group'>Clear</a>" : "" ) . "</td>";
 			}
 			else {
