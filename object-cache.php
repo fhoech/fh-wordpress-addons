@@ -977,12 +977,12 @@ class SHM_Partitioned_Cache {
 			if ( ! $count ) {
 				if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry marked as deleted, about to get len from data block\n";
 				// Get actual size of deleted entry so we may re-use the same byte range
-				$result = @ shmop_read( $this->res, $start, 12 );
+				$result = @ shmop_read( $this->res, $offset, 12 );
 				if ( $result === false ) {
 					$error = error_get_last();
 					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 									   date( 'Y-m-d H:i:s,v' ) .
-									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [Warning] Couldn't read '$group:$key' size from SHM segment (key " . $this->get_id( true ) . ") at offset $start: " .
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [Warning] Couldn't read '$group:$key' size from SHM segment (key " . $this->get_id( true ) . ") at offset $offset: " .
 									   $error['message'] . "\n", FILE_APPEND );
 				}
 				else if ( substr( $result, 0, 8 ) !== 'a:3:{i:0' ) {
