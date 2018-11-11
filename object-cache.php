@@ -1385,17 +1385,17 @@ class WP_Object_Cache {
 	private $ajax;
 	private $cron;
 	private $skip;
-	private $file_cache_reads = 0;
-	private $file_cache_reads_hits = 0;
-	private $file_cache_reads_hits_groups = array();
-	private $file_cache_misses = 0;
-	private $file_cache_hits = 0;
+	private $persistent_cache_reads = 0;
+	private $persistent_cache_reads_hits = 0;
+	private $persistent_cache_reads_hits_groups = array();
+	private $persistent_cache_misses = 0;
+	private $persistent_cache_hits = 0;
 	private $cache_hits_groups = array();
-	private $file_cache_hits_groups = array();
+	private $persistent_cache_hits_groups = array();
 	private $cache_misses_groups = array();
-	private $file_cache_groups = array();
-	private $file_cache_errors_groups = array();
-	private $file_cache_persist_errors_groups = array();
+	private $persistent_cache_groups = array();
+	private $persistent_cache_errors_groups = array();
+	private $persistent_cache_persist_errors_groups = array();
 	private $actual_persists = 0;
 	private $persists = 0;
 	private $cache_deletions = 0;
@@ -1404,7 +1404,7 @@ class WP_Object_Cache {
 	private $flushes = 0;
 	private $debug;
 	private $time_disk_read = 0;
-	private $time_disk_write = 0;
+	private $time_persistent_cache_write = 0;
 	private $time_read = 0;
 	private $time_shm_read = 0;
 	private $time_total = 0;
@@ -1602,8 +1602,8 @@ class WP_Object_Cache {
         if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
 		$this->dirty_groups[$group][$key] = true;
-        if ( isset( $this->file_cache_groups[$group][$key] ) )
-			$this->file_cache_groups[$group][$key] = false;
+        if ( isset( $this->persistent_cache_groups[$group][$key] ) )
+			$this->persistent_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
@@ -1647,8 +1647,8 @@ class WP_Object_Cache {
         if ($this->debug) $time_start = microtime(true);
         $this->deleted[$group][$key] = true;
 		unset( $this->expires[$group][$key] );
-        if ( isset( $this->file_cache_groups[$group][$key] ) )
-			$this->file_cache_groups[$group][$key] = false;
+        if ( isset( $this->persistent_cache_groups[$group][$key] ) )
+			$this->persistent_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
 		$this->cache_deletions += 1;
@@ -1746,9 +1746,9 @@ class WP_Object_Cache {
 			($force ||
 			 (!$this->skip &&
 			  ($this->shm_enable === 2 ?
-			   !isset($this->file_cache_groups[$group][$key]) :
-			   !isset($this->file_cache_groups[$group]))))) {
-			$this->file_cache_reads += 1;
+			   !isset($this->persistent_cache_groups[$group][$key]) :
+			   !isset($this->persistent_cache_groups[$group]))))) {
+			$this->persistent_cache_reads += 1;
 			if ($this->shm_enable === 2) {
 				if ($this->debug) $time_shm_read_start = microtime(true);
 				$result = $this->shm->get($key, $group);
@@ -1762,19 +1762,19 @@ class WP_Object_Cache {
 					if ($expire > $this->now) {
 						$this->cache[$group][$key] = $value;
 						$this->expires[$group][$key] = $expire;
-						$this->file_cache_groups[$group][$key] = true;
+						$this->persistent_cache_groups[$group][$key] = true;
 						if (!isset($this->mtime[$group]) ||
 							$mtime > $this->mtime[$group]) $this->mtime[$group] = $mtime;
-						$this->file_cache_reads_hits += 1;
+						$this->persistent_cache_reads_hits += 1;
 						if ($this->debug) {
-							if ( ! isset($this->file_cache_reads_hits_groups[$group]) )
-								$this->file_cache_reads_hits_groups[$group] = 1;
+							if ( ! isset($this->persistent_cache_reads_hits_groups[$group]) )
+								$this->persistent_cache_reads_hits_groups[$group] = 1;
 							else
-								$this->file_cache_reads_hits_groups[$group] += 1;
+								$this->persistent_cache_reads_hits_groups[$group] += 1;
 						}
 					}
 					else {
-						$this->file_cache_groups[$group][$key] = false;
+						$this->persistent_cache_groups[$group][$key] = false;
 						$this->expirations += 1;
 						if ($this->debug) {
 							if ( ! isset($this->expirations_groups[$group]) )
@@ -1785,37 +1785,37 @@ class WP_Object_Cache {
 					}
 				}
 				else {
-					$this->file_cache_groups[$group][$key] = false;
-					$this->file_cache_misses += 1;
+					$this->persistent_cache_groups[$group][$key] = false;
+					$this->persistent_cache_misses += 1;
 				}
 			}
 			else if ($this->_group_exists($group)) {
 				if ($this->debug) $time_read_start = microtime(true);
-				$this->file_cache_groups[$group] = unserialize($this->_get_group($group));
+				$this->persistent_cache_groups[$group] = unserialize($this->_get_group($group));
 				if ($this->debug) $this->time_read += microtime(true) - $time_read_start;
 				if ($force)
-					$this->_log("PERSISTENT CACHE: $group.$key = " . json_encode($this->file_cache_groups[$group][$key], JSON_PRETTY_PRINT));
-				if (false === $this->file_cache_groups[$group]) {
-					$this->file_cache_errors_groups[$group] = true;
-					$this->file_cache_groups[$group] = array();
-					$this->file_cache_misses += 1;
+					$this->_log("PERSISTENT CACHE: $group.$key = " . json_encode($this->persistent_cache_groups[$group][$key], JSON_PRETTY_PRINT));
+				if (false === $this->persistent_cache_groups[$group]) {
+					$this->persistent_cache_errors_groups[$group] = true;
+					$this->persistent_cache_groups[$group] = array();
+					$this->persistent_cache_misses += 1;
 				}
 				else {
-					if (!$force && isset($this->deleted[$group])) foreach ($this->deleted[$group] as $deleted => $value) unset($this->file_cache_groups[$group][$deleted]);
+					if (!$force && isset($this->deleted[$group])) foreach ($this->deleted[$group] as $deleted => $value) unset($this->persistent_cache_groups[$group][$deleted]);
 					if (isset($this->cache[$group])) {
-						$this->cache[$group] = array_replace($this->file_cache_groups[$group], $this->cache[$group]);
-						if ($force) $this->cache[$group][$key] = $this->file_cache_groups[$group][$key];
+						$this->cache[$group] = array_replace($this->persistent_cache_groups[$group], $this->cache[$group]);
+						if ($force) $this->cache[$group][$key] = $this->persistent_cache_groups[$group][$key];
 					}
-					else $this->cache[$group] = $this->file_cache_groups[$group];
-					$this->file_cache_groups[$group] = array_fill_keys(array_keys($this->file_cache_groups[$group]), true);
+					else $this->cache[$group] = $this->persistent_cache_groups[$group];
+					$this->persistent_cache_groups[$group] = array_fill_keys(array_keys($this->persistent_cache_groups[$group]), true);
 					$this->mtime[$group] = $this->_mtime($group);
 					if ($group == 'options' && $id == 'alloptions')
 						$this->_log("GET $group.$key\n");
 				}
 			}
 			else {
-				$this->file_cache_groups[$group] = array();
-				$this->file_cache_misses += 1;
+				$this->persistent_cache_groups[$group] = array();
+				$this->persistent_cache_misses += 1;
 			}
 		}
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
@@ -1834,12 +1834,12 @@ class WP_Object_Cache {
 					$this->cache_hits_groups[$group] = 1;
 				else
 					$this->cache_hits_groups[$group] += 1;
-				if (!empty($this->file_cache_groups[$group][$key])) {
-					$this->file_cache_hits += 1;
-					if (!isset($this->file_cache_hits_groups[$group]))
-						$this->file_cache_hits_groups[$group] = 1;
+				if (!empty($this->persistent_cache_groups[$group][$key])) {
+					$this->persistent_cache_hits += 1;
+					if (!isset($this->persistent_cache_hits_groups[$group]))
+						$this->persistent_cache_hits_groups[$group] = 1;
 					else
-						$this->file_cache_hits_groups[$group] += 1;
+						$this->persistent_cache_hits_groups[$group] += 1;
 				}
 				$this->time_total += microtime(true) - $time_start;
 			}
@@ -1934,8 +1934,8 @@ class WP_Object_Cache {
         if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
 		$this->dirty_groups[$group][$key] = true;
-        if ( isset( $this->file_cache_groups[$group][$key] ) )
-			$this->file_cache_groups[$group][$key] = false;
+        if ( isset( $this->persistent_cache_groups[$group][$key] ) )
+			$this->persistent_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
 		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
@@ -1989,7 +1989,7 @@ class WP_Object_Cache {
 				$this->dirty_groups[$group] = array();
 				unset( $this->deleted[$group] );
 				unset( $this->expires[$group] );
-				unset($this->file_cache_groups[$group]);
+				unset($this->persistent_cache_groups[$group]);
 				if ($this->debug) $this->time_total += microtime(true) - $time_start;
 				/* File-based object cache end */
 			}
@@ -2048,8 +2048,8 @@ class WP_Object_Cache {
 		if (!$expire) $expire = $this->expiration_time;
 		if ($expire) $this->expires[$group][$key] = $this->now + $expire;
 		unset($this->deleted[$group][$key]);
-        if ( isset( $this->file_cache_groups[$group][$key] ) )
-			$this->file_cache_groups[$group][$key] = false;
+        if ( isset( $this->persistent_cache_groups[$group][$key] ) )
+			$this->persistent_cache_groups[$group][$key] = false;
 		$this->_check_persist($key, $group);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -2071,15 +2071,15 @@ class WP_Object_Cache {
 		}
 		echo '<table><tbody>';
 		echo "<tr><th>Cache Hits</th><td>{$this->cache_hits}";
-		if ( $this->debug ) echo " ({$this->file_cache_hits} from persistent cache)";
+		if ( $this->debug ) echo " ({$this->persistent_cache_hits} from persistent cache)";
 		echo '</td></tr>';
 		echo "<tr><th>Cache Misses</th><td>{$this->cache_misses}</td></tr>";
 		$total = $this->cache_misses + $this->cache_hits;
 		echo '<tr><th>Hit Rate</th><td>' . number_format( 100 / $total * $this->cache_hits, 1 ) . '%</td></tr>';
-		echo "<tr><th>Persistent Cache Reads</th><td>{$this->file_cache_reads}</td></tr>";
-		echo "<tr><th>Persistent Cache Hits</th><td>{$this->file_cache_reads_hits}</td></tr>";
-		$total = $this->cache_misses + $this->file_cache_reads_hits;
-		echo '<tr><th>Persistent Cache Hit Rate</th><td>' . number_format( 100 / $total * $this->file_cache_reads_hits, 1 ) . '%</td></tr>';
+		echo "<tr><th>Persistent Cache Reads</th><td>{$this->persistent_cache_reads}</td></tr>";
+		echo "<tr><th>Persistent Cache Hits</th><td>{$this->persistent_cache_reads_hits}</td></tr>";
+		$total = $this->cache_misses + $this->persistent_cache_reads_hits;
+		echo '<tr><th>Persistent Cache Hit Rate</th><td>' . number_format( 100 / $total * $this->persistent_cache_reads_hits, 1 ) . '%</td></tr>';
 		if ( $this->debug ) {
 			if ($this->shm_enable !== 2) echo '<tr><th>Persistent Cache Disk Read Time</th><td>' . number_format( $this->time_disk_read, 4) . 's</td></tr>';
 			if ($this->shm_enable) echo '<tr><th>Persistent Cache Shared Memory Read Time</th><td>' . number_format( $this->time_shm_read, 4) . 's</td></tr>';
@@ -2096,7 +2096,7 @@ class WP_Object_Cache {
 		echo "<tr><th>Cache Flushes</th><td>{$this->flushes}</td></tr>";
 		echo "<tr><th>Cache Resets (deprecated)</th><td>{$this->resets}";
 		if ( $this->debug ) {
-			echo '<tr><th>Persistent Cache Write Time</th><td>' . number_format( $this->time_disk_write, 4) . 's</td></tr>';
+			echo '<tr><th>Persistent Cache Write Time</th><td>' . number_format( $this->time_persistent_cache_write, 4) . 's</td></tr>';
 			echo '<tr><th>Cache Processing Total Time</th><td>' . number_format( $this->time_total, 4) . 's</td></tr>';
 		}
 		$total_entries = 0;
@@ -2104,7 +2104,7 @@ class WP_Object_Cache {
 		$table_rows = array();
 		foreach ($this->cache as $group => $cache) {
 			$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
-			$file_cache_hits_groups = isset($this->file_cache_hits_groups[$group]) ? $this->file_cache_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
+			$persistent_cache_hits_groups = isset($this->persistent_cache_hits_groups[$group]) ? $this->persistent_cache_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			$cache_misses_groups = isset($this->cache_misses_groups[$group]) ? $this->cache_misses_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			unset($this->cache_misses_groups[$group]);
 			$reads = $cache_hits_groups + $cache_misses_groups;
@@ -2114,23 +2114,23 @@ class WP_Object_Cache {
 			$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
 			$entries = count($cache);
 			$total_entries += $entries;
-			$file_cache_reads_hits = isset($this->file_cache_reads_hits_groups[$group]) ? $this->file_cache_reads_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
-			$file_cache_reads = $file_cache_reads_hits + $cache_misses_groups;
-			$file_cache_reads_hit_rate = $file_cache_reads ? number_format( ( 100 / $file_cache_reads ) * $file_cache_reads_hits, 1 ) : 0;
+			$persistent_cache_reads_hits = isset($this->persistent_cache_reads_hits_groups[$group]) ? $this->persistent_cache_reads_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
+			$persistent_cache_reads = $persistent_cache_reads_hits + $cache_misses_groups;
+			$persistent_cache_reads_hit_rate = $persistent_cache_reads ? number_format( ( 100 / $persistent_cache_reads ) * $persistent_cache_reads_hits, 1 ) : 0;
 			$expired = isset($this->expirations_groups[$group]) ? $this->expirations_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			unset($this->cache_deletions_groups[$group]);
 			$size = strlen( serialize( $cache ) ) / 1024;
 			$total_size += $size;
-			$table_rows[] = '<tr' . ($persist === 'No' ? ' style="opacity: .5"' : '') . '><td' . ($global === 'Yes' ? ' style="font-style: oblique !important"' : '') . ">$group</td><td>$cache_hits_groups</td><td>$file_cache_hits_groups</td><td>$cache_misses_groups</td><td>$hit_rate%</td><td>" . ( isset($this->file_cache_groups[$group]) ? count($this->file_cache_groups[$group]) : ( $this->debug ? 0 : 'Unknown' ) ) . "</td><td>$file_cache_reads_hits</td><td>$file_cache_reads_hit_rate%</td><td>$updated</td><td>$persist</td><td>$global</td><td>$expired</td><td>$deleted</td><td>$entries</td><td>" . number_format( $size, 2 ) . '</td></tr>';
+			$table_rows[] = '<tr' . ($persist === 'No' ? ' style="opacity: .5"' : '') . '><td' . ($global === 'Yes' ? ' style="font-style: oblique !important"' : '') . ">$group</td><td>$cache_hits_groups</td><td>$persistent_cache_hits_groups</td><td>$cache_misses_groups</td><td>$hit_rate%</td><td>" . ( isset($this->persistent_cache_groups[$group]) ? count($this->persistent_cache_groups[$group]) : ( $this->debug ? 0 : 'Unknown' ) ) . "</td><td>$persistent_cache_reads_hits</td><td>$persistent_cache_reads_hit_rate%</td><td>$updated</td><td>$persist</td><td>$global</td><td>$expired</td><td>$deleted</td><td>$entries</td><td>" . number_format( $size, 2 ) . '</td></tr>';
 		}
 		echo "<tr><th>Cache Entries</th><td>$total_entries</td></tr>";
 		$overhead = strlen(str_repeat(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER, count($this->cache))) / 1024;
 		echo '<tr><th>Cache Size</th><td>' . number_format( $total_size, 2 ) . ' KiB (' . number_format( $total_size + $overhead, 2 ) . ' KiB with overhead)</td></tr>';
 		echo '<tr><th>Global Groups</th><td><span style="font-style: oblique !important">' . implode(', ', array_keys($this->global_groups)) . '</span></td></tr>';
 		echo '<tr><th>Non-Persistent Groups</th><td><span style="opacity: .5">' . implode(', ', array_keys($this->non_persistent_groups)) . '</span></td></tr>';
-		if (!empty($this->file_cache_errors_groups)) echo '<tr><th>File Cache Read Errors</th><td>' . implode(', ', array_keys($this->file_cache_errors_groups)) . '</td></tr>';
-		if (!empty($this->file_cache_persist_errors_groups)) echo '<tr><th>File Cache Write Errors</th><td>' . implode(', ', array_keys($this->file_cache_persist_errors_groups)) . '</td></tr>';
+		if (!empty($this->persistent_cache_errors_groups)) echo '<tr><th>File Cache Read Errors</th><td>' . implode(', ', array_keys($this->persistent_cache_errors_groups)) . '</td></tr>';
+		if (!empty($this->persistent_cache_persist_errors_groups)) echo '<tr><th>File Cache Write Errors</th><td>' . implode(', ', array_keys($this->persistent_cache_persist_errors_groups)) . '</td></tr>';
 		echo '</tbody></table>';
 		echo '<h4>Cache Hits</h4>';
 		echo '<table><thead><tr><th>Group</th><th>Hits</th><th>Hits From Persistent Cache</th><th>Misses</th><th>Hit Rate</th><th>Persistent Cache Reads</th><th>Persistent Cache Hits</th><th>Persistent Cache Hit Rate</th><th>Freshness</th><th>Persistent</th><th>Global</th><th>Expirations</th><th>Deletions</th><th>Entries</th><th>Size (KiB)</th></tr></thead><tbody>';
@@ -2144,16 +2144,16 @@ class WP_Object_Cache {
 				echo "<table><thead><tr><th>Group</th><th>Hits</th><th>Hits From Persistent Cache</th><th>Misses</th><th>Persistent Cache Reads</th><th>Freshness</th><th>Persistent</th><th>Global</th><th>Expirations</th><th>Deletions</th></tr></thead><tbody>";
 				foreach ($groups as $group => $count) {
 					$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
-					$file_cache_hits_groups = isset($this->file_cache_hits_groups[$group]) ? $this->file_cache_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
+					$persistent_cache_hits_groups = isset($this->persistent_cache_hits_groups[$group]) ? $this->persistent_cache_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 					$updated = isset($this->dirty_groups[$group]) ? 'Now' : (isset($this->mtime[$group]) ? human_time_diff( $this->mtime[$group] ) : 'N/A');
 					$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
 					$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
-					$file_cache_reads = isset($this->file_cache_groups[$group]) ? count($this->file_cache_groups[$group]) : 0;
+					$persistent_cache_reads = isset($this->persistent_cache_groups[$group]) ? count($this->persistent_cache_groups[$group]) : 0;
 					$cache_misses_groups = isset($this->cache_misses_groups[$group]) ? $this->cache_misses_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 					$expired = isset($this->expirations_groups[$group]) ? $this->expirations_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 					unset($this->expirations_groups[$group]);
 					$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
-					echo '<tr' . (isset($this->non_persistent_groups[$group]) ? ' style="opacity: .5"' : '') . '><td' . (isset($this->global_groups[$group]) ? ' style="font-style: oblique !important"' : '') . ">$group</td><td>$cache_hits_groups</td><td>$file_cache_hits_groups</td><td>$cache_misses_groups</td><td>$file_cache_reads</td><td>$updated</td><td>$persist</td><td>$global</td><td>$expired</td><td>$deleted</td></tr>";
+					echo '<tr' . (isset($this->non_persistent_groups[$group]) ? ' style="opacity: .5"' : '') . '><td' . (isset($this->global_groups[$group]) ? ' style="font-style: oblique !important"' : '') . ">$group</td><td>$cache_hits_groups</td><td>$persistent_cache_hits_groups</td><td>$cache_misses_groups</td><td>$persistent_cache_reads</td><td>$updated</td><td>$persist</td><td>$global</td><td>$expired</td><td>$deleted</td></tr>";
 				}
 				echo '</tbody></table>';
 			}
@@ -2353,7 +2353,7 @@ class WP_Object_Cache {
 							   //date( 'Y-m-d H:i:s,v' ) .
 							   //" > $callee\n", FILE_APPEND );
 
-			if ($this->debug) $time_disk_write_start = microtime(true);
+			if ($this->debug) $time_persistent_cache_write_start = microtime(true);
 			$errors = 0;
 			$persisted = false;
 			foreach ($this->dirty_groups as $group => $dirty) {
@@ -2381,7 +2381,7 @@ class WP_Object_Cache {
 					}
 					if ($result === false) {
 						$errors += 1;
-						$this->file_cache_persist_errors_groups[$group] = true;
+						$this->persistent_cache_persist_errors_groups[$group] = true;
 					}
 				}
 			}
@@ -2396,7 +2396,7 @@ class WP_Object_Cache {
 				}
 				$this->_persist_group('.expires', serialize($this->expires));
 			}
-			if ($this->debug) $this->time_disk_write += microtime(true) - $time_disk_write_start;
+			if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_persistent_cache_write_start;
 
 			if ( $this->shm_enable && $this->shm_enable !== 2 ) SHM_Cache::_persist_groups();
 
