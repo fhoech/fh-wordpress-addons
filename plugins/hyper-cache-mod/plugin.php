@@ -198,8 +198,8 @@ function hyper_cache_invalidate_post($post_id)
         hyper_log('File basename to invalidate ' . $hyper_cache_name);
 
         $path = WP_CONTENT_DIR . '/cache/hyper-cache-mod/' . dirname($hyper_cache_name);
-        $handle = @opendir($path);
-        if ($handle)
+        if (is_dir($path)) $handle = @opendir($path);
+        if (!empty($handle))
         {
             while ($f = readdir($handle))
             {
