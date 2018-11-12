@@ -722,10 +722,54 @@ class SHM_Partitioned_Cache {
 	private $now;
 	private $debug;
 	private $time_read = 0;
+	private $complex_groups = array( 'options',
+									 'mo',
+									 'posts',
+									 'users',
+									 'user_meta',
+									 'bp_pages',
+									 'bp',
+									 'post_meta',
+									 'terms',
+									 'post_tag_relationships',
+									 'category_relationships',
+									 'bp_last_activity',
+									 'bp_messages',
+									 'post_format_relationships',
+									 'comment',
+									 'comment_meta',
+									 'term_meta',
+									 'bp_notifications_grouped_notifications',
+									 'topic-tag_relationships',
+									 'tracpress_ticket_type_relationships',
+									 'tracpress_ticket_component_relationships',
+									 'tracpress_ticket_milestone_relationships',
+									 'tracpress_ticket_priority_relationships',
+									 'tracpress_ticket_severity_relationships',
+									 'tracpress_ticket_tag_relationships',
+									 'bp_member_member_type',
+									 'bp_xprofile_groups',
+									 'bp_xprofile',
+									 'bp_xprofile_fields',
+									 'bp_xprofile_data',
+									 'xprofile_field_meta',
+									 'calendar' );
+	private $complex_groups_noncomplex_keys = array( 'posts:last_changed',
+													 'options:can_compress_scripts',
+													 'terms:last_changed',
+													 'options:uninstall_plugins',
+													 'posts:get_page_by_path',
+													 'comment:last_changed',
+													 'bp_xprofile:fullname_field_id',
+													 'options:wp_mail_smtp_debug',
+													 'options:blacklist_keys',
+													 'options:moderation_keys' );
+	private $check_data_types = false;
 
 	public function __construct( $size = 16 * 1024 * 1024 ) {
 		$this->now = time();
 		$this->debug = defined('FH_OBJECT_CACHE_SHM_DEBUG') ? FH_OBJECT_CACHE_SHM_DEBUG : 0;
+		$this->check_data_types = defined('FH_OBJECT_CACHE_SHM_CHECK_DATA_TYPES');
 		$this->id = ftok( __FILE__, "\xff" );
 		if ( ! $this->res = @ shmop_open( $this->id, 'c', 0600, $size ) ) {
 			$error = error_get_last();
@@ -906,8 +950,13 @@ class SHM_Partitioned_Cache {
 			$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 			$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
 			if ( $expire && $expire <= $this->now ) {
+				if ( defined( 'FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS' ) ) 
+					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+									   date( 'Y-m-d H:i:s,v' ) .
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Expired " . date( 'Y-m-d H:i:s T', $expire ) . ": '$group:$key' (last modified " .
+									   date( 'Y-m-d H:i:s T', $mtime ) . ")\n", FILE_APPEND );
 				$this->delete( $key, $group );
-				return array( false, 1, $mtime );
+				return array( false, $expire, $mtime );
 			}
 			$count = unpack( 'N', substr( $result, 8, 4 ) )[1];
 			$result2 = @ shmop_read( $this->res, $start + 12, $count );
@@ -935,8 +984,19 @@ class SHM_Partitioned_Cache {
 		}
 
 		// New format
-		if ( isset( $expire ) )
+		if ( isset( $expire ) ) {
+			if ( $this->check_data_types &&
+				 in_array( $group, $this->complex_groups ) &&
+				 ! in_array( $group . ':' . explode( ':', $key )[0], $this->complex_groups_noncomplex_keys ) &&
+				 ! ( is_object( $unserialized ) || is_array( $unserialized ) ) ) {
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Not an object or array: '$group:$key'. Deleting.\n", FILE_APPEND );
+				$this->delete( $key, $group );
+				return false;
+			}
 			return array( $unserialized, $expire, $mtime );
+		}
 
 		// Old format
 		if ( ! is_array( $unserialized ) || count( $unserialized ) != 3 )
@@ -946,7 +1006,7 @@ class SHM_Partitioned_Cache {
 
 		if ( $expire && $expire <= $this->now ) {
 			$this->delete( $key, $group );
-			return array( false, 1, $mtime );
+			return array( false, $expire, $mtime );
 		}
 
 		//$this->cache[ $group ][ $key ] = $unserialized;
@@ -975,6 +1035,7 @@ class SHM_Partitioned_Cache {
 			// Existing partition entry
 			list( $pos, $offset, $count ) = $partition_entry;
 			if ( ! $count ) {
+				$deleted = true;
 				if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry marked as deleted, about to get len from data block\n";
 				// Get actual size of deleted entry so we may re-use the same byte range
 				$result = @ shmop_read( $this->res, $offset, 12 );
@@ -1048,9 +1109,9 @@ class SHM_Partitioned_Cache {
 			return false;
 		}
 
-		if ( $padded_len > $padded_count ) {
+		if ( $padded_len > $padded_count || isset( $deleted ) ) {
 			// Create new partition entry or update existing
-			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Data len $data_len (padded $padded_len) > existing data len $count (padded $padded_count), about to write partition entry at " . ( 12 + $pos ) . "\n";
+			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Data len $data_len (padded $padded_len) > existing data len $count (padded $padded_count) or deleted, about to write partition entry at " . ( 12 + $pos ) . "\n";
 			// Write partition entry
 			$data_offset_count = pack( 'N', $offset ) . pack( 'N', $padded_len );
 			if ( ! @ shmop_write( $this->res, $group_key . $data_offset_count, 12 + $pos ) ) {
@@ -1061,11 +1122,16 @@ class SHM_Partitioned_Cache {
 								   $error['message'] . "\n", FILE_APPEND );
 				return false;
 			}
+		}
+
+		if ( $padded_len > $padded_count ) {
 			// This is a new entry, need to increase next data segment offset
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Data padded $padded_len > existing data padded $padded_count, increasing next free key data offset by padded $padded_len\n";
 			$this->next += $padded_len;
-			$this->partition[ $group_key ] = array( $pos, $offset, $padded_len );
 		}
+
+		if ( $padded_len > $padded_count || isset( $deleted ) )
+			$this->partition[ $group_key ] = array( $pos, $offset, $padded_len );
 
 		if ( $pos == $this->partition_size ) {
 			// This is a new partition entry, need to write updated partition size
@@ -1118,13 +1184,15 @@ class SHM_Partitioned_Cache {
 		if ( $permanent ) {
 			// Overwrite whole entry with binary zeros to permanently delete
 			$data = str_repeat( "\0", strlen( $group_key ) + 8 );
+			$pos_offset = 0;
 		}
+		else if ( ! $count ) return false;
 		else {
 			// Set size to zero in partition table entry to mark as deleted
 			$data = "\0\0\0\0";
-			$pos += strlen( $group_key ) + 4;
+			$pos_offset = strlen( $group_key ) + 4;
 		}
-		if ( ! @ shmop_write( $this->res, $data, 12 + $pos ) ) {
+		if ( ! @ shmop_write( $this->res, $data, 12 + $pos + $pos_offset ) ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
@@ -1133,7 +1201,7 @@ class SHM_Partitioned_Cache {
 			return false;
 		}
 
-		$this->partition[ $group_key ] = false;
+		$this->partition[ $group_key ] = $permanent ? false : array( $pos, $offset, 0 );
 		//unset( $this->cache[ $group ][ $key ] );
 		//unset( $this->expires[ $group ][ $key ] );
 		//$this->mtime[ $group ] = time();
@@ -1190,6 +1258,8 @@ class SHM_Partitioned_Cache {
 					 ! isset( $this->partition[ $group_key ] ) ) {
 					$offset = unpack( 'N', substr( $this->partition_table, $end + 1, 4 ) )[1];
 					$count = unpack( 'N', substr( $this->partition_table, $end + 5, 4 ) )[1];
+					if ( isset( $this->partition[ $group_key ] ) )
+						echo "WARNING - partition table is corrupt! Duplicate entry $group_key<br />\n";
 					$this->partition[ $group_key ] = array( $start, $offset, $count );
 				}
 				$start = $end + 5;
@@ -1215,7 +1285,8 @@ class SHM_Partitioned_Cache {
 											   'bytes_allocated' => 0,
 											   'entry_max_size' => 0,
 											   'entry_max_size_key' => null,
-											   'mtime' => 0 );
+											   'mtime' => 0,
+											   'expire' => 0 );
 				if ( $count ) {
 					$groups[ $group ][ 'entries_count' ] += 1;
 					$groups[ $group ][ 'bytes_used' ] += $size;
@@ -1226,6 +1297,9 @@ class SHM_Partitioned_Cache {
 					}
 					if ( $mtime > $groups[ $group ][ 'mtime' ] ) {
 						$groups[ $group ][ 'mtime' ] = $mtime;
+					}
+					if ( $expire > $groups[ $group ][ 'expire' ] ) {
+						$groups[ $group ][ 'expire' ] = $expire;
 					}
 				}
 				else {
@@ -1758,8 +1832,7 @@ class WP_Object_Cache {
 				}
 				if ($result !== false) {
 					list($value, $expire, $mtime) = $result;
-					if (!$expire) $expire = $this->now + $this->expiration_time;
-					if ($expire > $this->now) {
+					if (!$expire || $expire > $this->now) {
 						$this->cache[$group][$key] = $value;
 						$this->expires[$group][$key] = $expire;
 						$this->persistent_cache_groups[$group][$key] = true;
@@ -2088,7 +2161,7 @@ class WP_Object_Cache {
 		$hours = floor( $this->expiration_time / 60 / 60 );
 		$minutes = floor( ( $this->expiration_time - $hours * 60 * 60 ) / 60 );
 		$seconds = $this->expiration_time - $hours * 60 * 60 - $minutes * 60;
-		echo "<tr><th>Persistent Cache Entry Default Lifetime</th><td>{$hours}h {$minutes}m {$seconds}s</td></tr>";
+		echo '<tr><th>Persistent Cache Entry Default Lifetime</th><td>' . ( $this->expiration_time ? "{$hours}h {$minutes}m {$seconds}s" : "Indefinite" ) . "</td></tr>";
 		echo "<tr><th>Persistent Cache Entry Expirations</th><td>{$this->expirations}</td></tr>";
 		echo "<tr><th>Cache Entry Writes (w/o deletions)</th><td>{$this->cache_writes}</td></tr>";
 		echo "<tr><th>Cache Entry Deletions</th><td>{$this->cache_deletions}</td></tr>";
@@ -2126,7 +2199,7 @@ class WP_Object_Cache {
 		}
 		echo "<tr><th>Cache Entries</th><td>$total_entries</td></tr>";
 		$overhead = strlen(str_repeat(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER, count($this->cache))) / 1024;
-		echo '<tr><th>Cache Size</th><td>' . number_format( $total_size, 2 ) . ' KiB (' . number_format( $total_size + $overhead, 2 ) . ' KiB with overhead)</td></tr>';
+		echo '<tr><th>Cache Entries Combined Size</th><td>' . number_format( $total_size, 2 ) . ' KiB (' . number_format( $total_size + $overhead, 2 ) . ' KiB with overhead)</td></tr>';
 		echo '<tr><th>Global Groups</th><td><span style="font-style: oblique !important">' . implode(', ', array_keys($this->global_groups)) . '</span></td></tr>';
 		echo '<tr><th>Non-Persistent Groups</th><td><span style="opacity: .5">' . implode(', ', array_keys($this->non_persistent_groups)) . '</span></td></tr>';
 		if (!empty($this->persistent_cache_errors_groups)) echo '<tr><th>File Cache Read Errors</th><td>' . implode(', ', array_keys($this->persistent_cache_errors_groups)) . '</td></tr>';
@@ -2369,7 +2442,7 @@ class WP_Object_Cache {
 								$result = $this->shm->set( $key, $this->cache[$group][$key], $group,
 														   isset( $this->expires[$group][$key] ) ?
 														   $this->expires[$group][$key] :
-														   $this->now + $this->expiration_time );
+														   0 );
 							if ( $result !== false )
 								unset( $this->dirty_groups[$group][$key] );
 						}
