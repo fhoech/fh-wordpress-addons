@@ -427,8 +427,8 @@ else if ( $get ) {
 			if ( $result !== false ) {
 				list( $value, $expire, $mtime ) = $result;
 				$entries[$key] = array( 'mtime' => date( 'Y-m-d H:i:s T', $mtime ),
-										'expire' => date( 'Y-m-d H:i:s T', $expire ),
-										'expired' => $expire < time(),
+										'expire' => $expire ? date( 'Y-m-d H:i:s T', $expire ) : 0,
+										'expired' => $expire && $expire < time(),
 										'data' => $value );
 			}
 		}
@@ -537,7 +537,7 @@ else {
 		}
 		else $exists = $stats[ 'bytes_allocated' ] > 0;
 		$mtime = $stats[ 'mtime' ];
-		echo "<tr data-group='$group'" . ( ! $exists ? " class='unallocated'" : ( $admin ? " onclick='get( this )'" : "" ) ) . ( time() - $mtime > HOUR_IN_SECONDS ? " class='stale'" : "" ) . ">";
+		echo "<tr data-group='$group'" . ( ! $exists ? " class='unallocated'" : ( $admin ? " onclick='get( this )'" : "" ) ) . ( $stats[ 'expire' ] && $stats[ 'expire' ] <= time() ? " class='stale'" : "" ) . ">";
 		echo "<td>$n</td><td>$group</td><td>255</td><td>" . $shm_cache->get_id( true ) . "</td>";
 		echo "<td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td>";
 		if ( $exists ) {
