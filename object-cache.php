@@ -1347,6 +1347,7 @@ class SHM_Partitioned_Cache {
 	}
 
 	public function stats() {
+		$stats_time = microtime( true );
 		echo '<h4>Shared Memory</h4>';
 		echo '<table><tbody>';
 		echo '<tr><th>Key</th><td>' . $this->get_id( true ) . "</td></tr>\n";
@@ -1380,6 +1381,7 @@ class SHM_Partitioned_Cache {
 			echo '<tr><th>Last Accessed Key Data Size</th><td>' . $size . ' bytes (' . number_format( $size / 1024, 2 ) . " KiB)</td></tr>\n";
 		}
 		echo '</table></tbody>';
+		echo '<br /><span class="qm-info">Shared Memory Statistics generated in ' . number_format( microtime( true ) - $stats_time, 4 ) . 's</span>';
 	}
 
 	private function _get_group_key( $key, $group = 'default' ) {
@@ -2138,6 +2140,7 @@ class WP_Object_Cache {
 	 * @since 2.0.0
 	 */
 	public function stats() {
+		$stats_time = microtime( true );
 		/* File-based object cache start */
 		if ( ! $this->debug ) {
 			echo '<p>Define FH_OBJECT_CACHE_DEBUG for additional stats</p>';
@@ -2197,9 +2200,9 @@ class WP_Object_Cache {
 			$total_size += $size;
 			$table_rows[] = '<tr' . ($persist === 'No' ? ' style="opacity: .5"' : '') . '><td' . ($global === 'Yes' ? ' style="font-style: oblique !important"' : '') . ">$group</td><td>$cache_hits_groups</td><td>$persistent_cache_hits_groups</td><td>$cache_misses_groups</td><td>$hit_rate%</td><td>" . ( isset($this->persistent_cache_groups[$group]) ? count($this->persistent_cache_groups[$group]) : ( $this->debug ? 0 : 'Unknown' ) ) . "</td><td>$persistent_cache_reads_hits</td><td>$persistent_cache_reads_hit_rate%</td><td>$updated</td><td>$persist</td><td>$global</td><td>$expired</td><td>$deleted</td><td>$entries</td><td>" . number_format( $size, 2 ) . '</td></tr>';
 		}
-		echo "<tr><th>Cache Entries</th><td>$total_entries</td></tr>";
-		$overhead = strlen(str_repeat(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER, count($this->cache))) / 1024;
-		echo '<tr><th>Cache Entries Combined Size</th><td>' . number_format( $total_size, 2 ) . ' KiB (' . number_format( $total_size + $overhead, 2 ) . ' KiB with overhead)</td></tr>';
+		echo "<tr><th>Accessed Cache Entries</th><td>$total_entries</td></tr>";
+		$overhead = $this->shm_enable !== 2 ? (strlen(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER) * count($this->cache)) / 1024 : 0;
+		echo '<tr><th>Accessed Cache Entries Combined Size</th><td>' . number_format( $total_size, 2 ) . ' KiB' . ( $overhead ? ' (' . number_format( $total_size + $overhead, 2 ) . ' KiB with overhead)' : '' ) . '</td></tr>';
 		echo '<tr><th>Global Groups</th><td><span style="font-style: oblique !important">' . implode(', ', array_keys($this->global_groups)) . '</span></td></tr>';
 		echo '<tr><th>Non-Persistent Groups</th><td><span style="opacity: .5">' . implode(', ', array_keys($this->non_persistent_groups)) . '</span></td></tr>';
 		if (!empty($this->persistent_cache_errors_groups)) echo '<tr><th>File Cache Read Errors</th><td>' . implode(', ', array_keys($this->persistent_cache_errors_groups)) . '</td></tr>';
@@ -2231,6 +2234,7 @@ class WP_Object_Cache {
 				echo '</tbody></table>';
 			}
 		}
+		echo '<br /><span class="qm-info">Object Cache Statistics generated in ' . number_format( microtime( true ) - $stats_time, 4 ) . 's</span>';
 		if ($this->shm_enable === 2) {
 			$this->shm->stats();
 		}
