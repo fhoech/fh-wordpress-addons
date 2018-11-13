@@ -767,7 +767,7 @@ class SHM_Partitioned_Cache {
 													 'options:moderation_keys' );
 	private $check_data_types = false;
 
-	public function __construct( $size = 16 * 1024 * 1024 ) {
+	public function __construct( $size = 16 * 1024 * 1024, $parse = false, $sanity_check = false ) {
 		$this->now = time();
 		$this->debug = defined('FH_OBJECT_CACHE_SHM_DEBUG') ? FH_OBJECT_CACHE_SHM_DEBUG : 0;
 		$this->check_data_types = defined('FH_OBJECT_CACHE_SHM_CHECK_DATA_TYPES');
@@ -784,11 +784,11 @@ class SHM_Partitioned_Cache {
 			$this->data_offset = (int) ceil( $this->size / 8 / $this->block_size ) * $this->block_size;
 			// Partition table is in the first 1/8 of total SHM segment size.
 			// Data begins directly after that.
-			$this->read_partition_table();
+			$this->read_partition_table( $parse, $sanity_check );
 		}
 	}
 
-	private function read_partition_table() {
+	public function read_partition_table( $parse = false, $sanity_check = false ) {
 		// Actual size of partition table is in first four bytes
 		$partition_size = @ shmop_read( $this->res, 0, 4 );
 		if ( $partition_size !== false ) {
@@ -799,12 +799,12 @@ class SHM_Partitioned_Cache {
 			if ( $start_data !== false && $count_data !== false ) {
 				// XXX: Partition table format check only valid for partition size < 512 MiB
 				if ( $this->partition_size < 536870912 && ord( $start_data[0] ) >= 32 ) {
-					// Old table format had offset and length of last data block in last 8 bytes of table
+					// v1 table format had offset and length of last data block in last 8 bytes of table
 					$this->partition_table = $this->partition_size ? shmop_read( $this->res, 4, $this->partition_size ) : "\0\0\0\0\0\0\0\0";
 					$start_data = substr( $this->partition_table, $this->partition_size - 8, 4 );
 					$count_data = substr( $this->partition_table, $this->partition_size - 4, 4 );
 					$this->partition_size -= 8;
-					// Write out new format
+					// Write out v2 format
 					if ( ! @ shmop_write( $this->res, pack( 'N', $this->partition_size ) . $start_data . $count_data . substr( $this->partition_table, 0, $this->partition_size ), 0 ) ) {
 						$error = error_get_last();
 						file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -819,8 +819,13 @@ class SHM_Partitioned_Cache {
 					}
 				}
 				else {
-					// Current format has offset and length of last data block in first 8 bytes of table
+					// v2 format has offset and length of last data block in first 8 bytes of table
 					$this->partition_table = $this->partition_size ? shmop_read( $this->res, 12, $this->partition_size ) : "";
+					if ( $this->partition_size ) {
+						$time_start = microtime( true );
+						if ( $parse ) $this->parse_partition_table( $sanity_check );
+						$this->time_seek += microtime( true ) - $time_start;
+					}
 				}
 				$start = unpack( 'N', $start_data )[1];
 				$count = unpack( 'N', $count_data )[1];
@@ -842,6 +847,25 @@ class SHM_Partitioned_Cache {
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read partition table from SHM segment (key " . $this->get_id( true ) . "): " .
 							   $error['message'] . "\n", FILE_APPEND );
 		}
+	}
+
+	public function parse_partition_table( $sanity_check = false ) {
+		$partition = array();
+		$start = 0;
+		while ( ( $start = strpos( $this->partition_table, '$key=', $start ) ) !== false ) {
+			$end = strpos( $this->partition_table, ';', $start );
+			if ( $end <= $start ) break;
+			$group_key = substr( $this->partition_table, $start, $end - $start + 1 );
+			if ( strpos( $group_key, ':' ) !== false ) {
+				$offset = unpack( 'N', substr( $this->partition_table, $end + 1, 4 ) )[1];
+				$count = unpack( 'N', substr( $this->partition_table, $end + 5, 4 ) )[1];
+				if ( $sanity_check && isset( $partition[ $group_key ] ) )
+					echo "WARNING - partition table is corrupt! Duplicate entry $group_key<br />\n";
+				$partition[ $group_key ] = array( $start, $offset, $count );
+			}
+			$start = $end + 5;
+		}
+		$this->partition = $partition;
 	}
 
 	public function __destruct() {
@@ -1247,29 +1271,15 @@ class SHM_Partitioned_Cache {
 		return $this->next;
 	}
 
-	public function get_groups() {
+	public function get_groups( $reset = false, $sanity_check = false ) {
 		$groups = array();
 
 		if ( $this->res !== false ) {
-			$start = 0;
-			while ( ( $start = strpos( $this->partition_table, '$key=', $start ) ) !== false ) {
-				$end = strpos( $this->partition_table, ';', $start );
-				if ( $end <= $start ) break;
-				$group_key = substr( $this->partition_table, $start, $end - $start + 1 );
-				if ( strpos( $group_key, ':' ) !== false &&
-					 ! isset( $this->partition[ $group_key ] ) ) {
-					$offset = unpack( 'N', substr( $this->partition_table, $end + 1, 4 ) )[1];
-					$count = unpack( 'N', substr( $this->partition_table, $end + 5, 4 ) )[1];
-					if ( isset( $this->partition[ $group_key ] ) )
-						echo "WARNING - partition table is corrupt! Duplicate entry $group_key<br />\n";
-					$this->partition[ $group_key ] = array( $start, $offset, $count );
-				}
-				$start = $end + 5;
-			}
+			if ( $reset ) $this->read_partition_table( true, $sanity_check );
 			foreach ( $this->partition as $group_key => $entry ) {
-				list( $group, $key ) = explode( ':', substr( $group_key, 5, -1 ), 2 );
-				if ( $this->partition[ $group_key ] === false ) $count = 0;
+				if ( $this->partition[ $group_key ] === false ) continue;
 				else list( $pos, $offset, $count ) = $this->partition[ $group_key ];
+				list( $group, $key ) = explode( ':', substr( $group_key, 5, -1 ), 2 );
 				$result = @ shmop_read( $this->res, $offset, 12 );
 				if ( $result === false ) {
 					$size = 0;
