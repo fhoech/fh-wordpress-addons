@@ -16,7 +16,8 @@ require( ABSPATH . WPINC . '/class-wp-roles.php' );
 require( ABSPATH . WPINC . '/class-wp-role.php' );
 require( ABSPATH . WPINC . '/class-wp-user.php' );
 require( ABSPATH . WPINC . '/user.php' );
-require( ABSPATH . WPINC . '/session.php' );
+require_once( ABSPATH . WPINC . '/class-wp-session-tokens.php' );
+require_once( ABSPATH . WPINC . '/class-wp-user-meta-session-tokens.php' );
 require( ABSPATH . WPINC . '/meta.php' );
 require( ABSPATH . WPINC . '/kses.php' );
 require( ABSPATH . WPINC . '/rest-api.php' );
@@ -404,7 +405,7 @@ else if ( $get ) {
 
 	$group = stripcslashes( $get );
 
-	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
+	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024, true );
 	$groups = $shm_cache->get_groups();
 
 	if ( $group === '.groups' ) {
@@ -492,7 +493,7 @@ else {
 	$non_persistent_groups = array();
 
 	// Init cache
-	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
+	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024, ! $clear_all, true );
 
 	if ( $dump ) {
 		echo "<p>Dumping cache contents to .object_cache_shm_dump.bin</p>\n";
@@ -512,9 +513,10 @@ else {
 		$partition_table_entries += count( $stats[ 'keys' ] ) + count( $stats[ 'deleted_keys' ] );
 	}
 
-	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear === $group ) $GLOBALS['wp_object_cache']->acquire_lock();
+	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear ) $GLOBALS['wp_object_cache']->acquire_lock();
 
 	$groups_bytes = $shm_cache->get_partition_size();
+	$groups_bytes += $groups_bytes / 4 * 8;
 	$groups_bytes_allocated = $shm_cache->get_data_offset();
 	$used = $groups_bytes_allocated ? $groups_bytes / $groups_bytes_allocated : 0;
 	$r = 102 * ( 2 - $used );
@@ -582,13 +584,17 @@ else {
 		$n ++;
 	}
 
-	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear === $group ) $GLOBALS['wp_object_cache']->release_lock();
+	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear ) $GLOBALS['wp_object_cache']->release_lock();
 
 ?>
 </tbody>
 </table>
 </form>
 <?php
+
+	$size = $shm_cache->size;
+	$used = $shm_cache->next - $shm_cache->data_offset + $shm_cache->partition_size;
+	$free = $size - $used;
 
 	$wasted_bytes = $shm_cache->get_next() - $shm_cache->get_data_offset() - $bytes_allocated_sum;
 
@@ -598,62 +604,13 @@ else {
 
 	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", effective " . human_size( $shm_cache->get_size() - $shm_cache->get_data_offset() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free, " . human_size( $wasted_bytes ) . " wasted (<span style='color: rgb($r, $g, 0);'>" . round( $wasted * 100, 2 ) . "%</span>)</p>";
 
-	$used = $bytes_allocated_sum ? $bytes_sum / $bytes_allocated_sum : 0;
-	$r = 102 * ( 2 - $used );
-	$g = min( 153 * ( .5 + $used ), 204 );
+	$effectiveused = $bytes_allocated_sum ? $bytes_sum / $bytes_allocated_sum : 0;
+	$r = 102 * ( 2 - $effectiveused );
+	$g = min( 153 * ( .5 + $effectiveused ), 204 );
 	
-	echo "<p>" . $total_entries_count . " entries using " . human_size( $bytes_sum ) . " (<span style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated</p>\n";
+	echo "<p>" . $total_entries_count . " entries using " . human_size( $bytes_sum ) . " (<span style='color: rgb($r, $g, 0);'>" . round( $effectiveused * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated, seek time " . round( $shm_cache->time_seek, 3 ) . "s</p>\n";
 
 	printf( "<p>WordPress loaded in %.3f seconds, page generated in %.3f seconds</p>\n", round( $time_wp_load, 3 ), round( microtime( true ) - $time_start, 3 ) );
-
-	//echo "<pre style='white-space: pre-wrap'>" . preg_replace( '/([^0-9A-Za-z $+,\-.:;=@[\]_]+)/', "<span style='color: #f33; font-weight: bold'>\\1</span>", preg_replace_callback( '/(\$key=[^;]+;)(.{4})(.{4})/s', function ( $matches ) {
-	//	return $matches[1] . unpack( 'N', $matches[2] )[1] . "," . unpack( 'N', $matches[3] )[1] . "\n";
-	//}, $shm_cache->get_partition_table() ) ) . "</pre>\n";
-
-	//$partition_table = $shm_cache->get_partition_table();
-
-	//$time_start = microtime( true );
-	//$partition = array();
-	//$start = 0;
-	//while ( ( $start = strpos( $partition_table, '$key=', $start ) ) !== false ) {
-		//$end = strpos( $partition_table, ';', $start );
-		//if ( $end <= $start ) break;
-		//$group_key = substr( $partition_table, $start, $end - $start + 1 );
-		//$end += 1;
-		//$offset = unpack( 'N', substr( $partition_table, $end, 4 ) )[1];
-		//$end += 4;
-		//$size = unpack( 'N', substr( $partition_table, $end, 4 ) )[1];
-		//$partition[ $group_key ] = array( 'offset' => $offset, 'size' => $size );
-		//$start = $end;
-	//}
-	//$time_parse_partition = round( microtime( true ) - $time_start, 3 );
-	//echo "<p>Parsed partition in {$time_parse_partition}s</p>";
-
-	//$time_start = microtime( true );
-	//$serialized = serialize($partition);
-	//$time_serialize = round( microtime( true ) - $time_start, 3 );
-	//echo "<p>Serialized partition in {$time_serialize}s</p>";
-
-	//$time_start = microtime( true );
-	//$unserialized = unserialize( $serialized );
-	//$time_unserialize = round( microtime( true ) - $time_start, 3 );
-	//echo "<p>Unserialized partition in {$time_unserialize}s</p>";
-
-	//$first_partition_entry = current( $partition );
-	//list( $group, $key ) = explode( ':', substr( key( $partition ), 5, -1 ), 2 );
-	//$time_start = microtime( true );
-	//$result = $shm_cache->get( $key, $group );
-	//$time_get_first = round( microtime( true ) - $time_start, 3 );
-	//echo "<p>Got first key $group:$key in {$time_get_first}s</p>";
-	//if ( ! $result ) echo "<p>Got no result for first key $group:$key partition entry: " . key( $partition ) . " => " . var_export( $first_partition_entry, true ) . "</p>";
-
-	//$last_partition_entry = end( $partition );
-	//list( $group, $key ) = explode( ':', substr( key( $partition ), 5, -1 ), 2 );
-	//$time_start = microtime( true );
-	//$result = $shm_cache->get( $key, $group );
-	//$time_get_last = round( microtime( true ) - $time_start, 3 );
-	//echo "<p>Got last key $group:$key in {$time_get_last}s</p>";
-	//if ( ! $result ) echo "<p>Got no result for last key $group:$key partition entry: " . key( $partition ) . " => " . var_export( $last_partition_entry, true ) . "</p>";
 
 }
 
