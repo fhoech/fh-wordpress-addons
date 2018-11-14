@@ -291,11 +291,11 @@ add_action('bbp_new_topic', 'hyper_cache_invalidate_bbp_topic', 0);
 function hyper_cache_invalidate_bbp_reply($reply_id) {
     global $hyper_invalidated_post_id;
 
-    hyper_log("hyper_cache_invalidate_bbp_reply(" . $post_id . ")> Called");
+    hyper_log("hyper_cache_invalidate_bbp_reply(" . $reply_id . ")> Called");
 
-    if ($hyper_invalidated_post_id == $post_id)
+    if ($hyper_invalidated_post_id == $reply_id)
     {
-        hyper_log("hyper_cache_invalidate_bbp_reply(" . $post_id . ")> Post was already invalidated");
+        hyper_log("hyper_cache_invalidate_bbp_reply(" . $reply_id . ")> Post was already invalidated");
         return;
     }
 
@@ -303,7 +303,7 @@ function hyper_cache_invalidate_bbp_reply($reply_id) {
 
     if ($options['expire_type'] == 'none')
     {
-        hyper_log("hyper_cache_invalidate_bbp_reply(" . $post_id . ")> Invalidation disabled");
+        hyper_log("hyper_cache_invalidate_bbp_reply(" . $reply_id . ")> Invalidation disabled");
         return;
     }
 
@@ -321,11 +321,11 @@ function hyper_cache_invalidate_bbp_reply($reply_id) {
 function hyper_cache_invalidate_bbp_topic($topic_id) {
     global $hyper_invalidated_post_id;
 
-    hyper_log("hyper_cache_invalidate_bbp_topic(" . $post_id . ")> Called");
+    hyper_log("hyper_cache_invalidate_bbp_topic(" . $topic_id . ")> Called");
 
-    if ($hyper_invalidated_post_id == $post_id)
+    if ($hyper_invalidated_post_id == $topic_id)
     {
-        hyper_log("hyper_cache_invalidate_bbp_topic(" . $post_id . ")> Post was already invalidated");
+        hyper_log("hyper_cache_invalidate_bbp_topic(" . $topic_id . ")> Post was already invalidated");
         return;
     }
 
@@ -333,7 +333,7 @@ function hyper_cache_invalidate_bbp_topic($topic_id) {
 
     if ($options['expire_type'] == 'none')
     {
-        hyper_log("hyper_cache_invalidate_bbp_topic(" . $post_id . ")> Invalidation disabled");
+        hyper_log("hyper_cache_invalidate_bbp_topic(" . $topic_id . ")> Invalidation disabled");
         return;
     }
 
