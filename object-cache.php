@@ -1203,7 +1203,7 @@ class SHM_Partitioned_Cache {
 			// This is a new partition entry, need to increase partition size
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Partition entry at $pos == partition size {$this->partition_size}, about to increase\n";
 			$partition_size += strlen( $group_key );
-			if ( $partition_size >= $this->data_offset_count_offset ) {
+			if ( 12 + $partition_size >= $this->data_offset_count_offset ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write partition table entry for '$group:$key' to SHM segment (key " . $this->get_id( true ) . "): Allocated space for partition table exceeded. Flushing cache.\n", FILE_APPEND );
