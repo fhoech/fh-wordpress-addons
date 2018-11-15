@@ -938,20 +938,22 @@ class SHM_Partitioned_Cache {
 			$i = 0;
 			while ( $start < $this->partition_size ) {
 				$crc32 = substr( $this->partition_table, $start, 4 );
-				if ( $sanity_check && isset( $partition[ $crc32 ] ) )
-					echo "WARNING - partition table is corrupt! Duplicate entry $crc32<br />\n";
-				$offset_count = @ shmop_read( $this->res, $this->data_offset_count_offset + $i * 8, 8 );
-				if ( $offset_count === false ) {
-					$error = error_get_last();
-					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-									   date( 'Y-m-d H:i:s,v' ) .
-									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read partition table offset and count from SHM segment (key " . $this->get_id( true ) . "): " .
-									   $error['message'] . "\n", FILE_APPEND );
-					break;
+				if ( $crc32 !== "\0\0\0\0" ) {
+					if ( $sanity_check && isset( $partition[ $crc32 ] ) )
+						echo "WARNING - partition table is corrupt! Duplicate entry $crc32<br />\n";
+					$offset_count = @ shmop_read( $this->res, $this->data_offset_count_offset + $i * 8, 8 );
+					if ( $offset_count === false ) {
+						$error = error_get_last();
+						file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+										   date( 'Y-m-d H:i:s,v' ) .
+										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read partition table offset and count from SHM segment (key " . $this->get_id( true ) . "): " .
+										   $error['message'] . "\n", FILE_APPEND );
+						break;
+					}
+					$offset = unpack( 'N', substr(  $offset_count, 0, 4 ) )[1];
+					$count = unpack( 'N', substr(  $offset_count, 4, 4 ) )[1];
+					$partition[ $crc32 ] = array( $start, $offset, $count );
 				}
-				$offset = unpack( 'N', substr(  $offset_count, 0, 4 ) )[1];
-				$count = unpack( 'N', substr(  $offset_count, 4, 4 ) )[1];
-				$partition[ $crc32 ] = array( $start, $offset, $count );
 				$i ++;
 				$start += 4;
 			}
@@ -1043,8 +1045,8 @@ class SHM_Partitioned_Cache {
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
-							   $error['message'] . ". Deleting.\n", FILE_APPEND );
-			$this->delete( $key, $group );
+							   $error['message'] . "\n", FILE_APPEND );
+			//$this->delete( $key, $group );
 			return false;
 		}
 		if ( substr( $result, 0, 8 ) === 'a:3:{i:0' ) {
@@ -1057,8 +1059,8 @@ class SHM_Partitioned_Cache {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read v1 style '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
-								   $error['message'] . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "'" : "" ) . ". Deleting.\n", FILE_APPEND );
-				$this->delete( $key, $group );
+								   $error['message'] . ( $this->debug ?  " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+				//$this->delete( $key, $group );
 				return false;
 			}
 			$result .= $data;
@@ -1073,7 +1075,7 @@ class SHM_Partitioned_Cache {
 									   date( 'Y-m-d H:i:s,v' ) .
 									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Expired " . date( 'Y-m-d H:i:s T', $expire ) . ": '$group:$key' (last modified " .
 									   date( 'Y-m-d H:i:s T', $mtime ) . ")\n", FILE_APPEND );
-				$this->delete( $key, $group );
+				//$this->delete( $key, $group );
 				return array( false, $expire, $mtime );
 			}
 			$key_count = unpack( 'N', substr( $result, 8, 4 ) )[1];
@@ -1087,8 +1089,8 @@ class SHM_Partitioned_Cache {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read v2 style '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
-								   $error['message'] . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "'" : "" ) . ". Deleting.\n", FILE_APPEND );
-				$this->delete( $key, $group );
+								   $error['message'] . ( $this->debug ?  " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+				//$this->delete( $key, $group );
 				return false;
 			}
 			$result = $data;
@@ -1099,8 +1101,8 @@ class SHM_Partitioned_Cache {
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
-							   $error['message'] . ( $this->debug > 1 ?  ": '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "'" : "" ) . ". Deleting.\n", FILE_APPEND );
-			$this->delete( $key, $group );
+							   $error['message'] . ( $this->debug > 1 ?  " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+			//$this->delete( $key, $group );
 			return false;
 		}
 
@@ -1112,8 +1114,8 @@ class SHM_Partitioned_Cache {
 				 ! ( is_object( $unserialized ) || is_array( $unserialized ) ) ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Not an object or array: '$group:$key'" . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "'" : "" ) . ". Deleting.\n", FILE_APPEND );
-				$this->delete( $key, $group );
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Not an object or array: '$group:$key'" . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "'" : "" ) . "\n", FILE_APPEND );
+				//$this->delete( $key, $group );
 				return false;
 			}
 			return array( $unserialized, $expire, $mtime );
@@ -1126,7 +1128,7 @@ class SHM_Partitioned_Cache {
 		list( $value, $expire, $mtime ) = $unserialized;
 
 		if ( $expire && $expire <= $this->now ) {
-			$this->delete( $key, $group );
+			//$this->delete( $key, $group );
 			return array( false, $expire, $mtime );
 		}
 
@@ -1282,7 +1284,7 @@ class SHM_Partitioned_Cache {
 		if ( $padded_len > $padded_count ) {
 			// This is a new entry, need to write updated last data block offset and size
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "About to write last key data offset and count to partition table\n";
-			if ( $offset <= $this->last_key_data_offset ) {
+			if ( $offset < $this->last_key_data_offset ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [CRITICAL] Last key data offset $offset < {$this->last_key_data_offset}\n", FILE_APPEND );
@@ -1416,6 +1418,9 @@ class SHM_Partitioned_Cache {
 											   'mtime' => 0,
 											   'expire' => 0 );
 				if ( $count ) {
+					if ( $sanity_check && $size > $count ) {
+						echo "WARNING - shared memory is corrupt! Entry size $size &gt; allocated size $count for $group:$key<br />\n";
+					}
 					$groups[ $group ][ 'entries_count' ] += 1;
 					$groups[ $group ][ 'bytes_used' ] += $size;
 					$groups[ $group ][ 'keys' ][] = $key;
@@ -1618,6 +1623,7 @@ class WP_Object_Cache {
 	/* File-based object cache start */
 	private $cache_dir;
 	private $flock_filename = '.lock';
+	private $lock_mode = LOCK_SH;
 	private $mutex;
 	private $deleted = array();
 	private $dirty_groups = array();
@@ -1665,6 +1671,8 @@ class WP_Object_Cache {
 	private $shm = array();
 	public $cache_writes = 0;
 	private $closed = false;
+	private $time_lock = 0;
+	private $use_persistent_cache = true;
 	/* File-based object cache end */
 
 	/**
@@ -1926,7 +1934,6 @@ class WP_Object_Cache {
         if ($this->debug) $time_start = microtime(true);
 
 		if ( ! $this->acquire_lock() ) {
-			$this->_log( "Couldn't acquire exclusive lock", 1 );
 			if ($this->debug) $this->time_total += microtime(true) - $time_start;
 			return false;
 		}
@@ -1936,6 +1943,7 @@ class WP_Object_Cache {
 
 		$dh = @ opendir($this->cache_dir);
 		if (!$dh) {
+			$this->acquire_lock( LOCK_SH );
 			if ($this->debug) $this->time_total += microtime(true) - $time_start;
 			return false;
 		}
@@ -1945,8 +1953,7 @@ class WP_Object_Cache {
 				@ unlink($this->cache_dir . $file);
 		}
 
-		if ( ! $this->acquire_lock( LOCK_SH ) )
-			$this->_log( "Couldn't acquire shared lock", 1 );
+		$this->acquire_lock( LOCK_SH );
 		$this->deleted = array();
 		$this->dirty_groups = array();
 		$this->flushes += 1;
@@ -1987,18 +1994,29 @@ class WP_Object_Cache {
 
 		/* File-based object cache start */
         if ($this->debug) $time_start = microtime(true);
+        $use_persistent_cache = $this->use_persistent_cache || $force;
         $is_persistent_group = !isset($this->non_persistent_groups[$group]);
 		if ($force && $is_persistent_group) {
 			$this->_log("FORCE REFETCH FROM PERSISTENT CACHE FOR $group.$key");
 			if ($this->_exists( $key, $group ))
 				$this->_log("BEFORE REFETCH: $group.$key = " . json_encode($this->cache[$group][$key], JSON_PRETTY_PRINT));
 		}
-		if ($is_persistent_group &&
+		if ($use_persistent_cache &&
+			$is_persistent_group &&
 			($force ||
 			 (!$this->skip &&
 			  ($this->shm_enable === 2 ?
 			   !isset($this->persistent_cache_groups[$group][$key]) :
 			   !isset($this->persistent_cache_groups[$group]))))) {
+			$lockop = LOCK_SH;
+			if ( ! $force ) $lockop |= LOCK_NB;
+			if ( $this->lock_mode !== $lockop &&
+				 ! $this->acquire_lock( $lockop ) ) {
+				// Cache in use by another process.
+				// To prevent deadlocks, disable persistent cache for this request.
+				$this->use_persistent_cache = false;
+			}
+			else {
 			$this->persistent_cache_reads += 1;
 			if ($this->shm_enable === 2) {
 				if ($this->debug) $time_shm_read_start = microtime(true);
@@ -2066,6 +2084,7 @@ class WP_Object_Cache {
 			else {
 				$this->persistent_cache_groups[$group] = array();
 				$this->persistent_cache_misses += 1;
+			}
 			}
 		}
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
@@ -2349,6 +2368,7 @@ class WP_Object_Cache {
 		echo "<tr><th>Cache Resets (deprecated)</th><td>{$this->resets}";
 		if ( $this->debug ) {
 			echo '<tr><th>Persistent Cache Write Time</th><td>' . number_format( $this->time_persistent_cache_write, 4) . 's</td></tr>';
+			echo '<tr><th>Cache Lock Time</th><td>' . number_format( $this->time_lock, 4) . 's</td></tr>';
 			echo '<tr><th>Cache Total Time</th><td>' . number_format( $this->time_total, 4) . 's</td></tr>';
 		}
 		$total_entries = 0;
@@ -2499,8 +2519,9 @@ class WP_Object_Cache {
 		if ($this->ajax) $this->_log("DOING_AJAX");
 		if ($this->cron) $this->_log("DOING_CRON");
 
-		if ( ! $this->acquire_lock( LOCK_SH ) )
-			$this->_log( "Couldn't acquire shared lock", 1 );
+		// To prevent deadlocks, disable persistent cache for this request
+		// if we cannot get a shared lock in non-blocking mode.
+		$this->use_persistent_cache = $this->acquire_lock( LOCK_SH | LOCK_NB );
 
 		if ( $this->shm_enable === 2 ) {
 			$this->shm = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
@@ -2508,9 +2529,11 @@ class WP_Object_Cache {
 		}
 		else {
 			$this->_set_expires();
-
-			add_action( 'edit_post', array( &$this, 'flush_taxonomies' ), 10, 1 );
 		}
+
+		$this->lock_mode = 0;
+
+		add_action( 'edit_post', array( &$this, 'flush_taxonomies' ), 10, 1 );
 
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -2574,6 +2597,7 @@ class WP_Object_Cache {
 	}
 
 	public function persist($groups=null) {
+		if ( ! $this->use_persistent_cache ) return;
         if ($this->debug) $time_start = microtime(true);
         $this->persists += 1;
 
@@ -2595,7 +2619,6 @@ class WP_Object_Cache {
 			}
 
 			if ( ! $this->acquire_lock() ) {
-				$this->_log( "Couldn't acquire exclusive lock", 1 );
 				if ($this->debug) $this->time_total += microtime(true) - $time_start;
 				return false;
 			}
@@ -2657,8 +2680,7 @@ class WP_Object_Cache {
 							   //date( 'Y-m-d H:i:s,v' ) .
 							   //" < $callee\n", FILE_APPEND );
 
-			if ( ! $this->acquire_lock( LOCK_SH ) )
-				$this->_log( "Couldn't acquire shared lock", 1 );
+			$this->acquire_lock( LOCK_SH );
 		}
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 
@@ -2700,10 +2722,11 @@ class WP_Object_Cache {
 	}
 
 	private function _check_persist( $key, $group, $action = 0 ) {
+		if ( ! $this->use_persistent_cache || isset( $this->non_persistent_groups[$group] ) ) return;
 		if ( $this->shm_enable === 2 && ! empty( $_POST['action'] ) ) {
 			if ($this->debug) $time_start = microtime(true);
-			if ( ! $this->acquire_lock() ) {
-				$this->_log( "Couldn't acquire exclusive lock", 1 );
+			if ( $this->lock_mode !== LOCK_EX &&
+				 ! $this->acquire_lock() ) {
 				if ($this->debug) $this->time_total += microtime(true) - $time_start;
 				return;
 			}
@@ -2720,6 +2743,7 @@ class WP_Object_Cache {
 					$result = $this->shm->delete( $key, $group );
 					break;
 			}
+			//$this->acquire_lock( LOCK_SH );
 			if ( $result !== false ) unset( $this->dirty_groups[$group][$key] );
 			if ($this->debug) {
 				$this->time_persistent_cache_write += microtime(true) - $time_start;
@@ -2788,19 +2812,30 @@ class WP_Object_Cache {
 	}
 
 	function acquire_lock( $operation = LOCK_EX ) {
-		$this->mutex = @fopen($this->cache_dir.$this->flock_filename, 'c+');
-		if ( false == $this->mutex)
+		$time_start = microtime( true );
+		$this->mutex = @fopen($this->cache_dir.$this->flock_filename, 'c');
+		$this->lock_mode = 0;
+		if ( false == $this->mutex) {
+			$this->time_lock += microtime( true ) - $time_start;
+			$this->_log( "Couldn't acquire " . ( $operation === LOCK_EX ? "exclusive" : "shared" ) . " lock", 1 );
 			return false;
+		}
 		else {
-			return flock($this->mutex, $operation);
+			$locked = flock($this->mutex, $operation);
+			if ( $locked ) $this->lock_mode = $operation;
+			$this->time_lock += microtime( true ) - $time_start;
+			return $locked;
 		}
 	}
 
 	function release_lock() {
 		if ( $this->mutex ) {
+			$time_start = microtime( true );
 			flock($this->mutex, LOCK_UN);
 			fclose($this->mutex);
 			$this->mutex = null;
+			$this->lock_mode = 0;
+			$this->time_lock += microtime( true ) - $time_start;
 		}
 	}
 	/* File-based object cache end */
