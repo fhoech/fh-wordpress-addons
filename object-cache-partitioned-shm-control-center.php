@@ -503,7 +503,7 @@ else {
 	if ( $clear_all ) $shm_cache->clear();
 
 	$time_groups_get_start = microtime( true );
-	$groups = $shm_cache->get_groups();
+	$groups = $shm_cache->get_groups( false, true );
 	$time_groups_get = microtime( true ) - $time_groups_get_start;
 
 	$persistent_groups = array();
