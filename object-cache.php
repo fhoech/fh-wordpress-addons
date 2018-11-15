@@ -17,6 +17,11 @@
 /* File-based object cache start */
 define('CACHE_SERIAL_HEADER', "<?php\n/*");
 define('CACHE_SERIAL_FOOTER', "*/\n?".">");
+
+define('FH_OBJECT_CACHE_SET', 1);
+define('FH_OBJECT_CACHE_INCR', 2);
+define('FH_OBJECT_CACHE_DECR', 3);
+define('FH_OBJECT_CACHE_DELETE', 4);
 /* File-based object cache end */
 
 /**
@@ -1851,7 +1856,7 @@ class WP_Object_Cache {
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
-		$this->_check_persist($key, $group);
+		$this->_check_persist($key, $group, FH_OBJECT_CACHE_DECR);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
 
@@ -1896,7 +1901,7 @@ class WP_Object_Cache {
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
-		$this->_check_persist($key, $group);
+		$this->_check_persist($key, $group, FH_OBJECT_CACHE_DELETE);
 		$this->cache_deletions += 1;
 		if ($this->debug) {
 			if (!isset($this->cache_deletions_groups[$group]))
@@ -2182,7 +2187,7 @@ class WP_Object_Cache {
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
-		$this->_check_persist($key, $group);
+		$this->_check_persist($key, $group, FH_OBJECT_CACHE_INCR);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
 
@@ -2295,7 +2300,7 @@ class WP_Object_Cache {
 		unset($this->deleted[$group][$key]);
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
-		$this->_check_persist($key, $group);
+		$this->_check_persist($key, $group, FH_OBJECT_CACHE_SET);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
 		return true;
@@ -2694,7 +2699,34 @@ class WP_Object_Cache {
 										  CACHE_SERIAL_HEADER . $data . CACHE_SERIAL_FOOTER);
 	}
 
-	private function _check_persist( $key, $group ) {
+	private function _check_persist( $key, $group, $action = 0 ) {
+		if ( $this->shm_enable === 2 && ! empty( $_POST['action'] ) ) {
+			if ($this->debug) $time_start = microtime(true);
+			if ( ! $this->acquire_lock() ) {
+				$this->_log( "Couldn't acquire exclusive lock", 1 );
+				if ($this->debug) $this->time_total += microtime(true) - $time_start;
+				return;
+			}
+			switch ( $action ) {
+				case FH_OBJECT_CACHE_SET:
+				case FH_OBJECT_CACHE_DECR:
+				case FH_OBJECT_CACHE_INCR:
+					$result = $this->shm->set( $key, $this->cache[$group][$key], $group,
+									 isset( $this->expires[$group][$key] ) ?
+									 $this->expires[$group][$key] :
+									 0 );
+					break;
+				case FH_OBJECT_CACHE_DELETE:
+					$result = $this->shm->delete( $key, $group );
+					break;
+			}
+			if ( $result !== false ) unset( $this->dirty_groups[$group][$key] );
+			if ($this->debug) {
+				$this->time_persistent_cache_write += microtime(true) - $time_start;
+				$this->time_total += microtime(true) - $time_start;
+			}
+			return;
+		}
 		if ($group == 'options' && $key == 'alloptions') {
 			if (isset($this->cache[$group][$key]['cron'])) $this->_log("$group.$key.cron = " . json_encode(unserialize($this->cache[$group][$key]['cron']), JSON_PRETTY_PRINT), 3);
 			$this->_log("SET $group.$key.cron = " . json_encode(unserialize($this->cache[$group][$key]['cron']), JSON_PRETTY_PRINT), 3);
