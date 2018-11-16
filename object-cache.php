@@ -1499,8 +1499,8 @@ class SHM_Partitioned_Cache {
 		echo '<tr><th>Next Free Data Segment Size</th><td>' . $next_free . ' bytes (' . size_format( $next_free , 2 ) . ")</td></tr>\n";
 		// Read last 256 bytes of partition table so we can figure out last added key
 		$crc32 = $this->partition_size > 4 ? @ shmop_read( $this->res, 12 + $this->partition_size - 4, 4 ) : false;
-		echo '<tr><th>Partition Table Seek Time</th><td>' . number_format( $this->time_seek, 4 ) . "s</td></tr>\n";
-		echo '<tr><th>Read Time</th><td>' . number_format( $this->time_read, 4 ) . "s</td></tr>\n";
+		echo '<tr><th>Partition Table Seek Time</th><td>' . number_format( $this->time_seek * 1000, 1 ) . " ms</td></tr>\n";
+		echo '<tr><th>Read Time</th><td>' . number_format( $this->time_read * 1000, 1 ) . " ms</td></tr>\n";
 		if ( $crc32 !== false ) $pos = $this->partition_size - 4;
 		if ( ! empty( $pos ) ) {
 			echo '<tr><th>Last Added Key Partition Table Entry Offset</th><td>' . ( 12 + $pos ) . ' bytes (' . size_format( 12 + $pos , 2 ) . ")</td></tr>\n";
@@ -1548,7 +1548,7 @@ class SHM_Partitioned_Cache {
 			echo '<tr><th>Last Accessed Key Data Size</th><td>' . $size . ' bytes (' . size_format( $size , 2 ) . ")</td></tr>\n";
 		}
 		echo '</table></tbody>';
-		echo '<br /><span class="qm-info">Shared Memory Statistics generated in ' . number_format( microtime( true ) - $stats_time, 4 ) . 's</span>';
+		echo '<br /><span class="qm-info">Shared Memory Statistics generated in ' . number_format( ( microtime( true ) - $stats_time ) * 1000, 1 ) . ' ms</span>';
 	}
 
 	public function _get_group_key( $key, $group = 'default' ) {
@@ -2351,10 +2351,10 @@ class WP_Object_Cache {
 		$total = $this->cache_misses + $this->persistent_cache_reads_hits;
 		echo '<tr><th>Persistent Cache Hit Rate</th><td>' . number_format( 100 / $total * $this->persistent_cache_reads_hits, 1 ) . '%</td></tr>';
 		if ( $this->debug ) {
-			if ($this->shm_enable !== 2) echo '<tr><th>Persistent Cache Disk Read Time</th><td>' . number_format( $this->time_disk_read, 4) . 's</td></tr>';
-			else echo '<tr><th>Persistent Cache Seek Time</th><td>' . number_format( $this->shm->time_seek, 4) . 's</td></tr>';
-			if ($this->shm_enable) echo '<tr><th>Persistent Cache Shared Memory Read Time</th><td>' . number_format( $this->time_shm_read, 4) . 's</td></tr>';
-			echo '<tr><th>Persistent Cache Processing Time</th><td>' . number_format( $this->time_read - $this->time_disk_read - $this->time_shm_read - ( $this->shm_enable === 2 ? $this->shm->time_seek : 0 ), 4) . 's</td></tr>';
+			if ($this->shm_enable !== 2) echo '<tr><th>Persistent Cache Disk Read Time</th><td>' . number_format( $this->time_disk_read * 1000, 1 ) . ' ms</td></tr>';
+			else echo '<tr><th>Persistent Cache Seek Time</th><td>' . number_format( $this->shm->time_seek * 1000, 1 ) . ' ms</td></tr>';
+			if ($this->shm_enable) echo '<tr><th>Persistent Cache Shared Memory Read Time</th><td>' . number_format( $this->time_shm_read * 1000, 1 ) . ' ms</td></tr>';
+			echo '<tr><th>Persistent Cache Processing Time</th><td>' . number_format( ( $this->time_read - $this->time_disk_read - $this->time_shm_read - ( $this->shm_enable === 2 ? $this->shm->time_seek : 0 ) ) * 1000, 1) . ' ms</td></tr>';
 		}
 		$hours = floor( $this->expiration_time / 60 / 60 );
 		$minutes = floor( ( $this->expiration_time - $hours * 60 * 60 ) / 60 );
@@ -2367,9 +2367,9 @@ class WP_Object_Cache {
 		echo "<tr><th>Cache Flushes</th><td>{$this->flushes}</td></tr>";
 		echo "<tr><th>Cache Resets (deprecated)</th><td>{$this->resets}";
 		if ( $this->debug ) {
-			echo '<tr><th>Persistent Cache Write Time</th><td>' . number_format( $this->time_persistent_cache_write, 4) . 's</td></tr>';
-			echo '<tr><th>Cache Lock Time</th><td>' . number_format( $this->time_lock, 4) . 's</td></tr>';
-			echo '<tr><th>Cache Total Time</th><td>' . number_format( $this->time_total, 4) . 's</td></tr>';
+			echo '<tr><th>Persistent Cache Write Time</th><td>' . number_format( $this->time_persistent_cache_write * 1000, 1 ) . ' ms</td></tr>';
+			echo '<tr><th>Cache Lock Time</th><td>' . number_format( $this->time_lock * 1000, 1 ) . ' ms</td></tr>';
+			echo '<tr><th>Cache Total Time</th><td>' . number_format( $this->time_total * 1000, 1 ) . ' ms</td></tr>';
 		}
 		$total_entries = 0;
 		$total_size = 0;
@@ -2430,7 +2430,7 @@ class WP_Object_Cache {
 				echo '</tbody></table>';
 			}
 		}
-		echo '<br /><span class="qm-info">Object Cache Statistics generated in ' . number_format( microtime( true ) - $stats_time, 4 ) . 's</span>';
+		echo '<br /><span class="qm-info">Object Cache Statistics generated in ' . number_format( ( microtime( true ) - $stats_time ) * 1000, 1 ) . ' ms</span>';
 		if ($this->shm_enable === 2) {
 			$this->shm->stats();
 		}
