@@ -770,7 +770,9 @@ class SHM_Partitioned_Cache {
 													 'bp_xprofile:fullname_field_id',
 													 'options:wp_mail_smtp_debug',
 													 'options:blacklist_keys',
-													 'options:moderation_keys' );
+													 'options:moderation_keys',
+													 'options:flush-opcache-hide-button',
+													 'options:flush-opcache-preload' );
 	private $check_data_types = false;
 
 	public function __construct( $size = 16 * 1024 * 1024, $parse = false, $sanity_check = false ) {
