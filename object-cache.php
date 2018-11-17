@@ -1034,8 +1034,9 @@ class SHM_Partitioned_Cache {
 		$partition_entry = $this->_get_partition_entry( $group_key );
 		if ( $partition_entry === false ) return false;
 		list( $pos, $start, $count ) = $partition_entry;
-		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry at " . ( $pos + 12 ) . ", data at $start, len $count\n";
+		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry at " . ( $pos + 12 ) . ", data at $start, allocated $count\n";
 		if ( ! $count || $start + $count > $this->size ) return false;
+		$allocated_count = $count;
 
 		$time_start = microtime( true );
 		$result = @ shmop_read( $this->res, $start, 16 );
@@ -1044,7 +1045,7 @@ class SHM_Partitioned_Cache {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): get() Couldn't read header for '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count (allocated $allocated_count): " .
 							   $error['message'] . "\n", FILE_APPEND );
 			//$this->delete( $key, $group );
 			return false;
@@ -1058,15 +1059,15 @@ class SHM_Partitioned_Cache {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read v1 style '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
-								   $error['message'] . ( $this->debug ?  " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read v1 style '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count (allocated $allocated_count): " .
+								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
 			$result .= $data;
 		}
 		else {
-			// v2 format
+			// v2/v3 format
 			$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 			$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
 			if ( $expire && $expire <= $this->now ) {
@@ -1078,18 +1079,34 @@ class SHM_Partitioned_Cache {
 				//$this->delete( $key, $group );
 				return array( false, $expire, $mtime );
 			}
-			$key_count = unpack( 'N', substr( $result, 8, 4 ) )[1];
-			// XXX: Could read key and compare to requested key as sanity check
+			$key_data_len = unpack( 'N', substr( $result, 8, 4 ) )[1];
+			$key_data = @ shmop_read( $this->res, $start + 16, $key_data_len );
+			if ( $key_data === false ) {
+				$error = error_get_last();
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read key data for '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at key data offset " . ( $start + 16 ) . ", length $key_data_len: " .
+								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+				//$this->delete( $key, $group );
+				return false;
+			}
+			if ( $key_data !== "$group:$key" ) {
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Key data '" . addcslashes( $key_data, "\x00..\x19\x7e..\xff\\" ) . "' from SHM segment (key " . $this->get_id( true ) . ") at key data offset " . ( $start + 16 ) . ", length $key_data_len doesn't match requested '$group:$key'\n", FILE_APPEND );
+				//$this->delete( $key, $group );
+				return false;
+			}
 			$count = unpack( 'N', substr( $result, 12, 4 ) )[1];
 			$time_start = microtime( true );
-			$data = @ shmop_read( $this->res, $start + 16 + $key_count, $count );
+			$data = @ shmop_read( $this->res, $start + 16 + $key_data_len, $count );
 			$this->time_read += microtime( true ) - $time_start;
 			if ( $data === false ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read v2 style '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
-								   $error['message'] . ( $this->debug ?  " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at data offset " . ( $start + 16 + $key_data_len ) . ", length $count (allocated $allocated_count): " .
+								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
@@ -1100,8 +1117,8 @@ class SHM_Partitioned_Cache {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count: " .
-							   $error['message'] . ( $this->debug > 1 ?  " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count (allocated $allocated_count): " .
+							   $error['message'] . ( $this->debug > 1 ? " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
 			//$this->delete( $key, $group );
 			return false;
 		}
@@ -1150,6 +1167,7 @@ class SHM_Partitioned_Cache {
 		$key_data = $group . ':' . $key;
 		$key_data_len = strlen( $key_data );
 		$data = serialize( $value );
+		// Data header: mtime(4) expire(4) key_data_len(4) data_len(4) key_data data
 		$data = pack( 'N', $mtime ) . pack( 'N', $expire ) . pack( 'N', $key_data_len ) . pack( 'N', strlen( $data ) ) . $key_data . $data;
 		$data_len = strlen( $data );
 		$padded_len = (int) ceil( $data_len / $this->block_size ) * $this->block_size;
@@ -1163,24 +1181,49 @@ class SHM_Partitioned_Cache {
 				$deleted = true;
 				if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry marked as deleted, about to get len from data block\n";
 				// Get actual size of deleted entry so we may re-use the same byte range
+			}
+			$time_start = microtime( true );
+			$result = @ shmop_read( $this->res, $offset, 16 );
+			$this->time_read += microtime( true ) - $time_start;
+			if ( $result === false ) {
+				$error = error_get_last();
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): " . ( ! $count ? "[Warning]" : "" ) . " set(): Couldn't read header for '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $offset: " .
+								   $error['message'] . "\n", FILE_APPEND );
+				if ( $count ) return false;
+			}
+			else if ( substr( $result, 0, 8 ) !== 'a:3:{i:0' ) {
+				// v2/v3 format
+				$old_key_data_len = unpack( 'N', substr( $result, 8, 4 ) )[1];
 				$time_start = microtime( true );
-				$result = @ shmop_read( $this->res, $offset, 16 );
+				$old_key_data = @ shmop_read( $this->res, $offset + 16, $old_key_data_len );
 				$this->time_read += microtime( true ) - $time_start;
-				if ( $result === false ) {
+				if ( $old_key_data === false ) {
 					$error = error_get_last();
 					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 									   date( 'Y-m-d H:i:s,v' ) .
-									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [Warning] Couldn't read '$group:$key' size from SHM segment (key " . $this->get_id( true ) . ") at offset $offset: " .
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "):" . ( ! $count ? " [Warning]" : "" ) . " Couldn't read existing key data for '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at key data offset " . ( $offset + 16 ) . ", length $old_key_data_len: " .
 									   $error['message'] . "\n", FILE_APPEND );
+					if ( $count ) return false;
 				}
-				else if ( substr( $result, 0, 8 ) !== 'a:3:{i:0' ) {
-					// v3 format
-					// Used bytes = data bytes + 16 + key bytes
-					$count = unpack( 'N', substr( $result, 12, 4 ) )[1] + 16 + $key_data_len;
+				else if ( $old_key_data !== $key_data ) {
+					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+									   date( 'Y-m-d H:i:s,v' ) .
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "):" . ( ! $count ? " [Warning]" : "" ) . " Existing key data '" . addcslashes( $old_key_data, "\x00..\x19\x7e..\xff\\" ) . "' from SHM segment (key " . $this->get_id( true ) . ") at key data offset " . ( $offset + 16 ) . ", length $old_key_data_len doesn't match expected '$key_data'\n", FILE_APPEND );
+					if ( $count ) return false;
 				}
+				// Used bytes = header 16 bytes + key bytes + data bytes
+				else if ( ! $count ) $count = 16 + $key_data_len + unpack( 'N', substr( $result, 12, 4 ) )[1];
 			}
-			if ( $offset + $count > $this->size ) $padded_count = 0;
-			else $padded_count = (int) ceil( $count / $this->block_size ) * $this->block_size;
+			$padded_count = (int) ceil( $count / $this->block_size ) * $this->block_size;
+			if ( $offset + $padded_count > $this->size ) {
+				// This shouldn't happen, ever
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [Warning] Existing data offset $offset + padded count $padded_count for '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") exceeds SHM segment size {$this->size}\n", FILE_APPEND );
+				$padded_count = 0;
+			}
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry at " . ( $pos + 12 ) . ", data at $offset, len $count, padded $padded_count\n";
 		}
 		else {
@@ -1208,12 +1251,19 @@ class SHM_Partitioned_Cache {
 
 		if ( $pos == $this->partition_size ) {
 			// This is a new partition entry, need to increase partition size
-			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Partition entry at $pos == partition size {$this->partition_size}, about to increase\n";
 			$partition_size += strlen( $group_key );
-			if ( 12 + $partition_size >= $this->data_offset_count_offset ) {
+			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Partition entry at $pos == partition size {$this->partition_size}, about to increase partition size to $partition_size\n";
+			if ( 12 + $partition_size > $this->data_offset_count_offset ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write partition table entry for '$group:$key' to SHM segment (key " . $this->get_id( true ) . "): Allocated space for partition table exceeded. Flushing cache.\n", FILE_APPEND );
+				$this->flush();
+				return false;
+			}
+			if ( $partition_size / 4 * 8 > $this->data_offset ) {
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write data offset and count for '$group:$key' to SHM segment (key " . $this->get_id( true ) . "): Allocated space for offset and count table exceeded. Flushing cache.\n", FILE_APPEND );
 				$this->flush();
 				return false;
 			}
@@ -1241,7 +1291,7 @@ class SHM_Partitioned_Cache {
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Data len $data_len (padded $padded_len) > existing data len $count (padded $padded_count) or deleted, about to write partition entry at " . ( 12 + $pos ) . "\n";
 			// Write partition entry
 			$data_offset_count = pack( 'N', $offset ) . pack( 'N', $padded_len );
-			if ( ! @ shmop_write( $this->res, $group_key, 12 + $pos ) ) {
+			if ( 4 !==  @ shmop_write( $this->res, $group_key, 12 + $pos ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1249,7 +1299,7 @@ class SHM_Partitioned_Cache {
 								   $error['message'] . "\n", FILE_APPEND );
 				return false;
 			}
-			if ( ! @ shmop_write( $this->res, $data_offset_count, $this->data_offset_count_offset + $pos / 4 * 8 ) ) {
+			if ( 8 !==  @ shmop_write( $this->res, $data_offset_count, $this->data_offset_count_offset + $pos / 4 * 8 ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1272,11 +1322,11 @@ class SHM_Partitioned_Cache {
 			// This is a new partition entry, need to write updated partition size
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Partition entry at $pos == partition size {$this->partition_size}, about to write increased partition size $partition_size\n";
 			$this->partition_size = $partition_size;
-			if ( ! @ shmop_write( $this->res, pack( 'N', $partition_size ), 0 ) ) {
+			if ( 4 !==  @ shmop_write( $this->res, pack( 'N', $partition_size ), 0 ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [Warning] Couldn't increase partition table size for '$group:$key' in SHM segment (key " . $this->get_id( true ) . "): " .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [Warning] Couldn't write increased partition table size for '$group:$key' in SHM segment (key " . $this->get_id( true ) . "): " .
 								   $error['message'] . "\n", FILE_APPEND );
 			}
 		}
@@ -1287,13 +1337,13 @@ class SHM_Partitioned_Cache {
 			if ( $offset < $this->last_key_data_offset ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [CRITICAL] Last key data offset $offset < {$this->last_key_data_offset}\n", FILE_APPEND );
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [CRITICAL] New last key data offset $offset < old last key data offset {$this->last_key_data_offset} for '$group:$key' in SHM segment (key " . $this->get_id( true ) . ")\n", FILE_APPEND );
 			}
-			else if ( ! @ shmop_write( $this->res, $data_offset_count, 4 ) ) {
+			else if ( 8 !== @ shmop_write( $this->res, $data_offset_count, 4 ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [Warning] Couldn't update partition table last data block offset and size for '$group:$key' in SHM segment (key " . $this->get_id( true ) . "): " .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [Warning] Couldn't update partition table last key data offset and size for '$group:$key' in SHM segment (key " . $this->get_id( true ) . "): " .
 								   $error['message'] . "\n", FILE_APPEND );
 			}
 			else {
