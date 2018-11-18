@@ -1505,6 +1505,10 @@ class SHM_Partitioned_Cache {
 					$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 					$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
 					$key_size = unpack( 'N', substr( $result, 8, 4 ) )[1];
+					if ( $sanity_check && $key_size > 256 ) {
+						echo "WARNING - shared memory is corrupt! Key size $size &gt; 256 for $group:$key " . addcslashes( substr( $result, 8, 4 ), "\x00..\x19\x7e..\xff\\" ) . "<br />\n";
+						continue;
+					}
 					$size = unpack( 'N', substr( $result, 12, 4 ) )[1];
 					$key_data = @ $this->_read( $this->res, $offset + 16, $key_size );
 					if ( $key_data === false ) continue;
@@ -1523,6 +1527,9 @@ class SHM_Partitioned_Cache {
 				if ( $count ) {
 					if ( $sanity_check && $size > $count ) {
 						echo "WARNING - shared memory is corrupt! Entry size $size &gt; allocated size $count for $group:$key<br />\n";
+					}
+					if ( $sanity_check && $size > $this->size ) {
+						echo "WARNING - shared memory is corrupt! Entry size $size &gt; total SHM size {$this->size} for $group:$key<br />\n";
 					}
 					$groups[ $group ][ 'entries_count' ] += 1;
 					$groups[ $group ][ 'bytes_used' ] += $size;
