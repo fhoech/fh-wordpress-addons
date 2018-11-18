@@ -32,6 +32,10 @@ $time_wp_load = microtime( true ) - $time_start;
 
 
 
+ini_set('log_errors','Off');
+ini_set('display_errors','On');
+ini_set('error_reporting', E_ALL | E_STRICT );
+
 /* Stub WordPress replacement for function from wp-includes/l10n.php */
 function _n( $single, $plural, $number, $domain = 'default' ) {
 	return $number > 1 ? $plural : $single;
@@ -93,8 +97,6 @@ function human_size( $bytes ) {
 }
 
 
-
-$time_start = microtime( true );
 
 $admin = current_user_can( 'administrator' );
 
@@ -480,6 +482,32 @@ else if ( $get ) {
 
 }
 else {
+
+	$non_persistent_groups = array();
+
+	// Init cache
+	echo "<p>Initializing cache...";
+	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
+	echo "done</p>";
+	echo "<p>Partition table size: {$shm_cache->partition_size} bytes</p>";
+
+	echo "<p>Parsing partitioon table...";
+	$shm_cache->parse_partition_table( true );
+	echo "done</p>";
+	echo "<p>Partition entries: " . count( $shm_cache->partition ) . "</p>";
+
+	if ( $dump ) {
+		echo "<p>Dumping cache contents to .object_cache_shm_dump.bin</p>\n";
+		file_put_contents( __DIR__ . '/.object_cache_shm_dump.bin', shmop_read( $shm_cache->res, 0, $shm_cache->size ) );
+	}
+
+	if ( $clear_all ) $shm_cache->clear();
+
+	echo "<p>Enumerating groups...";
+	$time_groups_get_start = microtime( true );
+	$groups = $shm_cache->get_groups( false, true );
+	$time_groups_get = microtime( true ) - $time_groups_get_start;
+	echo "done</p>";
 ?>
 <form action="<?php echo $_SERVER['SCRIPT_NAME']; ?>" method="post">
 <input type="hidden">
@@ -489,22 +517,6 @@ else {
 </thead>
 <tbody>
 <?php
-
-	$non_persistent_groups = array();
-
-	// Init cache
-	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024, ! $clear_all, true );
-
-	if ( $dump ) {
-		echo "<p>Dumping cache contents to .object_cache_shm_dump.bin</p>\n";
-		file_put_contents( __DIR__ . '/.object_cache_shm_dump.bin', shmop_read( $shm_cache->res, 0, $shm_cache->size ) );
-	}
-
-	if ( $clear_all ) $shm_cache->clear();
-
-	$time_groups_get_start = microtime( true );
-	$groups = $shm_cache->get_groups( false, true );
-	$time_groups_get = microtime( true ) - $time_groups_get_start;
 
 	$persistent_groups = array();
 	$partition_table_entries = 0;
@@ -522,7 +534,7 @@ else {
 	$r = 102 * ( 2 - $used );
 	$g = min( 153 * ( .5 + $used ), 204 );
 
-	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>&lt;Partition table&gt;</td><td>255</td><td>" . $shm_cache->get_id( true ) . "</td><td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td><td>$partition_table_entries (" . round( $time_groups_get, 3 ) . "s)</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td></td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
+	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>&lt;Partition table&gt;</td><td>255</td><td>" . $shm_cache->get_id( true ) . "</td><td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td><td>$partition_table_entries (" . round( $time_groups_get * 1000, 1 ) . " ms)</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td></td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
 	echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
 	echo "</tr>";
 
@@ -608,9 +620,9 @@ else {
 	$r = 102 * ( 2 - $effectiveused );
 	$g = min( 153 * ( .5 + $effectiveused ), 204 );
 	
-	echo "<p>" . $total_entries_count . " entries using " . human_size( $bytes_sum ) . " (<span style='color: rgb($r, $g, 0);'>" . round( $effectiveused * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated, seek time " . round( $shm_cache->time_seek, 3 ) . "s</p>\n";
+	echo "<p>" . $total_entries_count . " entries using " . human_size( $bytes_sum ) . " (<span style='color: rgb($r, $g, 0);'>" . round( $effectiveused * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated, seek time " . round( $shm_cache->time_seek * 1000, 1 ) . " ms</p>\n";
 
-	printf( "<p>WordPress loaded in %.3f seconds, page generated in %.3f seconds</p>\n", round( $time_wp_load, 3 ), round( microtime( true ) - $time_start, 3 ) );
+	printf( "<p>WordPress loaded in %.1f ms, page generated in %.1f ms</p>\n", round( $time_wp_load * 1000, 1 ), round( ( microtime( true ) - $time_start ) * 1000, 1 ) );
 
 }
 
