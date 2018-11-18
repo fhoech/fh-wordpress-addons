@@ -2741,6 +2741,9 @@ class WP_Object_Cache {
 		$this->lock_mode = 0;
 
 		add_action( 'edit_post', array( &$this, 'flush_taxonomies' ), 10, 1 );
+		// BuddyPress doesn't correctly delete grouped notifications from the cache
+		if ( function_exists( 'bp_notifications_clear_all_for_user_cache' ) )
+			add_action( 'bp_notification_before_update', array( &$this, 'flush_bp_notifications' ) );
 
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* File-based object cache end */
@@ -2801,6 +2804,10 @@ class WP_Object_Cache {
 			if ( $this->get( $post_id, $group ) !== false && $this->delete( $post_id, $group ) )
 				$this->_log('Flushed taxonomy ' . $taxonomy . ' for post ' . $post_id);
 		}
+	}
+	public function flush_bp_notifications() {
+		$this->delete( get_current_user_id(), 'bp_notifications_grouped_notifications' );
+		$this->_log( "Deleted bp_notifications_grouped_notifications:" . get_current_user_id(), 1 );
 	}
 
 	public function persist($groups=null) {
