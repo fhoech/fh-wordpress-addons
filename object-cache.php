@@ -723,6 +723,7 @@ class SHM_Partitioned_Cache {
 	private $res = false;
 	private $size = 0;
 	private $partition = array();
+	private $partition_table_offset = 32;
 	private $partition_table = null;
 	private $partition_size = -1;
 	private $block_size = 16;
@@ -783,6 +784,15 @@ class SHM_Partitioned_Cache {
 													 'options:flush-opcache-hide-button',
 													 'options:flush-opcache-preload' );
 	private $check_data_types = false;
+	// Hash algorythm name => byte count
+	private $hash_algos = array( 'crc32' => 4,
+								 'crc32b' => 4, 
+								 'fnv132' => 4,
+								 'fnv1a32' => 4, 
+								 'fnv164' => 8,
+								 'fnv1a64' => 8 );
+	private $hash_algo = 'fnv1a64';
+	private $hash_bytes = 8;
 
 	public function __construct( $size = 16 * 1024 * 1024, $parse = false, $sanity_check = false ) {
 		$this->now = time();
@@ -798,9 +808,9 @@ class SHM_Partitioned_Cache {
 		}
 		else {
 			$this->size = $this->_size( $this->res );
-			$this->data_offset = (int) ceil( $this->size / 8 / $this->block_size ) * $this->block_size;
 			$this->data_offset_count_offset = ceil( $this->size / 32 / $this->block_size ) * $this->block_size;
-			// Partition table is in the first 1/8 of total SHM segment size.
+			$this->data_offset = $this->data_offset_count_offset * 2;
+			// Partition table is in the first 1/16 of total SHM segment size.
 			// Data begins directly after that.
 			$this->read_partition_table( $parse, $sanity_check );
 		}
@@ -879,8 +889,29 @@ class SHM_Partitioned_Cache {
 					}
 				}
 				else {
-					// v2 and v3 formats have offset and length of last data block in first 8 bytes of table
-					$this->partition_table = $this->partition_size ? $this->_read( $this->res, 12, $this->partition_size ) : "";
+					// v2, v3 and v4 formats have offset and length of last data block in first 8 bytes of header
+					$hash_algo = @ $this->_read( $this->res, 16, 16 );
+					if ( $hash_algo !== false && isset( $this->hash_algos[ $hash_algo = rtrim( $hash_algo, "\0" ) ] ) ) {
+						// v4
+						$this->hash_algo = $hash_algo;
+						$this->hash_bytes = $this->hash_algos[ $hash_algo ];
+					}
+					else {
+						// Get rid of v3 data
+						$partition_size = 0;
+						$start_data = "\0\0\0\0";
+						$count_data = "\0\0\0\0";
+						// Write out v4 format
+						if ( 32 !== @ $this->_write( $this->res, pack( 'N', $partition_size ) . $start_data . $count_data . "\0\0\0\0" . str_pad( $this->hash_algo, 16, "\0" ), 0 ) ) {
+							$error = error_get_last();
+							file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+											   date( 'Y-m-d H:i:s,v' ) .
+											   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v4 partition table format to SHM segment (key " . $this->get_id( true ) . "): " .
+											   $error['message'] . "\n", FILE_APPEND );
+						}
+						$this->partition_size = $partition_size;
+					}
+					$this->partition_table = $this->partition_size ? $this->_read( $this->res, $this->partition_table_offset, $this->partition_size ) : "";
 					if ( $this->partition_size ) {
 						if ( strpos( $this->partition_table, '$key=' ) === 0 ) {
 							// Get rid of v2 data
@@ -892,17 +923,17 @@ class SHM_Partitioned_Cache {
 							//$i = 0;
 							//foreach ( $this->partition as $group_key => $entry ) {
 								//list( $group, $key ) = explode( ':', substr( $group_key, 5, -1 ), 2 );
-								//$crc32 = $this->_get_group_key( $key, $group );
+								//$hash = $this->_get_group_key( $key, $group );
 								//// Write index entry
-								//if ( 4 !== @ $this->_write( $this->res, $crc32, 12 + $partition_size ) ) {
+								//if ( $this->hash_bytes !== @ $this->_write( $this->res, $hash, $this->partition_table_offset + $partition_size ) ) {
 									//$error = error_get_last();
 									//file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 													   //date( 'Y-m-d H:i:s,v' ) .
-													   //" SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v3 partition table format crc32 to SHM segment (key " . $this->get_id( true ) . "): " .
+													   //" SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v3 partition table format hash to SHM segment (key " . $this->get_id( true ) . "): " .
 													   //$error['message'] . "\n", FILE_APPEND );
 									//break;
 								//}
-								//$partition_size += 4;
+								//$partition_size += $this->hash_bytes;
 								//// Write offset and count entry
 								//list( $pos, $offset, $count ) = $entry;
 								//if ( 8 !== @ $this->_write( $this->res, pack( 'N', $offset ) . pack( 'N', $count ), $this->data_offset_count_offset + $i * 8 ) ) {
@@ -932,15 +963,13 @@ class SHM_Partitioned_Cache {
 								$error = error_get_last();
 								file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 												   date( 'Y-m-d H:i:s,v' ) .
-												   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v3 partition table format size to SHM segment (key " . $this->get_id( true ) . "): " .
+												   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v3 partition table format to SHM segment (key " . $this->get_id( true ) . "): " .
 												   $error['message'] . "\n", FILE_APPEND );
 							}
 							$this->partition_size = $partition_size;
 						}
 						else if ( $parse ) {
-							$time_start = microtime( true );
 							$this->parse_partition_table( $sanity_check );
-							$this->time_seek += microtime( true ) - $time_start;
 						}
 					}
 				}
@@ -967,6 +996,7 @@ class SHM_Partitioned_Cache {
 	}
 
 	public function parse_partition_table( $sanity_check = false, $prefix = '', $suffix = '' ) {
+		$time_start = microtime( true );
 		$partition = array();
 		$start = 0;
 		if ( $prefix !== '' && $suffix !== '' ) {
@@ -989,11 +1019,12 @@ class SHM_Partitioned_Cache {
 		}
 		else {
 			$i = 0;
+			$hash_null = str_repeat( "\0", $this->hash_bytes );
 			while ( $start < $this->partition_size ) {
-				$crc32 = substr( $this->partition_table, $start, 4 );
-				if ( $crc32 !== "\0\0\0\0" ) {
-					if ( $sanity_check && isset( $partition[ $crc32 ] ) )
-						echo "WARNING - partition table is corrupt! Duplicate entry $crc32<br />\n";
+				$hash = substr( $this->partition_table, $start, $this->hash_bytes );
+				if ( $hash !== $hash_null ) {
+					if ( $sanity_check && isset( $partition[ $hash ] ) )
+						echo "WARNING - partition table is corrupt! Duplicate entry '" . addcslashes( $hash, "\x00..\x19\x7e..\xff\\" ) . "'<br />\n";
 					$offset_count = @ $this->_read( $this->res, $this->data_offset_count_offset + $i * 8, 8 );
 					if ( $offset_count === false ) {
 						$error = error_get_last();
@@ -1005,13 +1036,14 @@ class SHM_Partitioned_Cache {
 					}
 					$offset = unpack( 'N', substr(  $offset_count, 0, 4 ) )[1];
 					$count = unpack( 'N', substr(  $offset_count, 4, 4 ) )[1];
-					$partition[ $crc32 ] = array( $start, $offset, $count );
+					$partition[ $hash ] = array( $start, $offset, $count );
 				}
 				$i ++;
-				$start += 4;
+				$start += $this->hash_bytes;
 			}
 		}
 		$this->partition = $partition;
+		$this->time_seek += microtime( true ) - $time_start;
 	}
 
 	public function __destruct() {
@@ -1087,7 +1119,7 @@ class SHM_Partitioned_Cache {
 		$partition_entry = $this->_get_partition_entry( $group_key );
 		if ( $partition_entry === false ) return false;
 		list( $pos, $start, $count ) = $partition_entry;
-		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry at " . ( $pos + 12 ) . ", data at $start, allocated $count\n";
+		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry at " . ( $pos + $this->partition_table_offset ) . ", data at $start, allocated $count\n";
 		if ( ! $count || $start + $count > $this->size ) return false;
 		$allocated_count = $count;
 
@@ -1277,14 +1309,14 @@ class SHM_Partitioned_Cache {
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [Warning] Existing data offset $offset + padded count $padded_count for '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") exceeds SHM segment size {$this->size}\n", FILE_APPEND );
 				$padded_count = 0;
 			}
-			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry at " . ( $pos + 12 ) . ", data at $offset, len $count, padded $padded_count\n";
+			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Existing partition entry at " . ( $pos + $this->partition_table_offset ) . ", data at $offset, len $count, padded $padded_count\n";
 		}
 		else {
 			// Create new partition entry
 			$pos = $this->partition_size;
 			$count = 0;
 			$padded_count = 0;
-			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "No existing partition entry. About to create at " . ( $pos + 12 ) . "\n";
+			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "No existing partition entry. About to create at " . ( $pos + $this->partition_table_offset ) . "\n";
 		}
 
 		if ( $padded_len > $padded_count ) {
@@ -1306,14 +1338,14 @@ class SHM_Partitioned_Cache {
 			// This is a new partition entry, need to increase partition size
 			$partition_size += strlen( $group_key );
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Partition entry at $pos == partition size {$this->partition_size}, about to increase partition size to $partition_size\n";
-			if ( 12 + $partition_size > $this->data_offset_count_offset ) {
+			if ( $this->partition_table_offset + $partition_size > $this->data_offset_count_offset ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write partition table entry for '$group:$key' to SHM segment (key " . $this->get_id( true ) . "): Allocated space for partition table exceeded. Flushing cache.\n", FILE_APPEND );
 				$this->flush();
 				return false;
 			}
-			if ( $partition_size / 4 * 8 > $this->data_offset ) {
+			if ( $partition_size / $this->hash_bytes * 8 > $this->data_offset ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write data offset and count for '$group:$key' to SHM segment (key " . $this->get_id( true ) . "): Allocated space for offset and count table exceeded. Flushing cache.\n", FILE_APPEND );
@@ -1341,10 +1373,10 @@ class SHM_Partitioned_Cache {
 
 		if ( $padded_len > $padded_count || isset( $deleted ) ) {
 			// Create new partition entry or update existing
-			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Data len $data_len (padded $padded_len) > existing data len $count (padded $padded_count) or deleted, about to write partition entry at " . ( 12 + $pos ) . "\n";
+			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Data len $data_len (padded $padded_len) > existing data len $count (padded $padded_count) or deleted, about to write partition entry at " . ( $this->partition_table_offset + $pos ) . "\n";
 			// Write partition entry
 			$data_offset_count = pack( 'N', $offset ) . pack( 'N', $padded_len );
-			if ( 4 !==  @ $this->_write( $this->res, $group_key, 12 + $pos ) ) {
+			if ( strlen( $group_key ) !==  @ $this->_write( $this->res, $group_key, $this->partition_table_offset + $pos ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1352,7 +1384,7 @@ class SHM_Partitioned_Cache {
 								   $error['message'] . "\n", FILE_APPEND );
 				return false;
 			}
-			if ( 8 !==  @ $this->_write( $this->res, $data_offset_count, $this->data_offset_count_offset + $pos / 4 * 8 ) ) {
+			if ( 8 !==  @ $this->_write( $this->res, $data_offset_count, $this->data_offset_count_offset + $pos / $this->hash_bytes * 8 ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1421,7 +1453,7 @@ class SHM_Partitioned_Cache {
 
 		if ( $permanent ) {
 			// Overwrite whole entry with binary zeros to permanently delete
-			if ( ! @ $this->_write( $this->res, "\0\0\0\0", 12 + $pos ) ) {
+			if ( ! @ $this->_write( $this->res, "\0\0\0\0", $this->partition_table_offset + $pos ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1438,7 +1470,7 @@ class SHM_Partitioned_Cache {
 			$data = "\0\0\0\0";
 			$pos_offset = 4;
 		}
-		if ( ! @ $this->_write( $this->res, $data, $this->data_offset_count_offset + $pos / 4 * 8 + $pos_offset ) ) {
+		if ( ! @ $this->_write( $this->res, $data, $this->data_offset_count_offset + $pos / $this->hash_bytes * 8 + $pos_offset ) ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
@@ -1607,14 +1639,14 @@ class SHM_Partitioned_Cache {
 		echo '<tr><th>Next Free Data Segment Offset</th><td>' . $this->next . ' bytes (' . size_format( $this->next , 2 ) . ")</td></tr>\n";
 		$next_free = $size - $this->next;
 		echo '<tr><th>Next Free Data Segment Size</th><td>' . $next_free . ' bytes (' . size_format( $next_free , 2 ) . ")</td></tr>\n";
-		// Read last 256 bytes of partition table so we can figure out last added key
-		$crc32 = $this->partition_size > 4 ? @ $this->_read( $this->res, 12 + $this->partition_size - 4, 4 ) : false;
+		// Figure out last added key
+		$hash = $this->partition_size > $this->hash_bytes ? @ $this->_read( $this->res, $this->partition_table_offset + $this->partition_size - $this->hash_bytes, $this->hash_bytes ) : false;
 		echo '<tr><th>Partition Table Seek Time</th><td>' . number_format( $this->time_seek * 1000, 1 ) . " ms</td></tr>\n";
 		echo '<tr><th>Read Time</th><td>' . number_format( $this->time_read * 1000, 1 ) . " ms</td></tr>\n";
-		if ( $crc32 !== false ) $pos = $this->partition_size - 4;
+		if ( $hash !== false ) $pos = $this->partition_size - $this->hash_bytes;
 		if ( ! empty( $pos ) ) {
-			echo '<tr><th>Last Added Key Partition Table Entry Offset</th><td>' . ( 12 + $pos ) . ' bytes (' . size_format( 12 + $pos , 2 ) . ")</td></tr>\n";
-			$last_partition_entry = $this->_get_partition_entry( $crc32 );
+			echo '<tr><th>Last Added Key Partition Table Entry Offset</th><td>' . ( $this->partition_table_offset + $pos ) . ' bytes (' . size_format( $this->partition_table_offset + $pos , 2 ) . ")</td></tr>\n";
+			$last_partition_entry = $this->_get_partition_entry( $hash );
 		}
 		if ( ! empty( $last_partition_entry ) ) {
 			list( $pos, $offset, $size ) = $last_partition_entry;
@@ -1645,7 +1677,7 @@ class SHM_Partitioned_Cache {
 		$last_accessed_partition_entry = end( $this->partition );
 		if ( $last_accessed_partition_entry !== false ) {
 			list( $pos, $offset, $size ) = $last_accessed_partition_entry;
-			echo '<tr><th>Last Accessed Key Partition Table Entry Offset</th><td>' . ( 12 + $pos ) . ' bytes (' . size_format( 12 + $pos , 2 ) . ")</td></tr>\n";
+			echo '<tr><th>Last Accessed Key Partition Table Entry Offset</th><td>' . ( $this->partition_table_offset + $pos ) . ' bytes (' . size_format( $this->partition_table_offset + $pos , 2 ) . ")</td></tr>\n";
 			$result = @ $this->_read( $this->res, $offset + 8, 4 );
 		}
 		if ( ! empty( $result ) ) {
@@ -1663,7 +1695,7 @@ class SHM_Partitioned_Cache {
 
 	public function _get_group_key( $key, $group = 'default' ) {
 		// Concatenate group and key, return the result
-		return pack( 'N', $this->_crc32( $group . ':' . $key ) );
+		return hash( $this->hash_algo, $group . ':' . $key, true );
 	}
 
 	public function _get_partition_entry( $group_key ) {
@@ -1672,11 +1704,11 @@ class SHM_Partitioned_Cache {
 		if ( isset( $this->partition[ $group_key ] ) ) return $this->partition[ $group_key ];
 		$time_start = microtime( true );
 		$pos = strpos( $this->partition_table, $group_key );
-		while ( $pos !== false && $pos % 4 !== 0 ) $pos = strpos( $this->partition_table, $group_key, $pos + ( 4 - ( $pos % 4 ) ) );
+		while ( $pos !== false && $pos % $this->hash_bytes !== 0 ) $pos = strpos( $this->partition_table, $group_key, $pos + ( $this->hash_bytes - ( $pos % $this->hash_bytes ) ) );
 		if ( $pos === false ) $partition_entry = false;
 		else {
 			//$time_start = microtime( true );
-			$offset_count = @ $this->_read( $this->res, $this->data_offset_count_offset + $pos / 4 * 8, 8 );
+			$offset_count = @ $this->_read( $this->res, $this->data_offset_count_offset + $pos / $this->hash_bytes * 8, 8 );
 			//$this->time_read += microtime( true ) - $time_start;
 			if ( $offset_count === false ) {
 				$partition_entry = false;
@@ -1690,10 +1722,6 @@ class SHM_Partitioned_Cache {
 		$this->partition[ $group_key ] = $partition_entry;
 		$this->time_seek += microtime( true ) - $time_start;
 		return $partition_entry;
-	}
-
-	private function _crc32( $str ) {
-		return crc32( $str ) & 0xffffffff;
 	}
 
 }
