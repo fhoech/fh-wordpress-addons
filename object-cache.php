@@ -272,6 +272,14 @@ function wp_cache_reset() {
 
 define('FH_OBJECT_CACHE_UNIQID', uniqid());
 
+if ( ! defined( 'FH_OBJECT_CACHE_PATH' ) ) {
+	// Using the correct separator eliminates some cache flush errors on Windows
+	if ( defined( 'ABSPATH' ) ) 
+		define( 'FH_OBJECT_CACHE_PATH', ABSPATH . 'wp-content' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'fh-object-cache' . DIRECTORY_SEPARATOR );
+	else
+		define( 'FH_OBJECT_CACHE_PATH', dirname( isset( $_SERVER['SCRIPT_FILENAME'] ) ? $_SERVER['SCRIPT_FILENAME'] : __FILE__ ) . DIRECTORY_SEPARATOR );
+}
+
 class SHM_Cache {
 
 	private $group = 'default';
@@ -710,6 +718,7 @@ class SHM_SYSV_Cache {
 
 class SHM_Partitioned_Cache {
 
+	private $use_file_backend = false;
 	private $id;
 	private $res = false;
 	private $size = 0;
@@ -780,7 +789,7 @@ class SHM_Partitioned_Cache {
 		$this->debug = defined('FH_OBJECT_CACHE_SHM_DEBUG') ? FH_OBJECT_CACHE_SHM_DEBUG : 0;
 		$this->check_data_types = defined('FH_OBJECT_CACHE_SHM_CHECK_DATA_TYPES');
 		$this->id = ftok( __FILE__, "\xff" );
-		if ( ! $this->res = @ shmop_open( $this->id, 'c', 0600, $size ) ) {
+		if ( ! $this->res = @ $this->_open( $this->id, 'c', 0600, $size ) ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
@@ -788,7 +797,7 @@ class SHM_Partitioned_Cache {
 							   $error['message'] . "\n", FILE_APPEND );
 		}
 		else {
-			$this->size = shmop_size( $this->res );
+			$this->size = $this->_size( $this->res );
 			$this->data_offset = (int) ceil( $this->size / 8 / $this->block_size ) * $this->block_size;
 			$this->data_offset_count_offset = ceil( $this->size / 32 / $this->block_size ) * $this->block_size;
 			// Partition table is in the first 1/8 of total SHM segment size.
@@ -797,24 +806,66 @@ class SHM_Partitioned_Cache {
 		}
 	}
 
+	private function _open( $key, $flags, $mode, $size ) {
+		if ( $this->use_file_backend )
+			return fshmop_open( $key, $flags, $mode, $size );
+		else
+			return shmop_open( $key, $flags, $mode, $size );
+	}
+
+	private function _close( $res ) {
+		if ( $this->use_file_backend )
+			fshmop_close( $res );
+		else
+			shmop_close( $res );
+	}
+
+	private function _delete( $res ) {
+		if ( $this->use_file_backend )
+			return fshmop_delete( $res );
+		else
+			return shmop_delete( $res );
+	}
+
+	private function _read( $res, $start, $count ) {
+		if ( $this->use_file_backend )
+			return fshmop_read( $res, $start, $count );
+		else
+			return shmop_read( $res, $start, $count );
+	}
+
+	private function _size( $res ) {
+		if ( $this->use_file_backend )
+			return fshmop_size( $res );
+		else
+			return shmop_size( $res );
+	}
+
+	private function _write( $res, $data, $offset ) {
+		if ( $this->use_file_backend )
+			return fshmop_write( $res, $data, $offset );
+		else
+			return shmop_write( $res, $data, $offset );
+	}
+
 	public function read_partition_table( $parse = false, $sanity_check = false ) {
 		// Actual size of partition table is in first four bytes
-		$partition_size = @ shmop_read( $this->res, 0, 4 );
+		$partition_size = @ $this->_read( $this->res, 0, 4 );
 		if ( $partition_size !== false ) {
 			$this->partition_size = unpack( 'N', $partition_size )[1];
-			$start_data = @ shmop_read( $this->res, 4, 4 );
-			$count_data = @ shmop_read( $this->res, 8, 4 );
+			$start_data = @ $this->_read( $this->res, 4, 4 );
+			$count_data = @ $this->_read( $this->res, 8, 4 );
 			// Get offset and length of last data chunk
 			if ( $start_data !== false && $count_data !== false ) {
 				// XXX: Partition table format check only valid for partition size < 512 MiB
 				if ( $this->partition_size < 536870912 && ord( $start_data[0] ) >= 32 ) {
 					// v1 table format had offset and length of last data block in last 8 bytes of table
-					$this->partition_table = $this->partition_size ? shmop_read( $this->res, 4, $this->partition_size ) : "\0\0\0\0\0\0\0\0";
+					$this->partition_table = $this->partition_size ? $this->_read( $this->res, 4, $this->partition_size ) : "\0\0\0\0\0\0\0\0";
 					$start_data = substr( $this->partition_table, $this->partition_size - 8, 4 );
 					$count_data = substr( $this->partition_table, $this->partition_size - 4, 4 );
 					$this->partition_size -= 8;
 					// Write out v2 format
-					if ( ! @ shmop_write( $this->res, pack( 'N', $this->partition_size ) . $start_data . $count_data . substr( $this->partition_table, 0, $this->partition_size ), 0 ) ) {
+					if ( ! @ $this->_write( $this->res, pack( 'N', $this->partition_size ) . $start_data . $count_data . substr( $this->partition_table, 0, $this->partition_size ), 0 ) ) {
 						$error = error_get_last();
 						file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 										   date( 'Y-m-d H:i:s,v' ) .
@@ -829,7 +880,7 @@ class SHM_Partitioned_Cache {
 				}
 				else {
 					// v2 and v3 formats have offset and length of last data block in first 8 bytes of table
-					$this->partition_table = $this->partition_size ? shmop_read( $this->res, 12, $this->partition_size ) : "";
+					$this->partition_table = $this->partition_size ? $this->_read( $this->res, 12, $this->partition_size ) : "";
 					if ( $this->partition_size ) {
 						if ( strpos( $this->partition_table, '$key=' ) === 0 ) {
 							// Get rid of v2 data
@@ -843,7 +894,7 @@ class SHM_Partitioned_Cache {
 								//list( $group, $key ) = explode( ':', substr( $group_key, 5, -1 ), 2 );
 								//$crc32 = $this->_get_group_key( $key, $group );
 								//// Write index entry
-								//if ( 4 !== @ shmop_write( $this->res, $crc32, 12 + $partition_size ) ) {
+								//if ( 4 !== @ $this->_write( $this->res, $crc32, 12 + $partition_size ) ) {
 									//$error = error_get_last();
 									//file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 													   //date( 'Y-m-d H:i:s,v' ) .
@@ -854,7 +905,7 @@ class SHM_Partitioned_Cache {
 								//$partition_size += 4;
 								//// Write offset and count entry
 								//list( $pos, $offset, $count ) = $entry;
-								//if ( 8 !== @ shmop_write( $this->res, pack( 'N', $offset ) . pack( 'N', $count ), $this->data_offset_count_offset + $i * 8 ) ) {
+								//if ( 8 !== @ $this->_write( $this->res, pack( 'N', $offset ) . pack( 'N', $count ), $this->data_offset_count_offset + $i * 8 ) ) {
 									//$error = error_get_last();
 									//file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 													   //date( 'Y-m-d H:i:s,v' ) .
@@ -863,7 +914,7 @@ class SHM_Partitioned_Cache {
 									//break;
 								//}
 								////// Add key and group to data block
-								////$data_block_header = @ shmop_read( $this->res, $offset, 12 );
+								////$data_block_header = @ $this->_read( $this->res, $offset, 12 );
 								////if ( $data_block_header === false ) {
 									////$error = error_get_last();
 									////file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -873,11 +924,11 @@ class SHM_Partitioned_Cache {
 									////break;
 								////}
 								////$count = unpack( 'N', substr( $data_block_header, 8, 4 ) )[1];
-								////$data = @ shmop_read( $this->res, $offset + 12, $count );
+								////$data = @ $this->_read( $this->res, $offset + 12, $count );
 								//$i ++;
 							//}
 							//$this->partition = array();
-							if ( 12 !== @ shmop_write( $this->res, pack( 'N', $partition_size ) . $start_data . $count_data, 0 ) ) {
+							if ( 12 !== @ $this->_write( $this->res, pack( 'N', $partition_size ) . $start_data . $count_data, 0 ) ) {
 								$error = error_get_last();
 								file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 												   date( 'Y-m-d H:i:s,v' ) .
@@ -943,7 +994,7 @@ class SHM_Partitioned_Cache {
 				if ( $crc32 !== "\0\0\0\0" ) {
 					if ( $sanity_check && isset( $partition[ $crc32 ] ) )
 						echo "WARNING - partition table is corrupt! Duplicate entry $crc32<br />\n";
-					$offset_count = @ shmop_read( $this->res, $this->data_offset_count_offset + $i * 8, 8 );
+					$offset_count = @ $this->_read( $this->res, $this->data_offset_count_offset + $i * 8, 8 );
 					if ( $offset_count === false ) {
 						$error = error_get_last();
 						file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -964,7 +1015,7 @@ class SHM_Partitioned_Cache {
 	}
 
 	public function __destruct() {
-		if ( $this->res !== false && shmop_close( $this->res ) !== null ) {
+		if ( $this->res !== false && $this->_close( $this->res ) !== null ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
@@ -977,7 +1028,7 @@ class SHM_Partitioned_Cache {
 	public function clear() {
 		if ( $this->res === false ) return false;
 
-		if ( ! @ shmop_write( $this->res, str_repeat( "\0", 12 ), 0 ) ) {
+		if ( ! @ $this->_write( $this->res, str_repeat( "\0", 12 ), 0 ) ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
@@ -1041,7 +1092,7 @@ class SHM_Partitioned_Cache {
 		$allocated_count = $count;
 
 		$time_start = microtime( true );
-		$result = @ shmop_read( $this->res, $start, 16 );
+		$result = @ $this->_read( $this->res, $start, 16 );
 		$this->time_read += microtime( true ) - $time_start;
 		if ( $result === false ) {
 			$error = error_get_last();
@@ -1055,7 +1106,7 @@ class SHM_Partitioned_Cache {
 		if ( substr( $result, 0, 8 ) === 'a:3:{i:0' ) {
 			// v1 format
 			$time_start = microtime( true );
-			$data = @ shmop_read( $this->res, $start + 16, $count - 16 );
+			$data = @ $this->_read( $this->res, $start + 16, $count - 16 );
 			$this->time_read += microtime( true ) - $time_start;
 			if ( $data === false ) {
 				$error = error_get_last();
@@ -1082,7 +1133,7 @@ class SHM_Partitioned_Cache {
 				return array( false, $expire, $mtime );
 			}
 			$key_data_len = unpack( 'N', substr( $result, 8, 4 ) )[1];
-			$key_data = @ shmop_read( $this->res, $start + 16, $key_data_len );
+			$key_data = @ $this->_read( $this->res, $start + 16, $key_data_len );
 			if ( $key_data === false ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -1101,7 +1152,7 @@ class SHM_Partitioned_Cache {
 			}
 			$count = unpack( 'N', substr( $result, 12, 4 ) )[1];
 			$time_start = microtime( true );
-			$data = @ shmop_read( $this->res, $start + 16 + $key_data_len, $count );
+			$data = @ $this->_read( $this->res, $start + 16 + $key_data_len, $count );
 			$this->time_read += microtime( true ) - $time_start;
 			if ( $data === false ) {
 				$error = error_get_last();
@@ -1185,7 +1236,7 @@ class SHM_Partitioned_Cache {
 				// Get actual size of deleted entry so we may re-use the same byte range
 			}
 			$time_start = microtime( true );
-			$result = @ shmop_read( $this->res, $offset, 16 );
+			$result = @ $this->_read( $this->res, $offset, 16 );
 			$this->time_read += microtime( true ) - $time_start;
 			if ( $result === false ) {
 				$error = error_get_last();
@@ -1199,7 +1250,7 @@ class SHM_Partitioned_Cache {
 				// v2/v3 format
 				$old_key_data_len = unpack( 'N', substr( $result, 8, 4 ) )[1];
 				$time_start = microtime( true );
-				$old_key_data = @ shmop_read( $this->res, $offset + 16, $old_key_data_len );
+				$old_key_data = @ $this->_read( $this->res, $offset + 16, $old_key_data_len );
 				$this->time_read += microtime( true ) - $time_start;
 				if ( $old_key_data === false ) {
 					$error = error_get_last();
@@ -1272,7 +1323,7 @@ class SHM_Partitioned_Cache {
 		}
 
 		// Write data
-		$bytes_written = @ shmop_write( $this->res, $data, $offset );
+		$bytes_written = @ $this->_write( $this->res, $data, $offset );
 		if ( $bytes_written === false ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -1293,7 +1344,7 @@ class SHM_Partitioned_Cache {
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Data len $data_len (padded $padded_len) > existing data len $count (padded $padded_count) or deleted, about to write partition entry at " . ( 12 + $pos ) . "\n";
 			// Write partition entry
 			$data_offset_count = pack( 'N', $offset ) . pack( 'N', $padded_len );
-			if ( 4 !==  @ shmop_write( $this->res, $group_key, 12 + $pos ) ) {
+			if ( 4 !==  @ $this->_write( $this->res, $group_key, 12 + $pos ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1301,7 +1352,7 @@ class SHM_Partitioned_Cache {
 								   $error['message'] . "\n", FILE_APPEND );
 				return false;
 			}
-			if ( 8 !==  @ shmop_write( $this->res, $data_offset_count, $this->data_offset_count_offset + $pos / 4 * 8 ) ) {
+			if ( 8 !==  @ $this->_write( $this->res, $data_offset_count, $this->data_offset_count_offset + $pos / 4 * 8 ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1324,7 +1375,7 @@ class SHM_Partitioned_Cache {
 			// This is a new partition entry, need to write updated partition size
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Partition entry at $pos == partition size {$this->partition_size}, about to write increased partition size $partition_size\n";
 			$this->partition_size = $partition_size;
-			if ( 4 !==  @ shmop_write( $this->res, pack( 'N', $partition_size ), 0 ) ) {
+			if ( 4 !==  @ $this->_write( $this->res, pack( 'N', $partition_size ), 0 ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1341,7 +1392,7 @@ class SHM_Partitioned_Cache {
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): [CRITICAL] New last key data offset $offset < old last key data offset {$this->last_key_data_offset} for '$group:$key' in SHM segment (key " . $this->get_id( true ) . ")\n", FILE_APPEND );
 			}
-			else if ( 8 !== @ shmop_write( $this->res, $data_offset_count, 4 ) ) {
+			else if ( 8 !== @ $this->_write( $this->res, $data_offset_count, 4 ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1370,7 +1421,7 @@ class SHM_Partitioned_Cache {
 
 		if ( $permanent ) {
 			// Overwrite whole entry with binary zeros to permanently delete
-			if ( ! @ shmop_write( $this->res, "\0\0\0\0", 12 + $pos ) ) {
+			if ( ! @ $this->_write( $this->res, "\0\0\0\0", 12 + $pos ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
@@ -1387,7 +1438,7 @@ class SHM_Partitioned_Cache {
 			$data = "\0\0\0\0";
 			$pos_offset = 4;
 		}
-		if ( ! @ shmop_write( $this->res, $data, $this->data_offset_count_offset + $pos / 4 * 8 + $pos_offset ) ) {
+		if ( ! @ $this->_write( $this->res, $data, $this->data_offset_count_offset + $pos / 4 * 8 + $pos_offset ) ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
@@ -1448,14 +1499,14 @@ class SHM_Partitioned_Cache {
 			foreach ( $this->partition as $group_key => $entry ) {
 				if ( $this->partition[ $group_key ] === false ) continue;
 				else list( $pos, $offset, $count ) = $this->partition[ $group_key ];
-				$result = @ shmop_read( $this->res, $offset, 16 );
+				$result = @ $this->_read( $this->res, $offset, 16 );
 				if ( $result === false ) continue;
 				else {
 					$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 					$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
 					$key_size = unpack( 'N', substr( $result, 8, 4 ) )[1];
 					$size = unpack( 'N', substr( $result, 12, 4 ) )[1];
-					$key_data = @ shmop_read( $this->res, $offset + 16, $key_size );
+					$key_data = @ $this->_read( $this->res, $offset + 16, $key_size );
 					if ( $key_data === false ) continue;
 					list( $group, $key ) = explode( ':', $key_data, 2 );
 				}
@@ -1550,7 +1601,7 @@ class SHM_Partitioned_Cache {
 		$next_free = $size - $this->next;
 		echo '<tr><th>Next Free Data Segment Size</th><td>' . $next_free . ' bytes (' . size_format( $next_free , 2 ) . ")</td></tr>\n";
 		// Read last 256 bytes of partition table so we can figure out last added key
-		$crc32 = $this->partition_size > 4 ? @ shmop_read( $this->res, 12 + $this->partition_size - 4, 4 ) : false;
+		$crc32 = $this->partition_size > 4 ? @ $this->_read( $this->res, 12 + $this->partition_size - 4, 4 ) : false;
 		echo '<tr><th>Partition Table Seek Time</th><td>' . number_format( $this->time_seek * 1000, 1 ) . " ms</td></tr>\n";
 		echo '<tr><th>Read Time</th><td>' . number_format( $this->time_read * 1000, 1 ) . " ms</td></tr>\n";
 		if ( $crc32 !== false ) $pos = $this->partition_size - 4;
@@ -1560,23 +1611,23 @@ class SHM_Partitioned_Cache {
 		}
 		if ( ! empty( $last_partition_entry ) ) {
 			list( $pos, $offset, $size ) = $last_partition_entry;
-			$result = @ shmop_read( $this->res, $offset + 8, 4 );
+			$result = @ $this->_read( $this->res, $offset + 8, 4 );
 		}
 		if ( ! empty( $result ) ) {
 			$key_size = unpack( 'N', $result )[1];
-			$key_data = @ shmop_read( $this->res, $offset + 16, $key_size );
+			$key_data = @ $this->_read( $this->res, $offset + 16, $key_size );
 		}
 		$result = false;
 		if ( ! empty( $key_data ) ) {
 			echo '<tr><th>Last Added Key</th><td>' . addcslashes( $key_data, "\x00..\x19\x7e..\xff\\" ) . "</td></tr>\n";
 			echo '<tr><th>Last Added Key Data Offset</th><td>' . $offset . ' bytes (' . size_format( $offset , 2 ) . ")</td></tr>\n";
 			echo '<tr><th>Last Added Key Data Size</th><td>' . $size . ' bytes (' . size_format( $size , 2 ) . ")</td></tr>\n";
-			$result = @ shmop_read( $this->res, $this->last_key_data_offset + 8, 4 );
+			$result = @ $this->_read( $this->res, $this->last_key_data_offset + 8, 4 );
 		}
 		$key_data = false;
 		if ( ! empty( $result ) ) {
 			$key_size = unpack( 'N', $result )[1];
-			$key_data = @ shmop_read( $this->res, $this->last_key_data_offset + 16, $key_size );
+			$key_data = @ $this->_read( $this->res, $this->last_key_data_offset + 16, $key_size );
 		}
 		if ( ! empty( $key_data ) ) {
 			echo '<tr><th>Last Changed Key</th><td>' . addcslashes( $key_data, "\x00..\x19\x7e..\xff\\" ) . "</td></tr>\n";
@@ -1588,11 +1639,11 @@ class SHM_Partitioned_Cache {
 		if ( $last_accessed_partition_entry !== false ) {
 			list( $pos, $offset, $size ) = $last_accessed_partition_entry;
 			echo '<tr><th>Last Accessed Key Partition Table Entry Offset</th><td>' . ( 12 + $pos ) . ' bytes (' . size_format( 12 + $pos , 2 ) . ")</td></tr>\n";
-			$result = @ shmop_read( $this->res, $offset + 8, 4 );
+			$result = @ $this->_read( $this->res, $offset + 8, 4 );
 		}
 		if ( ! empty( $result ) ) {
 			$key_size = unpack( 'N', $result )[1];
-			$key_data = @ shmop_read( $this->res, $offset + 16, $key_size );
+			$key_data = @ $this->_read( $this->res, $offset + 16, $key_size );
 		}
 		if ( ! empty( $key_data ) ) {
 			echo '<tr><th>Last Accessed Key</th><td>' . $key_data . "</td></tr>\n";
@@ -1618,7 +1669,7 @@ class SHM_Partitioned_Cache {
 		if ( $pos === false ) $partition_entry = false;
 		else {
 			//$time_start = microtime( true );
-			$offset_count = @ shmop_read( $this->res, $this->data_offset_count_offset + $pos / 4 * 8, 8 );
+			$offset_count = @ $this->_read( $this->res, $this->data_offset_count_offset + $pos / 4 * 8, 8 );
 			//$this->time_read += microtime( true ) - $time_start;
 			if ( $offset_count === false ) {
 				$partition_entry = false;
@@ -1642,14 +1693,118 @@ class SHM_Partitioned_Cache {
 
 if ( ! function_exists( 'ftok' ) ) {  // Windows
 
-	function ftok($pathname, $proj_id) {
-		$st = @stat($pathname);
-		if (!$st) {
+	function ftok( $pathname, $proj_id ) {
+
+		// https://github.com/php/php-src/blob/master/ext/standard/ftok.c
+
+		if ( strlen( $pathname ) === 0 ) {
+			trigger_error( "Pathname is invalid", E_USER_WARNING );
 			return -1;
 		}
 
-		$key = sprintf("%u", (($st['ino'] & 0xffff) | (($st['dev'] & 0xff) << 16) | (($proj_id & 0xff) << 24)));
+		if ( strlen( $proj_id ) !== 1 ){
+			trigger_error( "Project identifier is invalid", E_USER_WARNING );
+			return -1;
+		}
+
+		$st = @ stat( $pathname );
+		if ( ! $st ) {
+			return -1;
+		}
+
+		$key = sprintf( "%u", ( ( $st['ino'] & 0xffff ) | ( ( $st['dev'] & 0xff ) << 16 ) | ( ( $proj_id[0] & 0xff ) << 24 ) ) );
 		return $key;
+	}
+
+}
+
+function fshmop_open( $key, $flags, $mode, $size ) {
+	if ( $flags === 'a' ) $fopen_mode = 'r';
+	else if ( $flags === 'c' ) $fopen_mode = 'c+';
+	else if ( $flags === 'n' ) $fopen_mode = 'x+';
+	else if ( $flags === 'w' ) $fopen_mode = 'r+';
+	else {
+		trigger_error( "fshmop_open(): invalid access mode '$flags'", E_USER_WARNING );
+		return false;
+	}
+	$fn = FH_OBJECT_CACHE_PATH . SHM_Cache::format_id( $key, true );
+	if ( $size && $flags !== 'n' ) {
+		$st = @ stat( $fn );
+		if ( $st === false ) {
+			if ( $flags !== 'c' ) {
+				trigger_error( "fshmop_open(): unable to open '$fn': No such file or directory", E_USER_WARNING );
+				return false;
+			}
+		}
+		else {
+			if ( $st[ 'size' ] !== $size ) {
+				trigger_error( "fshmop_open(): unable to open '$fn': Invalid size argument for access mode '$flags'", E_USER_WARNING );
+				return false;
+			}
+		}
+	}
+	else if ( $flags === 'c' || $flags === 'n' ) {
+		trigger_error( "fshmop_open(): File size must be greater than zero", E_USER_WARNING );
+		return false;
+	}
+	$res = fopen( $fn, $fopen_mode );
+	if ( $res === false ) return false;
+	if ( $flags !== 'n' && isset( $st ) && $st !== false ) return $res;
+	if ( ! chmod( $fn, $mode ) ) return false;
+	if ( ! ftruncate( $res, $size ) ) return false;
+	return $res;
+}
+
+function fshmop_close( $res ) {
+	fclose( $res );
+}
+
+function fshmop_delete( $res ) {
+	return ftruncate( $res, 0 );
+}
+
+function fshmop_read( $res, $start, $count ) {
+	if ( fseek( $res, $start ) === 0 )
+		return fread( $res, $count );
+	else
+		return false;
+}
+
+function fshmop_size( $res ) {
+	return fstat( $res )[ 'size' ];
+}
+
+function fshmop_write( $res, $data, $offset ) {
+	if ( fseek( $res, $offset ) === 0 )
+		return fwrite( $res, $data, strlen( $data ) );
+	else
+		return false;
+}
+
+if ( ! function_exists( 'shmop_open' ) ) {
+
+	function shmop_open( $key, $flags, $mode, $size ) {
+		return fshmop_open( $key, $flags, $mode, $size );
+	}
+
+	function shmop_close( $res ) {
+		fshmop_close( $res );
+	}
+
+	function shmop_delete( $res ) {
+		return fshmop_delete( $res );
+	}
+
+	function shmop_read( $res, $start, $count ) {
+		return fshmop_read( $res, $start, $count );
+	}
+
+	function shmop_size( $res ) {
+		return fshmop_size( $res );
+	}
+
+	function shmop_write( $res, $data, $offset ) {
+		return fshmop_write( $res, $data, $offset );
 	}
 
 }
