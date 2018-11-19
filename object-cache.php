@@ -860,6 +860,7 @@ class SHM_Partitioned_Cache {
 
 	public function read_partition_table( $parse = false, $sanity_check = false ) {
 		// Actual size of partition table is in first four bytes
+		$this->partition = array();
 		$partition_size = @ $this->_read( $this->res, 0, 4 );
 		if ( $partition_size !== false ) {
 			$this->partition_size = unpack( 'N', $partition_size )[1];
@@ -2867,9 +2868,12 @@ class WP_Object_Cache {
 				return false;
 			}
 
-			if ( ! $this->acquire_lock() ) {
-				if ($this->debug) $this->time_total += microtime(true) - $time_start;
-				return false;
+			if ( $this->lock_mode !== LOCK_EX ) {
+				if ( ! $this->acquire_lock() ) {
+					if ($this->debug) $this->time_total += microtime(true) - $time_start;
+					return false;
+				}
+				if ( $this->shm_enable === 2 ) $this->shm->read_partition_table();
 			}
 
 			//$callee = fh_get_callee();
@@ -2974,10 +2978,12 @@ class WP_Object_Cache {
 		if ( ! $this->use_persistent_cache || isset( $this->non_persistent_groups[$group] ) ) return;
 		if ( $this->shm_enable === 2 && ! empty( $_POST['action'] ) ) {
 			if ($this->debug) $time_start = microtime(true);
-			if ( $this->lock_mode !== LOCK_EX &&
-				 ! $this->acquire_lock() ) {
-				if ($this->debug) $this->time_total += microtime(true) - $time_start;
-				return;
+			if ( $this->lock_mode !== LOCK_EX ) {
+				if ( ! $this->acquire_lock() ) {
+					if ($this->debug) $this->time_total += microtime(true) - $time_start;
+					return;
+				}
+				$this->shm->read_partition_table();
 			}
 			switch ( $action ) {
 				case FH_OBJECT_CACHE_SET:
