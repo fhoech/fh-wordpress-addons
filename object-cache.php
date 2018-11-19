@@ -1024,7 +1024,7 @@ class SHM_Partitioned_Cache {
 				$hash = substr( $this->partition_table, $start, $this->hash_bytes );
 				if ( $hash !== $hash_null ) {
 					if ( $sanity_check && isset( $partition[ $hash ] ) )
-						echo "WARNING - partition table is corrupt! Duplicate entry '" . addcslashes( $hash, "\x00..\x19\x7e..\xff\\" ) . "'<br />\n";
+						echo "WARNING - partition table is corrupt! Duplicate entry '" . htmlspecialchars( addcslashes( $hash, "\x00..\x19\x7f..\xff\\" ), ENT_COMPAT, 'UTF-8' ) . "'<br />\n";
 					$offset_count = @ $this->_read( $this->res, $this->data_offset_count_offset + $i * 8, 8 );
 					if ( $offset_count === false ) {
 						$error = error_get_last();
@@ -1145,7 +1145,7 @@ class SHM_Partitioned_Cache {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read v1 style '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count (allocated $allocated_count): " .
-								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
@@ -1171,14 +1171,14 @@ class SHM_Partitioned_Cache {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read key data for '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at key data offset " . ( $start + 16 ) . ", length $key_data_len: " .
-								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
 			if ( $key_data !== "$group:$key" ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Key data '" . addcslashes( $key_data, "\x00..\x19\x7e..\xff\\" ) . "' from SHM segment (key " . $this->get_id( true ) . ") at key data offset " . ( $start + 16 ) . ", length $key_data_len doesn't match requested '$group:$key'\n", FILE_APPEND );
+										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Key data '" . addcslashes( $key_data, "\x00..\x19\x7f..\xff\\" ) . "' from SHM segment (key " . $this->get_id( true ) . ") at key data offset " . ( $start + 16 ) . ", length $key_data_len doesn't match requested '$group:$key'\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
@@ -1191,7 +1191,7 @@ class SHM_Partitioned_Cache {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at data offset " . ( $start + 16 + $key_data_len ) . ", length $count (allocated $allocated_count): " .
-								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
@@ -1203,7 +1203,7 @@ class SHM_Partitioned_Cache {
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count (allocated $allocated_count): " .
-							   $error['message'] . ( $this->debug > 1 ? " (header '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
+							   $error['message'] . ( $this->debug > 1 ? " (header '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
 			//$this->delete( $key, $group );
 			return false;
 		}
@@ -1216,7 +1216,7 @@ class SHM_Partitioned_Cache {
 				 ! ( is_object( $unserialized ) || is_array( $unserialized ) ) ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Not an object or array: '$group:$key'" . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7e..\xff\\" ) . "'" : "" ) . "\n", FILE_APPEND );
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Not an object or array: '$group:$key'" . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "'" : "" ) . "\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
@@ -1256,7 +1256,7 @@ class SHM_Partitioned_Cache {
 		$data = pack( 'N', $mtime ) . pack( 'N', $expire ) . pack( 'N', $key_data_len ) . pack( 'N', strlen( $data ) ) . $key_data . $data;
 		$data_len = strlen( $data );
 		$padded_len = (int) ceil( $data_len / $this->block_size ) * $this->block_size;
-		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "SET $group:$key = $value (mtime = $mtime, expire = $expire, len = $data_len, padded $padded_len)\n";
+		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "SET $group:$key = '" . htmlspecialchars( $value, ENT_COMPAT, 'UTF-8' ) . "' (mtime = $mtime, expire = $expire, len = $data_len, padded $padded_len)\n";
 
 		$partition_entry = $this->_get_partition_entry( $group_key );
 		if ( $partition_entry !== false ) {
@@ -1295,7 +1295,7 @@ class SHM_Partitioned_Cache {
 				else if ( $old_key_data !== $key_data ) {
 					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 									   date( 'Y-m-d H:i:s,v' ) .
-									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "):" . ( ! $count ? " [Warning]" : "" ) . " Existing key data '" . addcslashes( $old_key_data, "\x00..\x19\x7e..\xff\\" ) . "' from SHM segment (key " . $this->get_id( true ) . ") at key data offset " . ( $offset + 16 ) . ", length $old_key_data_len doesn't match expected '$key_data'\n", FILE_APPEND );
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "):" . ( ! $count ? " [Warning]" : "" ) . " Existing key data '" . addcslashes( $old_key_data, "\x00..\x19\x7f..\xff\\" ) . "' from SHM segment (key " . $this->get_id( true ) . ") at key data offset " . ( $offset + 16 ) . ", length $old_key_data_len doesn't match expected '$key_data'\n", FILE_APPEND );
 					if ( $count ) return false;
 				}
 				// Used bytes = header 16 bytes + key bytes + data bytes
@@ -1537,8 +1537,8 @@ class SHM_Partitioned_Cache {
 					$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 					$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
 					$key_size = unpack( 'N', substr( $result, 8, 4 ) )[1];
-					if ( $sanity_check && $key_size > 256 ) {
-						echo "WARNING - shared memory is corrupt! Key size $size &gt; 256 for $group:$key " . addcslashes( substr( $result, 8, 4 ), "\x00..\x19\x7e..\xff\\" ) . "<br />\n";
+					if ( $key_size > 256 ) {
+						if ( $sanity_check ) echo "WARNING - shared memory is corrupt! &lt;group:key&gt; size $key_size &gt; 256 for hash '" . htmlspecialchars( addcslashes( $group_key, "\x00..\x19\x7f..\xff\\" ), ENT_COMPAT, 'UTF-8' ) . "' (header '" . htmlspecialchars( addcslashes( $result, "\x00..\x19\x7f..\xff\\" ), ENT_COMPAT, 'UTF-8' ) . "')<br />\n";
 						continue;
 					}
 					$size = unpack( 'N', substr( $result, 12, 4 ) )[1];
@@ -1658,7 +1658,7 @@ class SHM_Partitioned_Cache {
 		}
 		$result = false;
 		if ( ! empty( $key_data ) ) {
-			echo '<tr><th>Last Added Key</th><td>' . addcslashes( $key_data, "\x00..\x19\x7e..\xff\\" ) . "</td></tr>\n";
+			echo '<tr><th>Last Added Key</th><td>' . addcslashes( $key_data, "\x00..\x19\x7f..\xff\\" ) . "</td></tr>\n";
 			echo '<tr><th>Last Added Key Data Offset</th><td>' . $offset . ' bytes (' . size_format( $offset , 2 ) . ")</td></tr>\n";
 			echo '<tr><th>Last Added Key Data Size</th><td>' . $size . ' bytes (' . size_format( $size , 2 ) . ")</td></tr>\n";
 			$result = @ $this->_read( $this->res, $this->last_key_data_offset + 8, 4 );
@@ -1669,7 +1669,7 @@ class SHM_Partitioned_Cache {
 			$key_data = @ $this->_read( $this->res, $this->last_key_data_offset + 16, $key_size );
 		}
 		if ( ! empty( $key_data ) ) {
-			echo '<tr><th>Last Changed Key</th><td>' . addcslashes( $key_data, "\x00..\x19\x7e..\xff\\" ) . "</td></tr>\n";
+			echo '<tr><th>Last Changed Key</th><td>' . addcslashes( $key_data, "\x00..\x19\x7f..\xff\\" ) . "</td></tr>\n";
 			echo '<tr><th>Last Changed Key Data Offset</th><td>' . $this->last_key_data_offset . ' bytes (' . size_format( $this->last_key_data_offset , 2 ) . ")</td></tr>\n";
 			echo '<tr><th>Last Changed Key Data Size</th><td>' . $this->last_key_data_size . ' bytes (' . size_format( $this->last_key_data_size , 2 ) . ")</td></tr>\n";
 		}
