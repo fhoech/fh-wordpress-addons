@@ -808,7 +808,7 @@ class SHM_Partitioned_Cache {
 		}
 		else {
 			$this->size = $this->_size( $this->res );
-			$this->data_offset_count_offset = ceil( $this->size / 32 / $this->block_size ) * $this->block_size;
+			$this->data_offset_count_offset = (int) ceil( $this->size / 32 / $this->block_size ) * $this->block_size;
 			$this->data_offset = $this->data_offset_count_offset * 2;
 			// Partition table is in the first 1/16 of total SHM segment size.
 			// Data begins directly after that.
