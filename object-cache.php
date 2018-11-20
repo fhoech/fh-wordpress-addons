@@ -1873,8 +1873,8 @@ class WP_Object_Cache {
 	/* File-based object cache start */
 	private $cache_dir;
 	private $flock_filename = '.lock';
-	private $lock_mode = LOCK_SH;
-	private $mutex;
+	private $lock_mode = 0;
+	private $mutex = null;
 	private $deleted = array();
 	private $dirty_groups = array();
 	private $non_persistent_groups = array('bp_notifications' => true,
@@ -2263,8 +2263,7 @@ class WP_Object_Cache {
 			   !isset($this->persistent_cache_groups[$group]))))) {
 			$lockop = LOCK_SH;
 			if ( ! $force ) $lockop |= LOCK_NB;
-			if ( $this->lock_mode !== $lockop &&
-				 ! $this->acquire_lock( $lockop ) ) {
+			if ( ! $this->acquire_lock( $lockop ) ) {
 				// Cache in use by another process.
 				// To prevent deadlocks, disable persistent cache for this request.
 				$this->use_persistent_cache = false;
@@ -3078,9 +3077,9 @@ class WP_Object_Cache {
 
 	function acquire_lock( $operation = LOCK_EX ) {
 		$time_start = microtime( true );
-		$this->mutex = @fopen($this->cache_dir.$this->flock_filename, 'c');
+		if ( null === $this->mutex ) $this->mutex = @fopen($this->cache_dir.$this->flock_filename, 'c');
 		$this->lock_mode = 0;
-		if ( false == $this->mutex) {
+		if ( false === $this->mutex ) {
 			$this->time_lock += microtime( true ) - $time_start;
 			$this->_log( "Couldn't acquire " . ( $operation === LOCK_EX ? "exclusive" : "shared" ) . " lock", 1 );
 			return false;
