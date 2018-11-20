@@ -718,7 +718,7 @@ class SHM_SYSV_Cache {
 
 class SHM_Partitioned_Cache {
 
-	private $use_file_backend = false;
+	private $use_file_backend;
 	private $id;
 	private $res = false;
 	private $size = 0;
@@ -796,6 +796,7 @@ class SHM_Partitioned_Cache {
 
 	public function __construct( $size = 16 * 1024 * 1024, $parse = false, $sanity_check = false ) {
 		$this->now = time();
+		$this->use_file_backend = defined('FH_OBJECT_CACHE_SHM_USE_FILE_BACKEND');
 		$this->debug = defined('FH_OBJECT_CACHE_SHM_DEBUG') ? FH_OBJECT_CACHE_SHM_DEBUG : 0;
 		$this->check_data_types = defined('FH_OBJECT_CACHE_SHM_CHECK_DATA_TYPES');
 		$this->id = ftok( __FILE__, "\xff" );
