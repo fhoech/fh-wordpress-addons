@@ -796,9 +796,9 @@ class SHM_Partitioned_Cache {
 
 	public function __construct( $size = 16 * 1024 * 1024, $parse = false, $sanity_check = false ) {
 		$this->now = time();
-		$this->use_file_backend = defined('FH_OBJECT_CACHE_SHM_USE_FILE_BACKEND');
+		$this->use_file_backend = ( defined('FH_OBJECT_CACHE_SHM_USE_FILE_BACKEND') && FH_OBJECT_CACHE_SHM_USE_FILE_BACKEND ) || ! function_exists( 'shmop_open' );
 		$this->debug = defined('FH_OBJECT_CACHE_SHM_DEBUG') ? FH_OBJECT_CACHE_SHM_DEBUG : 0;
-		$this->check_data_types = defined('FH_OBJECT_CACHE_SHM_CHECK_DATA_TYPES');
+		$this->check_data_types = defined('FH_OBJECT_CACHE_SHM_CHECK_DATA_TYPES') && FH_OBJECT_CACHE_SHM_CHECK_DATA_TYPES;
 		$this->id = ftok( __FILE__, "\xff" );
 		if ( ! $this->res = @ $this->_open( $this->id, 'c', 0600, $size ) ) {
 			$error = error_get_last();
@@ -811,6 +811,49 @@ class SHM_Partitioned_Cache {
 			$this->size = $this->_size( $this->res );
 			$this->data_offset_count_offset = (int) ceil( $this->size / 32 / $this->block_size ) * $this->block_size;
 			$this->data_offset = $this->data_offset_count_offset * 2;
+			// Read existing file into shared memory
+			$fn = FH_OBJECT_CACHE_PATH . SHM_Cache::format_id( $this->id, true );
+			if ( ! $this->use_file_backend && function_exists( 'shmop_open' ) && is_file( $fn ) ) {
+				$res = @ fshmop_open( $this->id, 'a', 0600, $size );
+				if ( $res === false ) {
+					$error = error_get_last();
+					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+									   date( 'Y-m-d H:i:s,v' ) .
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't open file $fn, size $size): " .
+									   $error['message'] . "\n", FILE_APPEND );
+				}
+				else {
+					// Read chunks of 1024 bytes and write to SHM
+					$offset = 0;
+					while ( $offset < $size ) {
+						$chunk = fshmop_read( $res, $offset, $offset + 1024 );
+						if ( $chunk === false ) {
+							$error = error_get_last();
+							file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+											   date( 'Y-m-d H:i:s,v' ) .
+											   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read from file $fn, size $size): " .
+											   $error['message'] . "\n", FILE_APPEND );
+							break;
+						}
+						if ( false === $this->_write( $this->res, $chunk, $offset ) ) {
+							$error = error_get_last();
+							file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+											   date( 'Y-m-d H:i:s,v' ) .
+											   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write to SHM segment (key " . $this->get_id( true ) . ", size $size): " .
+											   $error['message'] . "\n", FILE_APPEND );
+							break;
+						}
+						$offset += 1024;
+					}
+					fshmop_close( $res );
+					if ( $offset === $size ) {
+						unlink( $fn );
+						file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+										   date( 'Y-m-d H:i:s,v' ) .
+										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Wrote contents of $fn to SHM segment (key " . $this->get_id( true ) . ", size $size)\n", FILE_APPEND );
+					}
+				}
+			}
 			// Partition table is in the first 1/16 of total SHM segment size.
 			// Data begins directly after that.
 			$this->read_partition_table( $parse, $sanity_check );
@@ -1158,7 +1201,7 @@ class SHM_Partitioned_Cache {
 			$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 			$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
 			if ( $expire && $expire <= $this->now ) {
-				if ( defined( 'FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS' ) ) 
+				if ( defined( 'FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS' ) && FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS ) 
 					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 									   date( 'Y-m-d H:i:s,v' ) .
 									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Expired " . date( 'Y-m-d H:i:s T', $expire ) . ": '$group:$key' (last modified " .
@@ -1824,7 +1867,7 @@ function fshmop_write( $res, $data, $offset ) {
 		return false;
 }
 
-if ( ! function_exists( 'shmop_open' ) ) {
+if ( ! function_exists( 'shmop_open' ) && defined( 'FH_OBJECT_CACHE_SHM_USE_FILE_BACKEND' ) && FH_OBJECT_CACHE_SHM_USE_FILE_BACKEND ) {
 
 	function shmop_open( $key, $flags, $mode, $size ) {
 		return fshmop_open( $key, $flags, $mode, $size );
