@@ -2262,7 +2262,7 @@ class WP_Object_Cache {
 			   !isset($this->persistent_cache_groups[$group][$key]) :
 			   !isset($this->persistent_cache_groups[$group]))))) {
 			$lockop = LOCK_SH;
-			if ( ! $force ) $lockop |= LOCK_NB;
+			//if ( ! $force ) $lockop |= LOCK_NB;
 			if ( ! $this->acquire_lock( $lockop ) ) {
 				// Cache in use by another process.
 				// To prevent deadlocks, disable persistent cache for this request.
@@ -2771,9 +2771,7 @@ class WP_Object_Cache {
 		if ($this->ajax) $this->_log("DOING_AJAX");
 		if ($this->cron) $this->_log("DOING_CRON");
 
-		// To prevent deadlocks, disable persistent cache for this request
-		// if we cannot get a shared lock in non-blocking mode.
-		$this->use_persistent_cache = $this->acquire_lock( LOCK_SH | LOCK_NB );
+		$this->use_persistent_cache = $this->acquire_lock( LOCK_SH );
 
 		if ( $this->shm_enable === 2 ) {
 			$this->shm = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
