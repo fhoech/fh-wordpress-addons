@@ -718,6 +718,11 @@ class SHM_SYSV_Cache {
 
 class SHM_Partitioned_Cache {
 
+	const ADD = 1;
+	const REPLACE = 2;
+	const INCR = 3;
+	const DECR = 4;
+
 	private $use_file_backend;
 	private $id;
 	private $res = false;
@@ -793,6 +798,7 @@ class SHM_Partitioned_Cache {
 								 'fnv1a64' => 8 );
 	private $hash_algo = 'fnv1a64';
 	private $hash_bytes = 8;
+	private $_hash_table = array();
 
 	public function __construct( $size = 16 * 1024 * 1024, $parse = false, $sanity_check = false ) {
 		$this->now = time();
@@ -811,9 +817,12 @@ class SHM_Partitioned_Cache {
 			$this->size = $this->_size( $this->res );
 			$this->data_offset_count_offset = (int) ceil( $this->size / 32 / $this->block_size ) * $this->block_size;
 			$this->data_offset = $this->data_offset_count_offset * 2;
+			// Partition table is in the first 1/16 of total SHM segment size.
+			// Data begins directly after that.
+			$this->read_partition_table( $parse, $sanity_check );
 			// Read existing file into shared memory
 			$fn = FH_OBJECT_CACHE_PATH . SHM_Cache::format_id( $this->id, true );
-			if ( ! $this->use_file_backend && function_exists( 'shmop_open' ) && is_file( $fn ) ) {
+			if ( empty( $this->partition ) && ! $this->use_file_backend && function_exists( 'shmop_open' ) && is_file( $fn ) ) {
 				$res = @ fshmop_open( $this->id, 'a', 0600, $size );
 				if ( $res === false ) {
 					$error = error_get_last();
@@ -852,12 +861,23 @@ class SHM_Partitioned_Cache {
 										   date( 'Y-m-d H:i:s,v' ) .
 										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Wrote contents of $fn to SHM segment (key " . $this->get_id( true ) . ", size $size)\n", FILE_APPEND );
 					}
+					$this->read_partition_table( $parse, $sanity_check );
 				}
 			}
-			// Partition table is in the first 1/16 of total SHM segment size.
-			// Data begins directly after that.
-			$this->read_partition_table( $parse, $sanity_check );
 		}
+	}
+
+	private function _parse( $result ) {
+		if ( $result === false ) return false;
+		// Quickest way to check if result is a serialized string or not.
+		// If it isn't, it's a numeric string, the only other 'data type' we store
+		if ( strlen( $result ) < 2 || $result[1] !== ':' ) return strpos( $result, "." ) === false ? intval( $result ) : floatval( $result );
+		return unserialize( $result );
+	}
+
+	private function _prepare( $data ) {
+		if ( is_int( $data ) || is_float( $data ) ) return strval( $data );
+		return serialize( $data );
 	}
 
 	private function _open( $key, $flags, $mode, $size ) {
@@ -1242,12 +1262,12 @@ class SHM_Partitioned_Cache {
 			}
 			$result = $data;
 		}
-		$unserialized = @ unserialize( $result );
-		if ( $unserialized === false && $result !== 'b:0;' ) {
+		$parsed = @ $this->_parse( $result );
+		if ( $parsed === false && $result !== 'b:0;' ) {
 			$error = error_get_last();
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
-							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't unserialize '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count (allocated $allocated_count): " .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't parse '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count (allocated $allocated_count): " .
 							   $error['message'] . ( $this->debug > 1 ? " (header '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
 			//$this->delete( $key, $group );
 			return false;
@@ -1258,34 +1278,34 @@ class SHM_Partitioned_Cache {
 			if ( $this->check_data_types &&
 				 in_array( $group, $this->complex_groups ) &&
 				 ! in_array( $group . ':' . explode( ':', $key )[0], $this->complex_groups_noncomplex_keys ) &&
-				 ! ( is_object( $unserialized ) || is_array( $unserialized ) ) ) {
+				 ! ( is_object( $parsed ) || is_array( $parsed ) ) ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
 								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Not an object or array: '$group:$key'" . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "'" : "" ) . "\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
-			return array( $unserialized, $expire, $mtime );
+			return array( $parsed, $expire, $mtime );
 		}
 
 		// Old format
-		if ( ! is_array( $unserialized ) || count( $unserialized ) != 3 )
+		if ( ! is_array( $parsed ) || count( $parsed ) != 3 )
 			return false;
 
-		list( $value, $expire, $mtime ) = $unserialized;
+		list( $value, $expire, $mtime ) = $parsed;
 
 		if ( $expire && $expire <= $this->now ) {
 			//$this->delete( $key, $group );
 			return array( false, $expire, $mtime );
 		}
 
-		//$this->cache[ $group ][ $key ] = $unserialized;
+		//$this->cache[ $group ][ $key ] = $parsed;
 		//$this->expires[ $group ][ $key ] = $expire;
 		//if ( ! isset( $this->mtime[ $group ] ) ||
 		//	 $mtime > $this->mtime[ $group ] )
 		//	$this->mtime[ $group ] = $mtime;
 
-		return $unserialized;
+		return $parsed;
 	}
 
 	public function set( $key, $value, $group = 'default', $expire = 0 ) {
@@ -1296,7 +1316,7 @@ class SHM_Partitioned_Cache {
 		$mtime = time();
 		$key_data = $group . ':' . $key;
 		$key_data_len = strlen( $key_data );
-		$data = serialize( $value );
+		$data = $this->_prepare( $value );
 		// Data header: mtime(4) expire(4) key_data_len(4) data_len(4) key_data data
 		$data = pack( 'N', $mtime ) . pack( 'N', $expire ) . pack( 'N', $key_data_len ) . pack( 'N', strlen( $data ) ) . $key_data . $data;
 		$data_len = strlen( $data );
@@ -1485,6 +1505,71 @@ class SHM_Partitioned_Cache {
 		//$this->mtime[ $group ] = $mtime;
 
 		return $bytes_written !== false;
+	}
+
+	public function incr( $key, $offset = 1, $group = 'default' ) {
+		return $this->_incr_decr( SHM_Partitioned_Cache::INCR, $key, $offset, $group );
+	}
+
+	public function decr( $key, $offset = 1, $group = 'default' ) {
+		return $this->_incr_decr( SHM_Partitioned_Cache::DECR, $key, $offset, $group );
+	}
+
+	private function _incr_decr( $cmd, $key, $offset = 1, $group = 'default' ) {
+		if ( $this->res === false ) return false;
+
+		$result = $this->get( $key, $group );
+		if ( $result === false ) return false;
+		list( $value, $expire, $mtime ) = $result;
+
+		if ( ! is_numeric( $value ) )
+			$value = 0;
+
+		$offset = (int) $offset;
+
+		if ( $cmd === SHM_Partitioned_Cache::INCR )
+			$value += $offset;
+		else
+			$value -= $offset;
+
+		if ( $value < 0 )
+			$value = 0;
+
+		if ( $this->set( $key, $value, $group ) )
+			return $value;
+
+		return false;
+	}
+
+	public function add( $key, $value, $group = 'default', $expire = 0 ) {
+		return $this->_add_replace( SHM_Partitioned_Cache::ADD, $key, $value, $group, $expire );
+	}
+
+	public function replace( $key, $value, $group = 'default', $expire = 0 ) {
+		return $this->_add_replace( SHM_Partitioned_Cache::REPLACE, $key, $value, $group, $expire );
+	}
+
+	public function _add_replace( $cmd, $key, $value, $group = 'default', $expire = 0 ) {
+		if ( $this->res === false ) return false;
+
+		$group_key = $this->_get_group_key( $key, $group );
+
+		$partition_entry = $this->_get_partition_entry( $group_key );
+		if ( $cmd === SHM_Partitioned_Cache::ADD ) {
+			// Return false if entry already exists
+			if ( $partition_entry !== false ) {
+				list( $pos, $offset, $count ) = $partition_entry;
+				if ( $count ) return false;
+			}
+		}
+		else {
+			// Return false if entry doesn't exist
+			if ( $partition_entry === false ) return false;
+			list( $pos, $offset, $count ) = $partition_entry;
+			if ( ! $count ) return false;
+		}
+
+		return $this->set( $key, $value, $group, $expire );
 	}
 
 	public function delete( $key, $group = 'default', $permanent = false ) {
@@ -1746,7 +1831,10 @@ class SHM_Partitioned_Cache {
 
 	public function _get_group_key( $key, $group = 'default' ) {
 		// Concatenate group and key, return the result
-		return hash( $this->hash_algo, $group . ':' . $key, true );
+		$group_key = "$group:$key";
+		if ( ! isset( $this->_hash_table[ $group_key ] ) )
+			$this->_hash_table[ $group_key ] = hash( $this->hash_algo, $group_key, true );
+		return $this->_hash_table[ $group_key ];
 	}
 
 	public function _get_partition_entry( $group_key ) {
@@ -1960,8 +2048,8 @@ class WP_Object_Cache {
 	private $time_total = 0;
 	private $now;
 	private $expiration_time = 0;
-	private $shm_enable = false;
-	private $shm = array();
+	private $shm_enable = 2;
+	private $backend;
 	public $cache_writes = 0;
 	private $closed = false;
 	private $time_lock = 0;
@@ -2093,17 +2181,9 @@ class WP_Object_Cache {
 		if ( wp_suspend_cache_addition() )
 			return false;
 
-		if ( empty( $group ) )
-			$group = 'default';
-
-		$id = $key;
-		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
-			$id = $this->blog_prefix . $key;
-
-		if ( $this->_exists( $id, $group ) )
-			return false;
-
-		return $this->set( $key, $data, $group, (int) $expire );
+		/* Persistent object cache start */
+		return $this->_add_set_replace( 'add', $key, $data, $group, $expire );
+		/* Persistent object cache end */
 	}
 
 	/**
@@ -2131,37 +2211,64 @@ class WP_Object_Cache {
 	 * @return false|int False on failure, the item's new value on success.
 	 */
 	public function decr( $key, $offset = 1, $group = 'default' ) {
+		/* Persistent object cache start */
+		return $this->_incr_decr( 'decr', $key, $offset, $group );
+		/* Persistent object cache end */
+	}
+
+	private function _incr_decr( $cmd, $key, $offset = 1, $group = 'default' ) {
 		if ( empty( $group ) )
 			$group = 'default';
 
 		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
 			$key = $this->blog_prefix . $key;
 
-		if ( ! $this->_exists( $key, $group ) )
-			return false;
-
-		if ( ! is_numeric( $this->cache[ $group ][ $key ] ) )
-			$this->cache[ $group ][ $key ] = 0;
-
+		/* Persistent object cache start */
 		$offset = (int) $offset;
 
-		$this->cache[ $group ][ $key ] -= $offset;
+		if ( ! isset( $this->non_persistent_groups[ $group ] ) ) {
+			if ( $this->lock_mode !== LOCK_EX ) {
+				if ($this->debug) $time_start = microtime(true);
+				if ( ! $this->acquire_lock() ) {
+					if ($this->debug) $this->time_total += microtime(true) - $time_start;
+					return false;
+				}
+				$this->backend->read_partition_table();
+			}
+			if ($this->debug) $time_start = microtime(true);
+			$value = $this->backend->$cmd( $key, $offset, $group );
+			if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
+			if ( $value === false ) {
+				if ($this->debug) $this->time_total += microtime(true) - $time_start;
+				return false;
+			}
+		}
+		else {
+			if ( ! $this->_exists( $key, $group ) )
+				return false;
 
-		if ( $this->cache[ $group ][ $key ] < 0 )
-			$this->cache[ $group ][ $key ] = 0;
+			$value = $this->cache[ $group ][ $key ];
 
-		/* File-based object cache start */
-        if ($this->debug) $time_start = microtime(true);
+			if ( ! is_numeric( $value ) )
+				$value = 0;
+
+			if ( $cmd === 'incr' )
+				$value += $offset;
+			else
+				$value -= $offset;
+
+			if ( $value < 0 )
+				$value = 0;
+		}
+		$this->cache[ $group ][ $key ] = $value;
 		$this->cache_writes ++;
 		$this->dirty_groups[$group][$key] = true;
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
-		$this->_check_persist($key, $group, FH_OBJECT_CACHE_DECR);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
-
-		return $this->cache[ $group ][ $key ];
+		return $value;
+		/* Persistent object cache end */
 	}
 
 	/**
@@ -2184,11 +2291,22 @@ class WP_Object_Cache {
 		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
 			$key = $this->blog_prefix . $key;
 
-		if ( ! $this->_exists( $key, $group ) )
-			return false;
-
 		/* File-based object cache start */
+		if ( $this->lock_mode !== LOCK_EX ) {
+			if ($this->debug) $time_start = microtime(true);
+			if ( ! $this->acquire_lock() ) {
+				if ($this->debug) $this->time_total += microtime(true) - $time_start;
+				return false;
+			}
+			$this->backend->read_partition_table();
+		}
         if ($this->debug) $time_start = microtime(true);
+		$result = $this->backend->delete($key, $group);
+		if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
+		if ( ! $result ) {
+			if ($this->debug) $this->time_total += microtime(true) - $time_start;
+			return false;
+		}
 		if ($this->shm_enable === 2 ||
 			!isset($this->dirty_groups[$group]))
 			$this->dirty_groups[$group][$key] = false;
@@ -2202,7 +2320,6 @@ class WP_Object_Cache {
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
-		$this->_check_persist($key, $group, FH_OBJECT_CACHE_DELETE);
 		$this->cache_deletions += 1;
 		if ($this->debug) {
 			if (!isset($this->cache_deletions_groups[$group]))
@@ -2234,8 +2351,8 @@ class WP_Object_Cache {
 			return false;
 		}
 
-		if ($this->shm_enable === 2) $this->shm->clear();
-		else foreach ($this->shm as $group => $shm) $shm->clear();
+		if ($this->shm_enable === 2) $this->backend->flush();
+		else foreach ($this->backend as $group => $shm) $shm->clear();
 
 		$dh = @ opendir($this->cache_dir);
 		if (!$dh) {
@@ -2302,7 +2419,7 @@ class WP_Object_Cache {
 			($force ||
 			 (!$this->skip &&
 			  ($this->shm_enable === 2 ?
-			   !isset($this->persistent_cache_groups[$group][$key]) :
+			   !isset($this->cache[$group][$key]) :
 			   !isset($this->persistent_cache_groups[$group]))))) {
 			$lockop = LOCK_SH;
 			//if ( ! $force ) $lockop |= LOCK_NB;
@@ -2315,9 +2432,9 @@ class WP_Object_Cache {
 			$this->persistent_cache_reads += 1;
 			if ($this->shm_enable === 2) {
 				if ($this->debug) $time_shm_read_start = microtime(true);
-				$result = $this->shm->get($key, $group);
+				$result = $this->backend->get($key, $group);
 				if ($this->debug) {
-					$this->time_shm_read = $this->shm->time_read;
+					$this->time_shm_read = $this->backend->time_read;
 					$this->time_read += microtime(true) - $time_shm_read_start;
 				}
 				if ($result !== false) {
@@ -2441,8 +2558,8 @@ class WP_Object_Cache {
 	private function _get_group( $group = 'default' ) {
 		if ( $this->shm_enable ) {
 			if ($this->debug) $time_shm_read_start = microtime(true);
-			if ( ! isset( $this->shm[$group] ) ) $this->shm[$group] = new SHM_Cache( $group );
-			$data = $this->shm[$group]->get();
+			if ( ! isset( $this->backend[$group] ) ) $this->backend[$group] = new SHM_Cache( $group );
+			$data = $this->backend[$group]->get();
 			if ($this->debug) $this->time_shm_read += microtime(true) - $time_shm_read_start;
 			if ( $data !== false ) return $data;
 		}
@@ -2455,8 +2572,8 @@ class WP_Object_Cache {
 
 	private function _mtime( $group = 'default' ) {
 		if ( $this->shm_enable ) {
-			if ( ! isset( $this->shm[$group] ) ) $this->shm[$group] = new SHM_Cache( $group );
-			return $this->shm[$group]->mtime();
+			if ( ! isset( $this->backend[$group] ) ) $this->backend[$group] = new SHM_Cache( $group );
+			return $this->backend[$group]->mtime();
 		}
 		$cache_file = $this->cache_dir.$group.'.php';
 		return filemtime($cache_file);
@@ -2475,37 +2592,9 @@ class WP_Object_Cache {
 	 * @return false|int False on failure, the item's new value on success.
 	 */
 	public function incr( $key, $offset = 1, $group = 'default' ) {
-		if ( empty( $group ) )
-			$group = 'default';
-
-		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
-			$key = $this->blog_prefix . $key;
-
-		if ( ! $this->_exists( $key, $group ) )
-			return false;
-
-		if ( ! is_numeric( $this->cache[ $group ][ $key ] ) )
-			$this->cache[ $group ][ $key ] = 0;
-
-		$offset = (int) $offset;
-
-		$this->cache[ $group ][ $key ] += $offset;
-
-		if ( $this->cache[ $group ][ $key ] < 0 )
-			$this->cache[ $group ][ $key ] = 0;
-
-		/* File-based object cache start */
-        if ($this->debug) $time_start = microtime(true);
-		$this->cache_writes ++;
-		$this->dirty_groups[$group][$key] = true;
-        if ( isset( $this->persistent_cache_groups[$group][$key] ) )
-			$this->persistent_cache_groups[$group][$key] = false;
-		$this->mtime[$group] = time();
-		$this->_check_persist($key, $group, FH_OBJECT_CACHE_INCR);
-		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
-
-		return $this->cache[ $group ][ $key ];
+		/* Persistent object cache start */
+		return $this->_incr_decr( 'incr', $key, $offset, $group );
+		/* Persistent object cache end */
 	}
 
 	/**
@@ -2521,17 +2610,9 @@ class WP_Object_Cache {
 	 * @return bool False if not exists, true if contents were replaced
 	 */
 	public function replace( $key, $data, $group = 'default', $expire = 0 ) {
-		if ( empty( $group ) )
-			$group = 'default';
-
-		$id = $key;
-		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
-			$id = $this->blog_prefix . $key;
-
-		if ( ! $this->_exists( $id, $group ) )
-			return false;
-
-		return $this->set( $key, $data, $group, (int) $expire );
+		/* File-based object cache start */
+		return $this->_add_set_replace( 'replace', $key, $data, $group, $expire );
+		/* File-based object cache end */
 	}
 
 	/**
@@ -2581,43 +2662,73 @@ class WP_Object_Cache {
 	 * @return true Always returns true
 	 */
 	public function set( $key, $data, $group = 'default', $expire = 0 ) {
+		/* File-based object cache start */
+		return $this->_add_set_replace( 'set', $key, $data, $group, $expire );
+		/* File-based object cache end */
+	}
+
+	private function _add_set_replace( $cmd, $key, $data, $group = 'default', $expire = 0 ) {
 		if ( empty( $group ) )
 			$group = 'default';
 
 		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
 			$key = $this->blog_prefix . $key;
 
+		/* Persistent object cache start */
+		if ( $this->lock_mode !== LOCK_EX ) {
+			if ($this->debug) $time_start = microtime(true);
+			if ( ! $this->acquire_lock() ) {
+				if ($this->debug) $this->time_total += microtime(true) - $time_start;
+				return false;
+			}
+			$this->backend->read_partition_table();
+		}
+		if ($this->debug) $time_start = microtime(true);
+		if ( ! isset( $this->non_persistent_groups[ $group ] ) ) {
+			if (!$expire) $expire = $this->expiration_time;
+			$expire = (int) $expire;
+			if ($expire) $expire = $this->now + $expire;
+			$result = $this->backend->$cmd( $key, $data, $group, $expire );
+			if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
+			if ( ! $result ) {
+				if ($this->debug) $this->time_total += microtime(true) - $time_start;
+				return false;
+			}
+			if ($this->shm_enable === 2 ||
+				!isset($this->dirty_groups[$group])) {
+				$exists = $this->_exists($key, $group);
+				$is_complex = $exists && ( is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] ) );
+				if (!$exists ||
+					(!$is_complex && $this->cache[$group][$key] !== $data) ||
+					($is_complex && serialize($this->cache[$group][$key]) != serialize($data))) {
+						$this->dirty_groups[$group][$key] = true;
+						$this->mtime[$group] = time();
+					}
+			}
+			if ($this->debug) $this->time_total += microtime(true) - $time_start;
+		}
+		else {
+			if ( ( $cmd === 'add' && $this->_exists( $key, $group ) ) ||
+				 ( $cmd === 'replace' && ! $this->_exists( $key, $group ) ) )
+				return false;
+
+			$result = true;
+		}
+		/* Persistent object cache end */
 		if ( is_object( $data ) )
 			$data = clone $data;
 
-		/* File-based object cache start */
-		if ($this->debug) $time_start = microtime(true);
-		if ($this->shm_enable === 2 ||
-			!isset($this->dirty_groups[$group])) {
-			$exists = $this->_exists($key, $group);
-			$is_complex = $exists && ( is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] ) );
-			if (!$exists ||
-				(!$is_complex && $this->cache[$group][$key] !== $data) ||
-				($is_complex && serialize($this->cache[$group][$key]) != serialize($data))) {
-					$this->dirty_groups[$group][$key] = true;
-					$this->mtime[$group] = time();
-				}
-		}
-        if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
 		$this->cache[$group][$key] = $data;
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
-		if (!$expire) $expire = $this->expiration_time;
-		if ($expire) $this->expires[$group][$key] = $this->now + $expire;
+		if ($expire) $this->expires[$group][$key] = $expire;
 		unset($this->deleted[$group][$key]);
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
-		$this->_check_persist($key, $group, FH_OBJECT_CACHE_SET);
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
-		return true;
+		return $result;
+		/* Persistent object cache end */
 	}
 
 	/**
@@ -2644,12 +2755,12 @@ class WP_Object_Cache {
 		echo "<tr><th>Persistent Cache Reads</th><td>{$this->persistent_cache_reads}</td></tr>";
 		echo "<tr><th>Persistent Cache Hits</th><td>{$this->persistent_cache_reads_hits}</td></tr>";
 		$total = $this->cache_misses + $this->persistent_cache_reads_hits;
-		echo '<tr><th>Persistent Cache Hit Rate</th><td>' . number_format( 100 / $total * $this->persistent_cache_reads_hits, 1 ) . '%</td></tr>';
+		echo '<tr><th>Persistent Cache Hit Rate</th><td>' . ( $total ? number_format( 100 / $total * $this->persistent_cache_reads_hits, 1 ) . '%' : ( $this->debug ? '0%' : 'Unknown' ) ) . '</td></tr>';
 		if ( $this->debug ) {
 			if ($this->shm_enable !== 2) echo '<tr><th>Persistent Cache Disk Read Time</th><td>' . number_format( $this->time_disk_read * 1000, 1 ) . ' ms</td></tr>';
-			else echo '<tr><th>Persistent Cache Seek Time</th><td>' . number_format( $this->shm->time_seek * 1000, 1 ) . ' ms</td></tr>';
+			else echo '<tr><th>Persistent Cache Seek Time</th><td>' . number_format( $this->backend->time_seek * 1000, 1 ) . ' ms</td></tr>';
 			if ($this->shm_enable) echo '<tr><th>Persistent Cache Shared Memory Read Time</th><td>' . number_format( $this->time_shm_read * 1000, 1 ) . ' ms</td></tr>';
-			echo '<tr><th>Persistent Cache Processing Time</th><td>' . number_format( ( $this->time_read - $this->time_disk_read - $this->time_shm_read - ( $this->shm_enable === 2 ? $this->shm->time_seek : 0 ) ) * 1000, 1) . ' ms</td></tr>';
+			echo '<tr><th>Persistent Cache Processing Time</th><td>' . number_format( ( $this->time_read - $this->time_disk_read - $this->time_shm_read - ( $this->shm_enable === 2 ? $this->backend->time_seek : 0 ) ) * 1000, 1) . ' ms</td></tr>';
 		}
 		$hours = floor( $this->expiration_time / 60 / 60 );
 		$minutes = floor( ( $this->expiration_time - $hours * 60 * 60 ) / 60 );
@@ -2675,7 +2786,7 @@ class WP_Object_Cache {
 			$cache_misses_groups = isset($this->cache_misses_groups[$group]) ? $this->cache_misses_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			unset($this->cache_misses_groups[$group]);
 			$reads = $cache_hits_groups + $cache_misses_groups;
-			$hit_rate = $reads ? number_format( ( 100 / $reads ) * $cache_hits_groups, 1 ) : 0;
+			$hit_rate = $reads ? number_format( ( 100 / $reads ) * $cache_hits_groups, 1 ) . '%' : ( $this->debug ? '0%' : 'Unknown' );
 			$updated = isset($this->dirty_groups[$group]) ? 'Now' : (isset($this->mtime[$group]) ? human_time_diff( $this->mtime[$group] ) : 'Unknown');
 			$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
 			$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
@@ -2683,13 +2794,13 @@ class WP_Object_Cache {
 			$total_entries += $entries;
 			$persistent_cache_reads_hits = isset($this->persistent_cache_reads_hits_groups[$group]) ? $this->persistent_cache_reads_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			$persistent_cache_reads = $persistent_cache_reads_hits + $cache_misses_groups;
-			$persistent_cache_reads_hit_rate = $persistent_cache_reads ? number_format( ( 100 / $persistent_cache_reads ) * $persistent_cache_reads_hits, 1 ) : 0;
+			$persistent_cache_reads_hit_rate = $persistent_cache_reads ? number_format( ( 100 / $persistent_cache_reads ) * $persistent_cache_reads_hits, 1 ) . '%' : ( $this->debug ? '0%' : 'Unknown' );
 			$expired = isset($this->expirations_groups[$group]) ? $this->expirations_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			unset($this->cache_deletions_groups[$group]);
 			$size = strlen( serialize( $cache ) ) / 1024;
 			$total_size += $size;
-			$table_rows[] = '<tr' . ($persist === 'No' ? ' style="opacity: .5"' : '') . '><td' . ($global === 'Yes' ? ' style="font-style: oblique !important"' : '') . ">$group</td><td>$cache_hits_groups</td><td>$persistent_cache_hits_groups</td><td>$cache_misses_groups</td><td>$hit_rate%</td><td>" . ( isset($this->persistent_cache_groups[$group]) ? count($this->persistent_cache_groups[$group]) : ( $this->debug ? 0 : 'Unknown' ) ) . "</td><td>$persistent_cache_reads_hits</td><td>$persistent_cache_reads_hit_rate%</td><td>$updated</td><td>$persist</td><td>$global</td><td>$expired</td><td>$deleted</td><td>$entries</td><td>" . number_format( $size, 2 ) . '</td></tr>';
+			$table_rows[] = '<tr' . ($persist === 'No' ? ' style="opacity: .5"' : '') . '><td' . ($global === 'Yes' ? ' style="font-style: oblique !important"' : '') . ">$group</td><td>$cache_hits_groups</td><td>$persistent_cache_hits_groups</td><td>$cache_misses_groups</td><td>$hit_rate</td><td>" . ( isset($this->persistent_cache_groups[$group]) ? count($this->persistent_cache_groups[$group]) : ( $this->debug ? 0 : 'Unknown' ) ) . "</td><td>$persistent_cache_reads_hits</td><td>$persistent_cache_reads_hit_rate</td><td>$updated</td><td>$persist</td><td>$global</td><td>$expired</td><td>$deleted</td><td>$entries</td><td>" . number_format( $size, 2 ) . '</td></tr>';
 		}
 		echo "<tr><th>Accessed Cache Entries</th><td>$total_entries</td></tr>";
 		$overhead = $this->shm_enable !== 2 ? (strlen(CACHE_SERIAL_HEADER . CACHE_SERIAL_FOOTER) * count($this->cache)) / 1024 : 0;
@@ -2726,8 +2837,8 @@ class WP_Object_Cache {
 			}
 		}
 		echo '<br /><span class="qm-info">Object Cache Statistics generated in ' . number_format( ( microtime( true ) - $stats_time ) * 1000, 1 ) . ' ms</span>';
-		if ($this->shm_enable === 2) {
-			$this->shm->stats();
+		if ( method_exists( $this->backend, 'stats' ) ) {
+			$this->backend->stats();
 		}
 		/* File-based object cache end */
 	}
@@ -2774,8 +2885,8 @@ class WP_Object_Cache {
 	 */
 	private function _group_exists( $group ) {
 		if ( $this->shm_enable ) {
-			if ( ! isset( $this->shm[$group] ) ) $this->shm[$group] = new SHM_Cache( $group );
-			if ( $this->shm[$group]->open() !== false ) return true;
+			if ( ! isset( $this->backend[$group] ) ) $this->backend[$group] = new SHM_Cache( $group );
+			if ( $this->backend[$group]->open() !== false ) return true;
 		}
 		$cache_file = $this->cache_dir.$group.'.php';
 		return is_file($cache_file);
@@ -2801,8 +2912,8 @@ class WP_Object_Cache {
 		else
 			// Using the correct separator eliminates some cache flush errors on Windows
 			$this->cache_dir = ABSPATH.'wp-content'.DIRECTORY_SEPARATOR.'cache'.DIRECTORY_SEPARATOR.'fh-object-cache'.DIRECTORY_SEPARATOR;
-		if (defined('FH_OBJECT_CACHE_SHM') && function_exists( 'shmop_open' ))
-			$this->shm_enable = FH_OBJECT_CACHE_SHM;
+		//if (defined('FH_OBJECT_CACHE_SHM') && function_exists( 'shmop_open' ))
+			//$this->shm_enable = FH_OBJECT_CACHE_SHM;
 
 		$this->ajax = defined('DOING_AJAX') && DOING_AJAX;
 		$this->cron = defined('DOING_CRON') && DOING_CRON;
@@ -2817,7 +2928,7 @@ class WP_Object_Cache {
 		$this->use_persistent_cache = $this->acquire_lock( LOCK_SH );
 
 		if ( $this->shm_enable === 2 ) {
-			$this->shm = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
+			$this->backend = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
 			$this->non_persistent_groups = array();
 		}
 		else {
@@ -2897,7 +3008,7 @@ class WP_Object_Cache {
 	}
 
 	public function persist($groups=null) {
-		if ( ! $this->use_persistent_cache ) return;
+		if ( ! $this->use_persistent_cache || $this->shm_enable === 2 ) return;
         if ($this->debug) $time_start = microtime(true);
         $this->persists += 1;
 
@@ -2923,7 +3034,7 @@ class WP_Object_Cache {
 					if ($this->debug) $this->time_total += microtime(true) - $time_start;
 					return false;
 				}
-				if ( $this->shm_enable === 2 ) $this->shm->read_partition_table();
+				if ( $this->shm_enable === 2 ) $this->backend->read_partition_table();
 			}
 
 			//$callee = fh_get_callee();
@@ -2943,9 +3054,9 @@ class WP_Object_Cache {
 						$result = true;
 						foreach ( $dirty as $key => $undeleted ) {
 							if ( $undeleted === false )
-								$result = $this->shm->delete( $key, $group );
+								$result = $this->backend->delete( $key, $group );
 							else
-								$result = $this->shm->set( $key, $this->cache[$group][$key], $group,
+								$result = $this->backend->set( $key, $this->cache[$group][$key], $group,
 														   isset( $this->expires[$group][$key] ) ?
 														   $this->expires[$group][$key] :
 														   0 );
@@ -3017,8 +3128,8 @@ class WP_Object_Cache {
 
 	private function _persist_group( $group, $data ) {
 		if ( $this->shm_enable ) {
-			if ( ! isset( $this->shm[$group] ) ) $this->shm[$group] = new SHM_Cache( $group );
-			if ( $this->shm[$group]->put( $data ) ) return true;
+			if ( ! isset( $this->backend[$group] ) ) $this->backend[$group] = new SHM_Cache( $group );
+			if ( $this->backend[$group]->put( $data ) ) return true;
 		}
 		return file_put_contents($this->cache_dir.$group.'.php',
 										  CACHE_SERIAL_HEADER . $data . CACHE_SERIAL_FOOTER);
@@ -3033,19 +3144,19 @@ class WP_Object_Cache {
 					if ($this->debug) $this->time_total += microtime(true) - $time_start;
 					return;
 				}
-				$this->shm->read_partition_table();
+				$this->backend->read_partition_table();
 			}
 			switch ( $action ) {
 				case FH_OBJECT_CACHE_SET:
 				case FH_OBJECT_CACHE_DECR:
 				case FH_OBJECT_CACHE_INCR:
-					$result = $this->shm->set( $key, $this->cache[$group][$key], $group,
+					$result = $this->backend->set( $key, $this->cache[$group][$key], $group,
 									 isset( $this->expires[$group][$key] ) ?
 									 $this->expires[$group][$key] :
 									 0 );
 					break;
 				case FH_OBJECT_CACHE_DELETE:
-					$result = $this->shm->delete( $key, $group );
+					$result = $this->backend->delete( $key, $group );
 					break;
 			}
 			//$this->acquire_lock( LOCK_SH );
