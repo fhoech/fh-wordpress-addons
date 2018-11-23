@@ -1087,7 +1087,7 @@ class SHM_Partitioned_Cache {
 			$hash_null = str_repeat( "\0", $this->hash_bytes );
 			while ( $start < $this->partition_size ) {
 				$hash = substr( $this->partition_table, $start, $this->hash_bytes );
-				if ( $hash !== $hash_null ) {
+				if ( $hash !== $hash_null && substr( $hash, 0, 4 ) !== "\0\0\0\0" ) {
 					if ( $sanity_check && isset( $partition[ $hash ] ) )
 						echo "WARNING - partition table is corrupt! Duplicate entry '" . htmlspecialchars( addcslashes( $hash, "\x00..\x19\x7f..\xff\\" ), ENT_COMPAT, 'UTF-8' ) . "'<br />\n";
 					$offset_count = @ $this->_read( $this->res, $this->data_offset_count_offset + $i * 8, 8 );
@@ -1583,7 +1583,7 @@ class SHM_Partitioned_Cache {
 
 		if ( $permanent ) {
 			// Overwrite whole entry with binary zeros to permanently delete
-			if ( ! @ $this->_write( $this->res, "\0\0\0\0", $this->partition_table_offset + $pos ) ) {
+			if ( ! @ $this->_write( $this->res, str_repeat( "\0", $this->hash_bytes ), $this->partition_table_offset + $pos ) ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
