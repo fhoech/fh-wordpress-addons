@@ -1155,18 +1155,151 @@ class SHM_Partitioned_Cache {
 	public function defrag() {
 		if ( $this->res === false ) return false;
 
-		$cache = $this->cache;
-		//$expires = $this->expires;
+		$this->read_partition_table( true );
 
-		$this->clear();
-
-		foreach ( $cache as $group => $entries ) {
-			foreach ( $entries as $key => $data ) {
-				list( $value, $expire, $mtime ) = $data;
-				if ( ! $this->set( $key, $value, $group, $expire ) )
-					return false;
-			}
+		// Create temp SHM segment
+		$id = ftok( __FILE__, "\x7e" );
+		$res = @ $this->_open( $id, 'n', 0600, $this->size );
+		if ( $res === false ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defrag failed: Couldn't open temporary SHM segment (key " . SHM_Cache::format_id( $id, true ) . ", size {$this->size}): " .
+							   $error['message'] . "\n", FILE_APPEND );
+			return false;
 		}
+
+		// Read header
+		$header = @ $this->_read( $this->res, 12, 20 );
+		if ( $header === false ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defrag failed: Couldn't read from SHM segment (key " . $this->get_id( true ) . ", offset 12, length 20): " .
+							   $error['message'] . "\n", FILE_APPEND );
+			$this->_delete( $res );
+			$this->_close( $res );
+			return false;
+		}
+
+		// Write header to temp SHM segment
+		if ( 20 !== @ $this->_write( $res, $header, 12 ) ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defrag failed: Couldn't write to temporary SHM segment (key " . SHM_Cache::format_id( $id, true ) . ", offset 12, length 20): " .
+							   $error['message'] . "\n", FILE_APPEND );
+			$this->_delete( $res );
+			$this->_close( $res );
+			return false;
+		}
+
+		$n = 0;
+		$data_offset = $this->data_offset;
+		$i = 0;
+		foreach( $this->partition as $group_key => $entry ) {
+			$n ++;
+
+			if ( $this->partition[ $group_key ] === false ) continue;
+			list( $pos, $offset, $count ) = $this->partition[ $group_key ];
+			if ( ! $count ) continue;
+
+			// Read data header
+			$data_header = @ $this->_read( $this->res, $offset, 16 );
+			if ( $data_header === false ) {
+				$error = error_get_last();
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defrag failed: Couldn't read from SHM segment (key " . $this->get_id( true ) . ", offset $offset, length 16): " .
+								   $error['message'] . "\n", FILE_APPEND );
+				continue;
+			}
+
+			// Parse data header
+			$expire = unpack( 'N', substr( $data_header, 4, 4 ) )[1];
+			if ( $expire && $expire <= $this->now ) continue;
+			$key_size = unpack( 'N', substr( $data_header, 8, 4 ) )[1];
+			$data_len = unpack( 'N', substr( $data_header, 12, 4 ) )[1];
+			$len = $key_size + $data_len;
+
+			// Read data
+			$data = @ $this->_read( $this->res, $offset + 16, $len );
+			if ( $data === false ) {
+				$error = error_get_last();
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defrag failed: Couldn't read from SHM segment (key " . $this->get_id( true ) . ", offset " . ( $offset + 16 ) . ", length $len): " .
+								   $error['message'] . "\n", FILE_APPEND );
+				continue;
+			}
+
+			$padded_len = 16 + (int) ceil( $len / $this->block_size ) * $this->block_size;
+			$data_offset_count = pack( 'N', $data_offset ) . pack( 'N', $padded_len );
+
+			// Write to temp SHM segment
+			if ( $this->hash_bytes != @ $this->_write( $res, $group_key, 32 + $i * $this->hash_bytes ) ||
+				 8 !== @ $this->_write( $res, $data_offset_count, $this->data_offset_count_offset + $i * 8 ) ||
+				 16 !== @ $this->_write( $res, $data_header, $data_offset ) ||
+				 $len !== @ $this->_write( $res, $data, $data_offset + 16 ) ) {
+				$error = error_get_last();
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defrag failed: Couldn't write to temporary SHM segment (key " . SHM_Cache::format_id( $id, true ) . "): " .
+								   $error['message'] . "\n", FILE_APPEND );
+				continue;
+			}
+
+			// Increase offset for variable-length data
+			$data_offset += $padded_len;
+
+			$i ++;
+		}
+
+		// Write updated header to temp SHM segment
+		if ( 12 !== @ $this->_write( $res, pack( 'N', $i * $this->hash_bytes ) . $data_offset_count, 0 ) ) {
+			$error = error_get_last();
+			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+							   date( 'Y-m-d H:i:s,v' ) .
+							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defrag failed: Couldn't write to temporary SHM segment (key " . SHM_Cache::format_id( $id, true ) . ", offset 0, length 12): " .
+							   $error['message'] . "\n", FILE_APPEND );
+			$this->_delete( $res );
+			$this->_close( $res );
+			return false;
+		}
+
+		// Copy defragged SHM segment
+		// Read in chunks
+		$offset = 0;
+		$chunksize = 1024 * 1024;
+		while ( $offset < $this->size ) {
+			$chunk = $this->_read( $res, $offset, $chunksize );
+			if ( $chunk === false ) {
+				$error = error_get_last();
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defrag failed: Couldn't read from temporary SHM segment (key " . SHM_Cache::format_id( $id, true ) . "): " .
+								   $error['message'] . "\n", FILE_APPEND );
+				break;
+			}
+			if ( false === $this->_write( $this->res, $chunk, $offset ) ) {
+				$error = error_get_last();
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defrag failed: Couldn't write to SHM segment (key " . $this->get_id( true ) . "): " .
+								   $error['message'] . "\n", FILE_APPEND );
+				break;
+			}
+			$offset += $chunksize;
+		}
+
+		$this->_delete( $res );
+		$this->_close( $res );
+
+		$this->read_partition_table();
+
+		file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+						   date( 'Y-m-d H:i:s,v' ) .
+						   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defragged SHM segment (key " . $this->get_id( true ) . "), purged " . ( $n - $i ) . " entries\n", FILE_APPEND );
 
 		return true;
 	}
