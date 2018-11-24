@@ -485,29 +485,37 @@ else {
 
 	$non_persistent_groups = array();
 
+	if ( $update_groups || $trim || $clear_all || $clear ) $GLOBALS['wp_object_cache']->acquire_lock();
+
+	echo "<p>";
+
 	// Init cache
-	echo "<p>Initializing cache...";
+	echo "Initializing cache...";
+	$time_init_start = microtime( true );
 	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
-	echo "done</p>";
-	echo "<p>Partition table size: {$shm_cache->partition_size} bytes</p>";
+	printf( "done (%.1f ms)<br>\n", number_format( ( microtime( true ) - $time_init_start ) * 1000, 1 ) );
+	echo "Hashtable size: {$shm_cache->partition_size} bytes (" . human_size( $shm_cache->partition_size ) . ")<br>\n";
 
-	echo "<p>Parsing partitioon table...";
+	echo "Parsing partition table...";
+	$time_parse_start = microtime( true );
 	$shm_cache->parse_partition_table( true );
-	echo "done</p>";
-	echo "<p>Partition entries: " . count( $shm_cache->partition ) . "</p>";
-
-	if ( $dump ) {
-		echo "<p>Dumping cache contents to .object_cache_shm_dump.bin</p>\n";
-		file_put_contents( __DIR__ . '/.object_cache_shm_dump.bin', shmop_read( $shm_cache->res, 0, $shm_cache->size ) );
-	}
+	printf( "done (%.1f ms)<br>\n", number_format( ( microtime( true ) - $time_parse_start ) * 1000, 1 ) );
+	echo "Partition entries: " . count( $shm_cache->partition ) . "<br>\n";
 
 	if ( $clear_all ) $shm_cache->clear();
 
-	echo "<p>Enumerating groups...";
+	echo "Enumerating groups...";
 	$time_groups_get_start = microtime( true );
 	$groups = $shm_cache->get_groups( false, true );
 	$time_groups_get = microtime( true ) - $time_groups_get_start;
-	echo "done</p>";
+	printf( "done (%.1f ms)<br>\n", number_format( $time_groups_get * 1000, 1 ) );
+
+	if ( $dump ) {
+		echo "Dumping cache contents to .object_cache_shm_dump.bin<br>\n";
+		file_put_contents( __DIR__ . '/.object_cache_shm_dump.bin', shmop_read( $shm_cache->res, 0, $shm_cache->size ) );
+	}
+
+	echo "</p>";
 ?>
 <form action="<?php echo $_SERVER['SCRIPT_NAME']; ?>" method="post">
 <input type="hidden">
@@ -525,10 +533,8 @@ else {
 		$partition_table_entries += count( $stats[ 'keys' ] ) + count( $stats[ 'deleted_keys' ] );
 	}
 
-	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear ) $GLOBALS['wp_object_cache']->acquire_lock();
-
 	$groups_bytes = $shm_cache->get_partition_size();
-	$groups_bytes += $groups_bytes / 4 * 8;
+	$groups_bytes += $groups_bytes / $shm_cache->hash_bytes * 8;
 	$groups_bytes_allocated = $shm_cache->get_data_offset();
 	$used = $groups_bytes_allocated ? $groups_bytes / $groups_bytes_allocated : 0;
 	$r = 102 * ( 2 - $used );
@@ -545,7 +551,7 @@ else {
 	$total_entries_count = 0;
 	$keys = array();
 	foreach ( $groups as $group => $stats ) {
-		if ( isset( $non_persistent_groups[$group] ) || $clear === $group ) {
+		if ( $clear === $group ) {
 			$exists = ! $shm_cache->delete_group( $group, ! $stats[ 'bytes_allocated' ] );
 			if ( ! $stats[ 'bytes_allocated' ] ) continue;
 		}
@@ -555,7 +561,7 @@ else {
 		echo "<td>$n</td><td>$group</td><td>255</td><td>" . $shm_cache->get_id( true ) . "</td>";
 		echo "<td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td>";
 		if ( $exists ) {
-			//if ( $trim || ! ( $clear_all || isset( $non_persistent_groups[$group] ) || $clear === $group ) ) $data = $shm_cache->get_group( $group );
+			//if ( $trim || ! ( $clear_all || $clear === $group ) ) $data = $shm_cache->get_group( $group );
 			//if ( $trim ) $shm_cache->delete_group( $group );
 			if ( $stats !== false ) {
 				//if ( $trim ) $shm_cache->set_group( $group, $data );
@@ -596,7 +602,7 @@ else {
 		$n ++;
 	}
 
-	if ( $update_groups || $trim || $clear_all || isset( $non_persistent_groups[$group] ) || $clear ) $GLOBALS['wp_object_cache']->release_lock();
+	if ( $update_groups || $trim || $clear_all || $clear ) $GLOBALS['wp_object_cache']->release_lock();
 
 ?>
 </tbody>
@@ -605,16 +611,23 @@ else {
 <?php
 
 	$size = $shm_cache->size;
-	$used = $shm_cache->next - $shm_cache->data_offset + $shm_cache->partition_size;
-	$free = $size - $used;
+	$used_bytes = $shm_cache->next - $shm_cache->data_offset + $shm_cache->partition_size;
+
+	$free_bytes = $size - $used_bytes;
+
+	$free = $size ? $free_bytes / $size : 1;
+	$r = 102 * ( 2 - $free );
+	$g = min( 153 * ( .5 + $free ), 204 );
+
+	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", effective " . human_size( $shm_cache->get_size() - $shm_cache->get_data_offset() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free (<span style='color: rgb($r, $g, 0);'>" . round( $free * 100, 2 ) . "%</span>), ";
 
 	$wasted_bytes = $shm_cache->get_next() - $shm_cache->get_data_offset() - $bytes_allocated_sum;
 
-	$wasted = $shm_cache->get_size() ? $wasted_bytes / ( $shm_cache->get_size() - $shm_cache->get_data_offset() ) : 0;
+	$wasted = $size ? $wasted_bytes / ( $shm_cache->get_size() - $shm_cache->get_data_offset() ) : 0;
 	$r = 102 * ( 2 - ( 1 - $wasted ) );
 	$g = min( 153 * ( .5 + ( 1 - $wasted ) ), 204 );
 
-	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", effective " . human_size( $shm_cache->get_size() - $shm_cache->get_data_offset() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free, " . human_size( $wasted_bytes ) . " wasted (<span style='color: rgb($r, $g, 0);'>" . round( $wasted * 100, 2 ) . "%</span>)</p>";
+	echo  human_size( $wasted_bytes ) . " wasted (<span style='color: rgb($r, $g, 0);'>" . round( $wasted * 100, 2 ) . "%</span>)</p>";
 
 	$effectiveused = $bytes_allocated_sum ? $bytes_sum / $bytes_allocated_sum : 0;
 	$r = 102 * ( 2 - $effectiveused );
@@ -622,7 +635,7 @@ else {
 	
 	echo "<p>" . $total_entries_count . " entries using " . human_size( $bytes_sum ) . " (<span style='color: rgb($r, $g, 0);'>" . round( $effectiveused * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated, seek time " . round( $shm_cache->time_seek * 1000, 1 ) . " ms</p>\n";
 
-	printf( "<p>WordPress loaded in %.1f ms, page generated in %.1f ms</p>\n", round( $time_wp_load * 1000, 1 ), round( ( microtime( true ) - $time_start ) * 1000, 1 ) );
+	printf( "<p>WordPress loaded in %.1f ms, page generated in %.1f ms (peak memory used %s, allocated %s)</p>\n", round( $time_wp_load * 1000, 1 ), round( ( microtime( true ) - $time_start ) * 1000, 1 ), human_size( memory_get_peak_usage() ), human_size( memory_get_peak_usage( true ) ) );
 
 }
 
