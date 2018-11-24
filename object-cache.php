@@ -2020,7 +2020,7 @@ if ( ! function_exists( 'ftok' ) ) {  // Windows
 			return -1;
 		}
 
-		$key = sprintf( "%u", ( ( $st['ino'] & 0xffff ) | ( ( $st['dev'] & 0xff ) << 16 ) | ( ( $proj_id[0] & 0xff ) << 24 ) ) );
+		$key = sprintf( "%u", ( ( $st['ino'] & 0xffff ) | ( ( $st['dev'] & 0xff ) << 16 ) | ( ( ord( $proj_id[0] ) & 0xff ) << 24 ) ) );
 		return $key;
 	}
 
@@ -2051,7 +2051,7 @@ function fshmop_open( $key, $flags, $mode, $size ) {
 			}
 		}
 	}
-	else if ( $flags === 'c' || $flags === 'n' ) {
+	else if ( ! $size && ( $flags === 'c' || $flags === 'n' ) ) {
 		trigger_error( "fshmop_open(): File size must be greater than zero", E_USER_WARNING );
 		return false;
 	}
@@ -2064,11 +2064,13 @@ function fshmop_open( $key, $flags, $mode, $size ) {
 }
 
 function fshmop_close( $res ) {
-	fclose( $res );
+	@ fclose( $res );
 }
 
 function fshmop_delete( $res ) {
-	return ftruncate( $res, 0 );
+	$meta = stream_get_meta_data( $res );
+	fclose( $res );
+	return unlink( $meta[ 'uri' ] );
 }
 
 function fshmop_read( $res, $start, $count ) {
