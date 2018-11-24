@@ -1917,21 +1917,20 @@ class WP_Object_Cache {
 		if ( ! isset( $this->non_persistent_groups[ $group ] ) ) {
 			if ( $this->lock_mode !== LOCK_EX ) {
 				if ($this->debug) $time_start = microtime(true);
-				if ( ! $this->acquire_lock() ) {
-					if ($this->debug) $this->time_total += microtime(true) - $time_start;
-					return false;
-				}
-				$this->backend->read_partition_table();
-			}
-			if ($this->debug) $time_start = microtime(true);
-			$value = $this->backend->$cmd( $key, $offset, $group );
-			if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
-			if ( $value === false ) {
+				if ( $this->acquire_lock() )
+					$this->backend->read_partition_table();
 				if ($this->debug) $this->time_total += microtime(true) - $time_start;
-				return false;
 			}
+			if ( $this->lock_mode !== 0 ) {
+				if ($this->debug) $time_start = microtime(true);
+				$value = $this->backend->$cmd( $key, $offset, $group );
+				if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
+			}
+			else $value = false;
 		}
-		else {
+		else $value = false;
+		if ( $value === false ) {
+			/* Persistent object cache end */
 			if ( ! $this->_exists( $key, $group ) )
 				return false;
 
@@ -1947,16 +1946,20 @@ class WP_Object_Cache {
 
 			if ( $value < 0 )
 				$value = 0;
+			/* Persistent object cache start */
 		}
+		/* Persistent object cache end */
 		$this->cache[ $group ][ $key ] = $value;
+		/* Persistent object cache start */
+		if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
 		$this->dirty_groups[$group][$key] = true;
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
 		$this->mtime[$group] = time();
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		return $value;
 		/* Persistent object cache end */
+		return $value;
 	}
 
 	/**
@@ -2278,43 +2281,32 @@ class WP_Object_Cache {
 			$key = $this->blog_prefix . $key;
 
 		/* Persistent object cache start */
-		if ( $this->lock_mode !== LOCK_EX ) {
-			if ($this->debug) $time_start = microtime(true);
-			if ( ! $this->acquire_lock() ) {
-				if ($this->debug) $this->time_total += microtime(true) - $time_start;
-				return false;
-			}
-			$this->backend->read_partition_table();
-		}
-		if ($this->debug) $time_start = microtime(true);
 		if ( ! isset( $this->non_persistent_groups[ $group ] ) ) {
-			if (!$expire) $expire = $this->expiration_time;
-			$expire = (int) $expire;
-			if ($expire) $expire = $this->now + $expire;
-			$result = $this->backend->$cmd( $key, $data, $group, $expire );
-			if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
-			if ( ! $result ) {
+			if ( $this->lock_mode !== LOCK_EX ) {
+				if ($this->debug) $time_start = microtime(true);
+				if ( $this->acquire_lock() )
+					$this->backend->read_partition_table();
 				if ($this->debug) $this->time_total += microtime(true) - $time_start;
-				return false;
 			}
-			if (empty($this->dirty_groups[$group][$key])) {
-				$exists = $this->_exists($key, $group);
-				$is_complex = $exists && ( is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] ) );
-				if (!$exists ||
-					(!$is_complex && $this->cache[$group][$key] !== $data) ||
-					($is_complex && serialize($this->cache[$group][$key]) != serialize($data))) {
-						$this->dirty_groups[$group][$key] = true;
-						$this->mtime[$group] = time();
-					}
+			if ( $this->lock_mode !== 0 ) {
+				if ($this->debug) $time_start = microtime(true);
+				if (!$expire) $expire = $this->expiration_time;
+				$expire = (int) $expire;
+				if ($expire) $expire = $this->now + $expire;
+				$result = $this->backend->$cmd( $key, $data, $group, $expire );
+				if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
 			}
-			if ($this->debug) $this->time_total += microtime(true) - $time_start;
+			else $result = false;
 		}
-		else {
+		else $result = false;
+		if ( ! $result ) {
+			/* Persistent object cache end */
 			if ( ( $cmd === 'add' && $this->_exists( $key, $group ) ) ||
 				 ( $cmd === 'replace' && ! $this->_exists( $key, $group ) ) )
 				return false;
 
 			$result = true;
+			/* Persistent object cache start */
 		}
 		/* Persistent object cache end */
 		if ( is_object( $data ) )
@@ -2324,13 +2316,23 @@ class WP_Object_Cache {
 		/* Persistent object cache start */
 		if ($this->debug) $time_start = microtime(true);
 		$this->cache_writes ++;
+		if (empty($this->dirty_groups[$group][$key])) {
+			$exists = $this->_exists($key, $group);
+			$is_complex = $exists && ( is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] ) );
+			if (!$exists ||
+				(!$is_complex && $this->cache[$group][$key] !== $data) ||
+				($is_complex && serialize($this->cache[$group][$key]) != serialize($data))) {
+					$this->dirty_groups[$group][$key] = true;
+					$this->mtime[$group] = time();
+				}
+		}
 		if ($expire) $this->expires[$group][$key] = $expire;
 		unset($this->deleted[$group][$key]);
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		return $result;
 		/* Persistent object cache end */
+		return $result;
 	}
 
 	/**
