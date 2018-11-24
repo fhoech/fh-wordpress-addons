@@ -3068,6 +3068,7 @@ class WP_Object_Cache {
 		if ( $this->shm_enable === 2 ) {
 			$this->backend = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
 			$this->non_persistent_groups = array();
+			add_action( 'shm_object_cache_defrag', array( &$this, 'defrag'), 10, 0 );
 		}
 		else {
 			$this->_set_expires();
@@ -3123,6 +3124,8 @@ class WP_Object_Cache {
 		if ( ! $this->closed ) {
 			$this->persist();
 			$this->closed = true;
+			if ( function_exists( 'wp_next_scheduled' ) && ! wp_next_scheduled ( 'shm_object_cache_defrag' ) )
+				wp_schedule_event( time(), 'hourly', 'shm_object_cache_defrag' );
 		}
 
 		$this->release_lock();
@@ -3143,6 +3146,22 @@ class WP_Object_Cache {
 	public function flush_bp_notifications() {
 		$this->delete( get_current_user_id(), 'bp_notifications_grouped_notifications' );
 		$this->_log( "Deleted bp_notifications_grouped_notifications:" . get_current_user_id(), 1 );
+	}
+
+	public function defrag() {
+		/* File-based object cache start */
+        if ($this->debug) $time_start = microtime(true);
+
+		if ( ! $this->acquire_lock() ) {
+			if ($this->debug) $this->time_total += microtime(true) - $time_start;
+			return;
+		}
+
+		$this->backend->defrag();
+
+		$this->acquire_lock( LOCK_SH );
+		if ($this->debug) $this->time_total += microtime(true) - $time_start;
+		/* File-based object cache end */
 	}
 
 	public function persist($groups=null) {
