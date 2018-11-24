@@ -833,10 +833,11 @@ class SHM_Partitioned_Cache {
 									   $error['message'] . "\n", FILE_APPEND );
 				}
 				else {
-					// Read chunks of 1024 bytes and write to SHM
+					// Read chunks of 1024 kbytes and write to SHM
 					$offset = 0;
+					$chunk_size = 1024 * 1024;
 					while ( $offset < $size ) {
-						$chunk = fshmop_read( $res, $offset, $offset + 1024 );
+						$chunk = fshmop_read( $res, $offset, $chunk_size );
 						if ( $chunk === false ) {
 							$error = error_get_last();
 							file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -853,7 +854,7 @@ class SHM_Partitioned_Cache {
 											   $error['message'] . "\n", FILE_APPEND );
 							break;
 						}
-						$offset += 1024;
+						$offset += $chunk_size;
 					}
 					fshmop_close( $res );
 					if ( $offset === $size ) {
