@@ -2422,7 +2422,9 @@ class WP_Object_Cache {
 			  ($this->shm_enable === 2 ?
 			   !isset($this->cache[$group][$key]) :
 			   !isset($this->persistent_cache_groups[$group]))))) {
-			if ( ! $this->acquire_lock( LOCK_SH | LOCK_NB, $wouldblock ) ) {
+			// If we already hold exclusive lock, no need to (re-)acquire shared lock
+			if ( $this->lock_mode !== LOCK_EX &&
+				 ! $this->acquire_lock( LOCK_SH | LOCK_NB, $wouldblock ) ) {
 				// Cache in use by another process.
 				// Acquire blocking shared read lock and re-read partition table
 				if ( $wouldblock && $this->acquire_lock( LOCK_SH ) )
