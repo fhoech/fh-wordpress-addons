@@ -10,7 +10,7 @@
  * 
  * This file will always be for the most part a verbatim copy of wp-includes/cache.php,
  * with the exception that it has support for file-based object caching. All changes
- * to support that are marked up with PHP comments 'File-based object cache [start|end]'
+ * to support that are marked up with PHP comments 'Persistent object cache [start|end]'
  * to make updating the file easy.
  */
 
@@ -33,7 +33,7 @@ function wp_cache_add( $key, $data, $group = '', $expire = 0 ) {
 	return $wp_object_cache->add( $key, $data, $group, (int) $expire );
 }
 
-/* File-based object cache start */
+/* Persistent object cache start */
 /**
  * Closes the cache.
  *
@@ -49,7 +49,7 @@ function wp_cache_close() {
 
 	return true;
 }
-/* File-based object cache end */
+/* Persistent object cache end */
 
 /**
  * Decrement numeric cache item's value
@@ -228,11 +228,11 @@ function wp_cache_add_global_groups( $groups ) {
  * @param string|array $groups A group or an array of groups to add
  */
 function wp_cache_add_non_persistent_groups( $groups ) {
-	/* File-based object cache start */
+	/* Persistent object cache start */
 	global $wp_object_cache;
 
 	return $wp_object_cache->add_non_persistent_groups( $groups );
-	/* File-based object cache end */
+	/* Persistent object cache end */
 }
 
 /**
@@ -1702,7 +1702,7 @@ if ( ! function_exists( 'shmop_open' ) && defined( 'FH_OBJECT_CACHE_SHM_USE_FILE
  */
 class WP_Object_Cache {
 
-	/* File-based object cache start */
+	/* Persistent object cache start */
 	private $cache_dir;
 	private $flock_filename = '.lock';
 	private $lock_mode = 0;
@@ -1742,7 +1742,7 @@ class WP_Object_Cache {
 	private $closed = false;
 	private $time_lock = 0;
 	private $use_persistent_cache = true;
-	/* File-based object cache end */
+	/* Persistent object cache end */
 
 	/**
 	 * Holds the cached objects
@@ -1982,7 +1982,7 @@ class WP_Object_Cache {
 		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
 			$key = $this->blog_prefix . $key;
 
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		if ( $this->lock_mode !== LOCK_EX ) {
 			if ($this->debug) $time_start = microtime(true);
 			if ( ! $this->acquire_lock() ) {
@@ -2000,9 +2000,9 @@ class WP_Object_Cache {
 		}
 		$this->dirty_groups[$group][$key] = false;
         if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
+		/* Persistent object cache end */
 		unset( $this->cache[$group][$key] );
-		/* File-based object cache start */
+		/* Persistent object cache start */
         if ($this->debug) $time_start = microtime(true);
         $this->deleted[$group][$key] = true;
 		unset( $this->expires[$group][$key] );
@@ -2020,7 +2020,7 @@ class WP_Object_Cache {
 							   date( 'Y-m-d H:i:s,v' ) .
 							   " WP_Object_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Deleted '$group:$key'\n", FILE_APPEND );
 		}
-		/* File-based object cache end */
+		/* Persistent object cache end */
 		return true;
 	}
 
@@ -2032,7 +2032,7 @@ class WP_Object_Cache {
 	 * @return true Always returns true
 	 */
 	public function flush() {
-		/* File-based object cache start */
+		/* Persistent object cache start */
         if ($this->debug) $time_start = microtime(true);
 
 		if ( ! $this->acquire_lock() ) {
@@ -2047,7 +2047,7 @@ class WP_Object_Cache {
 		$this->dirty_groups = array();
 		$this->flushes += 1;
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
+		/* Persistent object cache end */
 
 		$this->cache = array();
 
@@ -2075,13 +2075,13 @@ class WP_Object_Cache {
 		if ( empty( $group ) )
 			$group = 'default';
 
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		$id = $key;
-		/* File-based object cache end */
+		/* Persistent object cache end */
 		if ( $this->multisite && ! isset( $this->global_groups[ $group ] ) )
 			$key = $this->blog_prefix . $key;
 
-		/* File-based object cache start */
+		/* Persistent object cache start */
         if ($this->debug) $time_start = microtime(true);
         $use_persistent_cache = $this->use_persistent_cache || $force;
         $is_persistent_group = !isset($this->non_persistent_groups[$group]);
@@ -2141,12 +2141,12 @@ class WP_Object_Cache {
 			}
 		}
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
+		/* Persistent object cache end */
 
 		if ( $this->_exists( $key, $group ) ) {
 			$found = true;
 			$this->cache_hits += 1;
-			/* File-based object cache start */
+			/* Persistent object cache start */
 			if ($force && $is_persistent_group)
 				$this->_log("AFTER REFETCH: $group.$key = " . json_encode($this->cache[$group][$key], JSON_PRETTY_PRINT));
 			if ($this->debug) {
@@ -2164,14 +2164,14 @@ class WP_Object_Cache {
 				}
 				$this->time_total += microtime(true) - $time_start;
 			}
-			/* File-based object cache end */
+			/* Persistent object cache end */
 			if ( is_object($this->cache[$group][$key]) )
 				return clone $this->cache[$group][$key];
 			else
 				return $this->cache[$group][$key];
 		}
 
-		/* File-based object cache start */
+		/* Persistent object cache start */
         if ($this->debug) {
 			$time_start = microtime(true);
 			if (!isset($this->cache_misses_groups[$group]))
@@ -2180,7 +2180,7 @@ class WP_Object_Cache {
 				$this->cache_misses_groups[$group] += 1;
 			$this->time_total += microtime(true) - $time_start;
 		}
-		/* File-based object cache end */
+		/* Persistent object cache end */
 
 		$found = false;
 		$this->cache_misses += 1;
@@ -2216,9 +2216,9 @@ class WP_Object_Cache {
 	 * @return bool False if not exists, true if contents were replaced
 	 */
 	public function replace( $key, $data, $group = 'default', $expire = 0 ) {
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		return $this->_add_set_replace( 'replace', $key, $data, $group, $expire );
-		/* File-based object cache end */
+		/* Persistent object cache end */
 	}
 
 	/**
@@ -2235,20 +2235,20 @@ class WP_Object_Cache {
 			if ( ! isset( $this->global_groups[ $group ] ) ) {
 				unset( $this->cache[ $group ] );
 
-				/* File-based object cache start */
+				/* Persistent object cache start */
 				if ($this->debug) $time_start = microtime(true);
 				$this->dirty_groups[$group] = array();
 				unset( $this->deleted[$group] );
 				unset( $this->expires[$group] );
 				unset($this->persistent_cache_groups[$group]);
 				if ($this->debug) $this->time_total += microtime(true) - $time_start;
-				/* File-based object cache end */
+				/* Persistent object cache end */
 			}
 		}
 
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		$this->resets += 1;
-		/* File-based object cache end */
+		/* Persistent object cache end */
 	}
 
 	/**
@@ -2268,9 +2268,9 @@ class WP_Object_Cache {
 	 * @return true Always returns true
 	 */
 	public function set( $key, $data, $group = 'default', $expire = 0 ) {
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		return $this->_add_set_replace( 'set', $key, $data, $group, $expire );
-		/* File-based object cache end */
+		/* Persistent object cache end */
 	}
 
 	private function _add_set_replace( $cmd, $key, $data, $group = 'default', $expire = 0 ) {
@@ -2345,7 +2345,7 @@ class WP_Object_Cache {
 	 */
 	public function stats() {
 		$stats_time = microtime( true );
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		if ( ! $this->debug ) {
 			echo '<p>Define FH_OBJECT_CACHE_DEBUG for additional stats</p>';
 		}
@@ -2443,7 +2443,7 @@ class WP_Object_Cache {
 		if ( method_exists( $this->backend, 'stats' ) ) {
 			$this->backend->stats();
 		}
-		/* File-based object cache end */
+		/* Persistent object cache end */
 	}
 
 	/**
@@ -2471,9 +2471,9 @@ class WP_Object_Cache {
 	 * @return bool
 	 */
 	protected function _exists( $key, $group, $cache = null ) {
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		if ($cache === null) $cache = &$this->cache;
-		/* File-based object cache end */
+		/* Persistent object cache end */
 		return isset( $cache[ $group ] ) && ( isset( $cache[ $group ][ $key ] ) || array_key_exists( $key, $cache[ $group ] ) );
 	}
 
@@ -2486,7 +2486,7 @@ class WP_Object_Cache {
 		$this->multisite = is_multisite();
 		$this->blog_prefix =  $this->multisite ? get_current_blog_id() . ':' : '';
 
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		$this->debug = defined('FH_OBJECT_CACHE_DEBUG') ? FH_OBJECT_CACHE_DEBUG : 0;
 		$this->expiration_time = defined('FH_OBJECT_CACHE_LIFETIME') ? FH_OBJECT_CACHE_LIFETIME : 60 * 3;
         if ($this->debug) $time_start = microtime(true);
@@ -2513,7 +2513,7 @@ class WP_Object_Cache {
 			add_action( 'bp_notification_before_update', array( &$this, 'flush_bp_notifications' ) );
 
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
+		/* Persistent object cache end */
 
 		/**
 		 * @todo This should be moved to the PHP4 style constructor, PHP5
@@ -2532,14 +2532,14 @@ class WP_Object_Cache {
 	 * @return true True value. Won't be used by PHP
 	 */
 	public function __destruct() {
-		/* File-based object cache start */
+		/* Persistent object cache start */
 		$this->close();
-		/* File-based object cache end */
+		/* Persistent object cache end */
 
 		return true;
 	}
 
-	/* File-based object cache start */
+	/* Persistent object cache start */
 	public function close() {
 		if ( ! $this->closed ) {
 			$this->persist();
@@ -2552,9 +2552,9 @@ class WP_Object_Cache {
 
 		return true;
 	}
-	/* File-based object cache end */
+	/* Persistent object cache end */
 
-	/* File-based object cache start */
+	/* Persistent object cache start */
 	public function flush_taxonomies( $post_id ) {
 		$taxonomies = get_post_taxonomies( $post_id );
 		foreach ( $taxonomies as $taxonomy ) {
@@ -2569,7 +2569,7 @@ class WP_Object_Cache {
 	}
 
 	public function defrag() {
-		/* File-based object cache start */
+		/* Persistent object cache start */
         if ($this->debug) $time_start = microtime(true);
 
 		if ( ! $this->acquire_lock() ) {
@@ -2581,7 +2581,7 @@ class WP_Object_Cache {
 
 		$this->acquire_lock( LOCK_SH );
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
-		/* File-based object cache end */
+		/* Persistent object cache end */
 	}
 
 	public function persist($groups=null) {
@@ -2654,7 +2654,7 @@ class WP_Object_Cache {
 			$this->time_lock += microtime( true ) - $time_start;
 		}
 	}
-	/* File-based object cache end */
+	/* Persistent object cache end */
 }
 
 function fh_get_callee() {
