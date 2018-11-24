@@ -2308,14 +2308,6 @@ class WP_Object_Cache {
 			$result = true;
 			/* Persistent object cache start */
 		}
-		/* Persistent object cache end */
-		if ( is_object( $data ) )
-			$data = clone $data;
-
-		$this->cache[$group][$key] = $data;
-		/* Persistent object cache start */
-		if ($this->debug) $time_start = microtime(true);
-		$this->cache_writes ++;
 		if (empty($this->dirty_groups[$group][$key])) {
 			$exists = $this->_exists($key, $group);
 			$is_complex = $exists && ( is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] ) );
@@ -2326,6 +2318,14 @@ class WP_Object_Cache {
 					$this->mtime[$group] = time();
 				}
 		}
+		/* Persistent object cache end */
+		if ( is_object( $data ) )
+			$data = clone $data;
+
+		$this->cache[$group][$key] = $data;
+		/* Persistent object cache start */
+		if ($this->debug) $time_start = microtime(true);
+		$this->cache_writes ++;
 		if ($expire) $this->expires[$group][$key] = $expire;
 		unset($this->deleted[$group][$key]);
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
