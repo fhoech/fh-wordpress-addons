@@ -2422,14 +2422,13 @@ class WP_Object_Cache {
 			  ($this->shm_enable === 2 ?
 			   !isset($this->cache[$group][$key]) :
 			   !isset($this->persistent_cache_groups[$group]))))) {
-			$lockop = LOCK_SH;
-			//if ( ! $force ) $lockop |= LOCK_NB;
-			if ( ! $this->acquire_lock( $lockop ) ) {
+			if ( ! $this->acquire_lock( LOCK_SH | LOCK_NB, $wouldblock ) ) {
 				// Cache in use by another process.
-				// To prevent deadlocks, disable persistent cache for this request.
-				$this->use_persistent_cache = false;
+				// Acquire blocking shared read lock and re-read partition table
+				if ( $wouldblock && $this->acquire_lock( LOCK_SH ) )
+					$this->backend->read_partition_table();
 			}
-			else {
+			if ( $this->lock_mode !== 0 ) {
 			$this->persistent_cache_reads += 1;
 			if ($this->shm_enable === 2) {
 				if ($this->debug) $time_shm_read_start = microtime(true);
@@ -3228,7 +3227,7 @@ class WP_Object_Cache {
 		$this->non_persistent_groups = array_merge( $this->non_persistent_groups, $groups );
 	}
 
-	function acquire_lock( $operation = LOCK_EX ) {
+	function acquire_lock( $operation = LOCK_EX, &$wouldblock = null ) {
 		$time_start = microtime( true );
 		if ( null === $this->mutex ) $this->mutex = @fopen($this->cache_dir.$this->flock_filename, 'c');
 		$this->lock_mode = 0;
@@ -3238,7 +3237,7 @@ class WP_Object_Cache {
 			return false;
 		}
 		else {
-			$locked = flock($this->mutex, $operation);
+			$locked = flock($this->mutex, $operation, $wouldblock);
 			if ( $locked ) $this->lock_mode = $operation;
 			$this->time_lock += microtime( true ) - $time_start;
 			return $locked;
