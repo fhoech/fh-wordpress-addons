@@ -787,7 +787,8 @@ class SHM_Partitioned_Cache {
 													 'options:blacklist_keys',
 													 'options:moderation_keys',
 													 'options:flush-opcache-hide-button',
-													 'options:flush-opcache-preload' );
+													 'options:flush-opcache-preload',
+													 'options:simba_tfa_priv_key_format' );
 	private $check_data_types = false;
 	// Hash algorythm name => byte count
 	private $hash_algos = array( 'crc32' => 4,
