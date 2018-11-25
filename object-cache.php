@@ -1741,6 +1741,8 @@ class WP_Object_Cache {
 	public $cache_writes = 0;
 	private $closed = false;
 	private $time_lock = 0;
+	private $time_lock_ex_start = 0;
+	private $time_lock_ex = 0;
 	private $use_persistent_cache = true;
 	/* Persistent object cache end */
 
@@ -1914,21 +1916,7 @@ class WP_Object_Cache {
 		/* Persistent object cache start */
 		$offset = (int) $offset;
 
-		if ( ! isset( $this->non_persistent_groups[ $group ] ) ) {
-			if ( $this->lock_mode !== LOCK_EX ) {
-				if ($this->debug) $time_start = microtime(true);
-				if ( $this->acquire_lock() )
-					$this->backend->read_partition_table();
-				if ($this->debug) $this->time_total += microtime(true) - $time_start;
-			}
-			if ( $this->lock_mode !== 0 ) {
-				if ($this->debug) $time_start = microtime(true);
-				$value = $this->backend->$cmd( $key, $offset, $group );
-				if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
-			}
-			else $value = false;
-		}
-		else $value = false;
+		$value = $this->_backend_cmd( $cmd, $key, $offset, $group );
 		if ( $value === false ) {
 			/* Persistent object cache end */
 			if ( ! $this->_exists( $key, $group ) )
@@ -1962,6 +1950,38 @@ class WP_Object_Cache {
 		return $value;
 	}
 
+	private function _backend_cmd( $cmd, $key, $data, $group = 'default', $expire = 0 ) {
+		// Add, set, replace, incr, decr or delete
+		if ( ! isset( $this->non_persistent_groups[ $group ] ) ) {
+			if ( $this->lock_mode !== LOCK_EX ) {
+				if ($this->debug) $time_start = microtime(true);
+				if ( $this->acquire_lock() )
+					$this->backend->read_partition_table();
+				if ($this->debug) $this->time_total += microtime(true) - $time_start;
+			}
+			if ( $this->lock_mode !== 0 ) {
+				if ($this->debug) $time_start = microtime(true);
+				switch ( $cmd ) {
+					case 'incr' :
+					case 'decr' :
+						$result = $this->backend->$cmd( $key, $data, $group );
+						break;
+					case 'delete' :
+						$result = $this->backend->delete( $key, $group );
+						break;
+					default :
+						// Add, set or replace
+						$result = $this->backend->$cmd( $key, $data, $group, $expire );
+				}
+				if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
+				$this->acquire_lock( LOCK_SH );
+				if ($this->debug) $this->time_total += microtime(true) - $time_start;
+				return $result;
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * Remove the contents of the cache key in the group
 	 *
@@ -1983,27 +2003,22 @@ class WP_Object_Cache {
 			$key = $this->blog_prefix . $key;
 
 		/* Persistent object cache start */
-		if ( $this->lock_mode !== LOCK_EX ) {
-			if ($this->debug) $time_start = microtime(true);
-			if ( ! $this->acquire_lock() ) {
-				if ($this->debug) $this->time_total += microtime(true) - $time_start;
+		$result = $this->_backend_cmd( 'delete', $key, null, $group );
+		if ( $result === false ) {
+			/* Persistent object cache end */
+
+			if ( ! $this->_exists( $key, $group ) )
 				return false;
-			}
-			$this->backend->read_partition_table();
+
+			/* Persistent object cache start */
 		}
-        if ($this->debug) $time_start = microtime(true);
-		$result = $this->backend->delete($key, $group);
-		if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
-		if ( ! $result ) {
-			if ($this->debug) $this->time_total += microtime(true) - $time_start;
-			return false;
-		}
-		$this->dirty_groups[$group][$key] = false;
-        if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* Persistent object cache end */
+
 		unset( $this->cache[$group][$key] );
+
 		/* Persistent object cache start */
         if ($this->debug) $time_start = microtime(true);
+		$this->dirty_groups[$group][$key] = false;
         $this->deleted[$group][$key] = true;
 		unset( $this->expires[$group][$key] );
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
@@ -2021,6 +2036,7 @@ class WP_Object_Cache {
 							   " WP_Object_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Deleted '$group:$key'\n", FILE_APPEND );
 		}
 		/* Persistent object cache end */
+
 		return true;
 	}
 
@@ -2281,24 +2297,9 @@ class WP_Object_Cache {
 			$key = $this->blog_prefix . $key;
 
 		/* Persistent object cache start */
-		if ( ! isset( $this->non_persistent_groups[ $group ] ) ) {
-			if ( $this->lock_mode !== LOCK_EX ) {
-				if ($this->debug) $time_start = microtime(true);
-				if ( $this->acquire_lock() )
-					$this->backend->read_partition_table();
-				if ($this->debug) $this->time_total += microtime(true) - $time_start;
-			}
-			if ( $this->lock_mode !== 0 ) {
-				if ($this->debug) $time_start = microtime(true);
-				if (!$expire) $expire = $this->expiration_time;
-				$expire = (int) $expire;
-				if ($expire) $expire = $this->now + $expire;
-				$result = $this->backend->$cmd( $key, $data, $group, $expire );
-				if ($this->debug) $this->time_persistent_cache_write += microtime(true) - $time_start;
-			}
-			else $result = false;
-		}
-		else $result = false;
+		$expire = (int) $expire;
+		if ( $expire ) $expire = $this->now + $expire;
+		$result = $this->_backend_cmd( $cmd, $key, $data, $group, $expire );
 		if ( ! $result ) {
 			/* Persistent object cache end */
 			if ( ( $cmd === 'add' && $this->_exists( $key, $group ) ) ||
@@ -2308,6 +2309,7 @@ class WP_Object_Cache {
 			$result = true;
 			/* Persistent object cache start */
 		}
+		if ($this->debug) $time_start = microtime(true);
 		if (empty($this->dirty_groups[$group][$key])) {
 			$exists = $this->_exists($key, $group);
 			$is_complex = $exists && ( is_object( $this->cache[$group][$key] ) || is_array( $this->cache[$group][$key] ) );
@@ -2318,6 +2320,7 @@ class WP_Object_Cache {
 					$this->mtime[$group] = time();
 				}
 		}
+		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* Persistent object cache end */
 		if ( is_object( $data ) )
 			$data = clone $data;
@@ -2377,7 +2380,8 @@ class WP_Object_Cache {
 		echo "<tr><th>Cache Resets (deprecated)</th><td>{$this->resets}";
 		if ( $this->debug ) {
 			echo '<tr><th>Persistent Cache Write Time</th><td>' . number_format( $this->time_persistent_cache_write * 1000, 1 ) . ' ms</td></tr>';
-			echo '<tr><th>Cache Lock Time</th><td>' . number_format( $this->time_lock * 1000, 1 ) . ' ms</td></tr>';
+			echo '<tr><th>Cache Lock Acquisition Time</th><td>' . number_format( $this->time_lock * 1000, 1 ) . ' ms</td></tr>';
+			echo '<tr><th>Cache Exclusive Lock Time</th><td>' . number_format( $this->time_lock_ex * 1000, 1 ) . ' ms</td></tr>';
 			echo '<tr><th>Cache Total Time</th><td>' . number_format( $this->time_total * 1000, 1 ) . ' ms</td></tr>';
 		}
 		$total_entries = 0;
@@ -2572,14 +2576,11 @@ class WP_Object_Cache {
 		/* Persistent object cache start */
         if ($this->debug) $time_start = microtime(true);
 
-		if ( ! $this->acquire_lock() ) {
-			if ($this->debug) $this->time_total += microtime(true) - $time_start;
-			return;
+		if ( $this->acquire_lock() ) {
+			$this->backend->defrag();
+			$this->acquire_lock( LOCK_SH );
 		}
 
-		$this->backend->defrag();
-
-		$this->acquire_lock( LOCK_SH );
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* Persistent object cache end */
 	}
@@ -2630,6 +2631,7 @@ class WP_Object_Cache {
 	function acquire_lock( $operation = LOCK_EX, &$wouldblock = null ) {
 		$time_start = microtime( true );
 		if ( null === $this->mutex ) $this->mutex = @fopen($this->cache_dir.$this->flock_filename, 'c');
+		$lock_mode = $this->lock_mode;
 		$this->lock_mode = 0;
 		if ( false === $this->mutex ) {
 			$this->time_lock += microtime( true ) - $time_start;
@@ -2638,6 +2640,10 @@ class WP_Object_Cache {
 		}
 		else {
 			$locked = flock($this->mutex, $operation, $wouldblock);
+			if ( $operation === LOCK_EX ) {
+				if ( $lock_mode !== LOCK_EX ) $this->time_lock_ex_start = microtime( true );
+			}
+			else if ( $lock_mode === LOCK_EX ) $this->time_lock_ex += microtime( true ) - $this->time_lock_ex_start;
 			if ( $locked ) $this->lock_mode = $operation;
 			$this->time_lock += microtime( true ) - $time_start;
 			return $locked;
@@ -2648,6 +2654,7 @@ class WP_Object_Cache {
 		if ( $this->mutex ) {
 			$time_start = microtime( true );
 			flock($this->mutex, LOCK_UN);
+			if ( $this->lock_mode === LOCK_EX ) $this->time_lock_ex += microtime( true ) - $this->time_lock_ex_start;
 			fclose($this->mutex);
 			$this->mutex = null;
 			$this->lock_mode = 0;
