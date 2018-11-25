@@ -2368,7 +2368,7 @@ class WP_Object_Cache {
 		echo '<tr><th>Persistent Cache Hit Rate</th><td>' . ( $total ? number_format( 100 / $total * $this->persistent_cache_reads_hits, 1 ) . '%' : ( $this->debug ? '0%' : 'Unknown' ) ) . '</td></tr>';
 		if ( $this->debug ) {
 			echo '<tr><th>Persistent Cache Seek Time</th><td>' . number_format( $this->backend->time_seek * 1000, 1 ) . ' ms</td></tr>';
-			echo '<tr><th>Persistent Cache Backend Read Time</th><td>' . number_format( $this->backend->time_read * 1000, 1 ) . ' ms</td></tr>';
+			echo '<tr><th>Persistent Cache Read Time</th><td>' . number_format( $this->backend->time_read * 1000, 1 ) . ' ms</td></tr>';
 			echo '<tr><th>Persistent Cache Processing Time</th><td>' . number_format( ( $this->time_read - $this->backend->time_read - $this->backend->time_seek ) * 1000, 1) . ' ms</td></tr>';
 		}
 		$hours = floor( $this->expiration_time / 60 / 60 );
@@ -2383,8 +2383,8 @@ class WP_Object_Cache {
 		echo "<tr><th>Cache Resets (deprecated)</th><td>{$this->resets}";
 		if ( $this->debug ) {
 			echo '<tr><th>Persistent Cache Write Time</th><td>' . number_format( $this->time_persistent_cache_write * 1000, 1 ) . ' ms</td></tr>';
-			echo '<tr><th>Cache Lock Acquisition Time</th><td>' . number_format( $this->time_lock * 1000, 1 ) . ' ms</td></tr>';
-			echo '<tr><th>Cache Exclusive Lock Time</th><td>' . number_format( $this->time_lock_ex * 1000, 1 ) . ' ms</td></tr>';
+			echo '<tr><th>Persistent Cache Lock Acquisition Time</th><td>' . number_format( $this->time_lock * 1000, 1 ) . ' ms</td></tr>';
+			echo '<tr><th>Persistent Cache Exclusive Lock Time</th><td>' . number_format( $this->time_lock_ex * 1000, 1 ) . ' ms</td></tr>';
 			echo '<tr><th>Cache Total Time</th><td>' . number_format( $this->time_total * 1000, 1 ) . ' ms</td></tr>';
 		}
 		$total_entries = 0;
