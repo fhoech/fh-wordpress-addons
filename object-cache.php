@@ -1458,9 +1458,12 @@ class SHM_Partitioned_Cache {
 
 	public function stats() {
 		$stats_time = microtime( true );
-		echo '<h4>Shared Memory</h4>';
+		echo '<h4>Backend</h4>';
 		echo '<table><tbody>';
-		echo '<tr><th>Key</th><td>' . $this->get_id( true ) . "</td></tr>\n";
+		if ( $this->use_file_backend )
+			echo '<tr><th>Cache File</th><td>' . FH_OBJECT_CACHE_PATH . "</td></tr>\n";
+		else
+			echo '<tr><th>Shared Memory Key</th><td>' . $this->get_id( true ) . "</td></tr>\n";
 		echo '<tr><th>Resource</th><td>' . $this->res . "</td></tr>\n";
 		$size = $this->size;
 		$used = $this->next - $this->data_offset + $this->partition_size;
@@ -1525,7 +1528,7 @@ class SHM_Partitioned_Cache {
 			echo '<tr><th>Last Accessed Key Data Size</th><td>' . $size . ' bytes (' . size_format( $size , 2 ) . ")</td></tr>\n";
 		}
 		echo '</table></tbody>';
-		echo '<br /><span class="qm-info">Shared Memory Statistics generated in ' . number_format( ( microtime( true ) - $stats_time ) * 1000, 1 ) . ' ms</span>';
+		echo '<br /><span class="qm-info">Backend Statistics generated in ' . number_format( ( microtime( true ) - $stats_time ) * 1000, 1 ) . ' ms</span>';
 	}
 
 	public function _get_group_key( $key, $group = 'default' ) {
