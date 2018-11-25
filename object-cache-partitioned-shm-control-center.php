@@ -494,6 +494,11 @@ else {
 	$time_init_start = microtime( true );
 	$shm_cache = new SHM_Partitioned_Cache( defined( 'FH_OBJECT_CACHE_SHM_SIZE' ) ? FH_OBJECT_CACHE_SHM_SIZE : 16 * 1024 * 1024 );
 	printf( "done (%.1f ms)<br>\n", number_format( ( microtime( true ) - $time_init_start ) * 1000, 1 ) );
+	if ( $shm_cache->use_file_backend )
+		echo "Cache file: " . FH_OBJECT_CACHE_PATH . "<br>\n";
+	else
+		echo "SHM key: " . $shm_cache->get_id( true ) . "<br>\n";
+	echo $shm_cache->get_shm_id() . "<br>\n";
 	echo "Hashtable size: {$shm_cache->partition_size} bytes (" . human_size( $shm_cache->partition_size ) . ")<br>\n";
 
 	echo "Parsing partition table...";
@@ -521,7 +526,7 @@ else {
 <input type="hidden">
 <table>
 <thead>
-<tr><th>#</th><th>Group</th><th>Project ID</th><th>SHM key</th><th>Resource ID</th><th>Entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>Max entry size</th><th>% used</th><th>Last modified</th><th><?php if ( $admin ) { ?>Admin<?php } ?></th></tr>
+<tr><th>#</th><th>Group</th><th>Entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>Max entry size</th><th>% used</th><th>Last modified</th><th><?php if ( $admin ) { ?>Admin<?php } ?></th></tr>
 </thead>
 <tbody>
 <?php
@@ -540,7 +545,7 @@ else {
 	$r = 102 * ( 2 - $used );
 	$g = min( 153 * ( .5 + $used ), 204 );
 
-	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>&lt;Partition table&gt;</td><td>255</td><td>" . $shm_cache->get_id( true ) . "</td><td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td><td>$partition_table_entries (" . round( $time_groups_get * 1000, 1 ) . " ms)</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td></td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
+	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>&lt;Partition table&gt;</td><td>$partition_table_entries (" . round( $time_groups_get * 1000, 1 ) . " ms)</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td>N/A</td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
 	echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
 	echo "</tr>";
 
@@ -558,8 +563,7 @@ else {
 		else $exists = $stats[ 'bytes_allocated' ] > 0;
 		$mtime = $stats[ 'mtime' ];
 		echo "<tr data-group='$group'" . ( ! $exists ? " class='unallocated'" : ( $admin ? " onclick='get( this )'" : "" ) ) . ( $stats[ 'expire' ] && $stats[ 'expire' ] <= time() ? " class='stale'" : "" ) . ">";
-		echo "<td>$n</td><td>$group</td><td>255</td><td>" . $shm_cache->get_id( true ) . "</td>";
-		echo "<td>" . substr( strval( $shm_cache->get_shm_id() ), 13 ) . "</td>";
+		echo "<td>$n</td><td>$group</td>";
 		if ( $exists ) {
 			//if ( $trim || ! ( $clear_all || $clear === $group ) ) $data = $shm_cache->get_group( $group );
 			//if ( $trim ) $shm_cache->delete_group( $group );
