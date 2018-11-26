@@ -782,6 +782,7 @@ class SHM_Partitioned_Cache {
 
 			// Parse data header
 			$expire = unpack( 'N', substr( $data_header, 4, 4 ) )[1];
+			if ( ! $expire && defined('FH_OBJECT_CACHE_LIFETIME') && FH_OBJECT_CACHE_LIFETIME ) $expire = unpack( 'N', substr( $data_header, 0, 4 ) )[1] + FH_OBJECT_CACHE_LIFETIME;
 			if ( $expire && $expire <= $this->now ) continue;
 			$key_size = unpack( 'N', substr( $data_header, 8, 4 ) )[1];
 			$data_len = unpack( 'N', substr( $data_header, 12, 4 ) )[1];
@@ -919,6 +920,7 @@ class SHM_Partitioned_Cache {
 			// v2/v3 format
 			$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 			$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
+			if ( ! $expire && defined('FH_OBJECT_CACHE_LIFETIME') && FH_OBJECT_CACHE_LIFETIME ) $expire = $mtime + FH_OBJECT_CACHE_LIFETIME;
 			if ( $expire && $expire <= $this->now ) {
 				if ( defined( 'FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS' ) && FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS ) 
 					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -960,6 +962,12 @@ class SHM_Partitioned_Cache {
 				return false;
 			}
 			$result = $data;
+			// Update access and expiration time
+			if ( $expire ) {
+				$expire = $this->now + ( $expire - $mtime );
+				$mtime = $this->now;
+				$this->_write( $this->res, pack( 'N', $mtime ) . pack( 'N', $expire ), $start );
+			}
 		}
 		$parsed = @ $this->_parse( $result );
 		if ( $parsed === false && $result !== 'b:0;' ) {
