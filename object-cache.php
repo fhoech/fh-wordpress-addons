@@ -2514,9 +2514,6 @@ class WP_Object_Cache {
 		$this->lock_mode = 0;
 
 		add_action( 'edit_post', array( &$this, 'flush_taxonomies' ), 10, 1 );
-		// BuddyPress doesn't correctly delete grouped notifications from the cache
-		if ( function_exists( 'bp_notifications_clear_all_for_user_cache' ) )
-			add_action( 'bp_notification_before_update', array( &$this, 'flush_bp_notifications' ) );
 
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* Persistent object cache end */
