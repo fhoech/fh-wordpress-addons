@@ -903,7 +903,13 @@ class SHM_Partitioned_Cache {
 		$data = pack( 'N', $mtime ) . pack( 'N', $expire ) . pack( 'N', $key_data_len ) . pack( 'N', strlen( $data ) ) . $key_data . $data;
 		$data_len = strlen( $data );
 		$padded_len = (int) ceil( $data_len / $this->block_size ) * $this->block_size;
-		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "SET $group:$key = '" . htmlspecialchars( $value, ENT_COMPAT, 'UTF-8' ) . "' (mtime = $mtime, expire = $expire, len = $data_len, padded $padded_len)\n";
+		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) {
+			ob_start();
+			var_dump( $value );
+			$repr = ob_get_contents();
+			ob_end_clean();
+			echo "SET $group:$key = " . htmlspecialchars( $repr, ENT_COMPAT, 'UTF-8' ) . " (mtime = $mtime, expire = $expire, len = $data_len, padded $padded_len)\n";
+		}
 
 		$partition_entry = $this->_get_partition_entry( $group_key );
 		if ( $partition_entry !== false ) {
