@@ -527,7 +527,7 @@ else {
 <input type="hidden">
 <table>
 <thead>
-<tr><th>#</th><th>Group</th><th>Entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>Max entry size</th><th>% used</th><th>Last accessed</th><th><?php if ( $admin ) { ?>Admin<?php } ?></th></tr>
+<tr><th>#</th><th>Group</th><th>Entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>Largest entry size</th><th>% used</th><th>Last accessed</th><th><?php if ( $admin ) { ?>Admin<?php } ?></th></tr>
 </thead>
 <tbody>
 <?php
@@ -618,8 +618,8 @@ else {
 	$free_bytes = $size - $used_bytes;
 
 	$free = $size ? $free_bytes / $size : 1;
-	$r = 102 * ( 2 - $free );
-	$g = min( 153 * ( .5 + $free ), 204 );
+	$r = 102 * ( 2 - min( $free * 2, 1 ) );
+	$g = min( 153 * ( .5 + min( $free * 2, 1 ) ), 204 );
 
 	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", effective " . human_size( $shm_cache->get_size() - $shm_cache->get_data_offset() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free (<span style='color: rgb($r, $g, 0);'>" . round( $free * 100, 2 ) . "%</span>), ";
 
