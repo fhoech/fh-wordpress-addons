@@ -498,37 +498,14 @@ class SHM_Partitioned_Cache {
 			$count_data = @ $this->_read( $this->res, 8, 4 );
 			// Get offset and length of last data chunk
 			if ( $start_data !== false && $count_data !== false ) {
-				// XXX: Partition table format check only valid for partition size < 512 MiB
-				if ( $this->partition_size < 536870912 && ord( $start_data[0] ) >= 32 ) {
-					// v1 table format had offset and length of last data block in last 8 bytes of table
-					$this->partition_table = $this->partition_size ? $this->_read( $this->res, 4, $this->partition_size ) : "\0\0\0\0\0\0\0\0";
-					$start_data = substr( $this->partition_table, $this->partition_size - 8, 4 );
-					$count_data = substr( $this->partition_table, $this->partition_size - 4, 4 );
-					$this->partition_size -= 8;
-					// Write out v2 format
-					if ( ! @ $this->_write( $this->res, pack( 'N', $this->partition_size ) . $start_data . $count_data . substr( $this->partition_table, 0, $this->partition_size ), 0 ) ) {
-						$error = error_get_last();
-						file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-										   date( 'Y-m-d H:i:s,v' ) .
-										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v2 partition table format to SHM segment (key " . $this->get_id( true ) . "): " .
-										   $error['message'] . "\n", FILE_APPEND );
-					}
-					else {
-						file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-										   date( 'Y-m-d H:i:s,v' ) .
-										   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Wrote v2 partition table format to SHM segment (key " . $this->get_id( true ) . ")\n", FILE_APPEND );
-					}
-				}
-				else {
-					// v2, v3 and v4 formats have offset and length of last data block in first 8 bytes of header
+				// BEGIN read
 					$hash_algo = @ $this->_read( $this->res, 16, 16 );
 					if ( $hash_algo !== false && isset( $this->hash_algos[ $hash_algo = rtrim( $hash_algo, "\0" ) ] ) ) {
-						// v4
 						$this->hash_algo = $hash_algo;
 						$this->hash_bytes = $this->hash_algos[ $hash_algo ];
 					}
 					else {
-						// Get rid of v3 data
+						// Get rid of data
 						$partition_size = 0;
 						$start_data = "\0\0\0\0";
 						$count_data = "\0\0\0\0";
@@ -544,66 +521,11 @@ class SHM_Partitioned_Cache {
 					}
 					$this->partition_table = $this->partition_size ? $this->_read( $this->res, $this->partition_table_offset, $this->partition_size ) : "";
 					if ( $this->partition_size ) {
-						if ( strpos( $this->partition_table, '$key=' ) === 0 ) {
-							// Get rid of v2 data
-							$partition_size = 0;
-							$start_data = "\0\0\0\0";
-							$count_data = "\0\0\0\0";
-							//// Convert v2 to v3 format
-							//$this->parse_partition_table( false, '$key=', ';' );
-							//$i = 0;
-							//foreach ( $this->partition as $group_key => $entry ) {
-								//list( $group, $key ) = explode( ':', substr( $group_key, 5, -1 ), 2 );
-								//$hash = $this->_get_group_key( $key, $group );
-								//// Write index entry
-								//if ( $this->hash_bytes !== @ $this->_write( $this->res, $hash, $this->partition_table_offset + $partition_size ) ) {
-									//$error = error_get_last();
-									//file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-													   //date( 'Y-m-d H:i:s,v' ) .
-													   //" SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v3 partition table format hash to SHM segment (key " . $this->get_id( true ) . "): " .
-													   //$error['message'] . "\n", FILE_APPEND );
-									//break;
-								//}
-								//$partition_size += $this->hash_bytes;
-								//// Write offset and count entry
-								//list( $pos, $offset, $count ) = $entry;
-								//if ( 8 !== @ $this->_write( $this->res, pack( 'N', $offset ) . pack( 'N', $count ), $this->data_offset_count_offset + $i * 8 ) ) {
-									//$error = error_get_last();
-									//file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-													   //date( 'Y-m-d H:i:s,v' ) .
-													   //" SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v3 partition table format offset and count to SHM segment (key " . $this->get_id( true ) . "): " .
-													   //$error['message'] . "\n", FILE_APPEND );
-									//break;
-								//}
-								////// Add key and group to data block
-								////$data_block_header = @ $this->_read( $this->res, $offset, 12 );
-								////if ( $data_block_header === false ) {
-									////$error = error_get_last();
-									////file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-													   ////date( 'Y-m-d H:i:s,v' ) .
-													   ////" SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v3 data format to SHM segment (key " . $this->get_id( true ) . "): " .
-													   ////$error['message'] . "\n", FILE_APPEND );
-									////break;
-								////}
-								////$count = unpack( 'N', substr( $data_block_header, 8, 4 ) )[1];
-								////$data = @ $this->_read( $this->res, $offset + 12, $count );
-								//$i ++;
-							//}
-							//$this->partition = array();
-							if ( 12 !== @ $this->_write( $this->res, pack( 'N', $partition_size ) . $start_data . $count_data, 0 ) ) {
-								$error = error_get_last();
-								file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-												   date( 'Y-m-d H:i:s,v' ) .
-												   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write v3 partition table format to SHM segment (key " . $this->get_id( true ) . "): " .
-												   $error['message'] . "\n", FILE_APPEND );
-							}
-							$this->partition_size = $partition_size;
-						}
-						else if ( $parse ) {
+						if ( $parse ) {
 							$this->parse_partition_table( $sanity_check );
 						}
 					}
-				}
+				// END read
 				$start = unpack( 'N', $start_data )[1];
 				$count = unpack( 'N', $count_data )[1];
 			}
@@ -626,29 +548,11 @@ class SHM_Partitioned_Cache {
 		}
 	}
 
-	public function parse_partition_table( $sanity_check = false, $prefix = '', $suffix = '' ) {
+	public function parse_partition_table( $sanity_check = false ) {
 		$time_start = microtime( true );
 		$partition = array();
 		$start = 0;
-		if ( $prefix !== '' && $suffix !== '' ) {
-			// v2 format
-			$prefix_len = strlen( $prefix );
-			$suffix_len = strlen( $suffix );
-			while ( ( $start = strpos( $this->partition_table, $prefix, $start ) ) !== false ) {
-				$end = strpos( $this->partition_table, $suffix, $start );
-				if ( $end <= $start ) break;
-				$group_key = substr( $this->partition_table, $start, $end - $start + $suffix_len );
-				if ( strpos( $group_key, ':' ) !== false ) {
-					$offset = unpack( 'N', substr( $this->partition_table, $end + $suffix_len, 4 ) )[1];
-					$count = unpack( 'N', substr( $this->partition_table, $end + $prefix_len, 4 ) )[1];
-					if ( $sanity_check && isset( $partition[ $group_key ] ) )
-						echo "WARNING - partition table is corrupt! Duplicate entry $group_key<br />\n";
-					$partition[ $group_key ] = array( $start, $offset, $count );
-				}
-				$start = $end + $prefix_len;
-			}
-		}
-		else {
+		// BEGIN parse
 			$i = 0;
 			$hash_null = str_repeat( "\0", $this->hash_bytes );
 			while ( $start < $this->partition_size ) {
@@ -672,7 +576,7 @@ class SHM_Partitioned_Cache {
 				$i ++;
 				$start += $this->hash_bytes;
 			}
-		}
+		// END parse
 		$this->partition = $partition;
 		$this->time_seek += microtime( true ) - $time_start;
 	}
@@ -900,24 +804,7 @@ class SHM_Partitioned_Cache {
 			//$this->delete( $key, $group );
 			return false;
 		}
-		if ( substr( $result, 0, 8 ) === 'a:3:{i:0' ) {
-			// v1 format
-			$time_start = microtime( true );
-			$data = @ $this->_read( $this->res, $start + 16, $count - 16 );
-			$this->time_read += microtime( true ) - $time_start;
-			if ( $data === false ) {
-				$error = error_get_last();
-				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't read v1 style '$group:$key' from SHM segment (key " . $this->get_id( true ) . ") at offset $start, length $count (allocated $allocated_count): " .
-								   $error['message'] . ( $this->debug ? " (header '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "')" : "" ) . "\n", FILE_APPEND );
-				//$this->delete( $key, $group );
-				return false;
-			}
-			$result .= $data;
-		}
-		else {
-			// v2/v3 format
+		// BEGIN read
 			$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 			$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
 			if ( ! $expire && defined('FH_OBJECT_CACHE_LIFETIME') && FH_OBJECT_CACHE_LIFETIME ) $expire = $mtime + FH_OBJECT_CACHE_LIFETIME;
@@ -970,7 +857,7 @@ class SHM_Partitioned_Cache {
 				$mtime = $this->now;
 				$this->_write( $this->res, pack( 'N', $mtime ) . pack( 'N', $expire ), $start );
 			}
-		}
+		// END read
 		$parsed = @ $this->_parse( $result );
 		if ( $parsed === false && $result !== 'b:0;' ) {
 			$error = error_get_last();
@@ -982,8 +869,13 @@ class SHM_Partitioned_Cache {
 			return false;
 		}
 
-		// New format
-		if ( isset( $expire ) ) {
+		//$this->cache[ $group ][ $key ] = $parsed;
+		//$this->expires[ $group ][ $key ] = $expire;
+		//if ( ! isset( $this->mtime[ $group ] ) ||
+		//	 $mtime > $this->mtime[ $group ] )
+		//	$this->mtime[ $group ] = $mtime;
+
+		// BEGIN check/return parsed
 			if ( $this->check_data_types &&
 				 in_array( $group, $this->complex_groups ) &&
 				 ! in_array( $group . ':' . explode( ':', $key )[0], $this->complex_groups_noncomplex_keys ) &&
@@ -995,26 +887,7 @@ class SHM_Partitioned_Cache {
 				return false;
 			}
 			return array( $parsed, $expire, $mtime );
-		}
-
-		// Old format
-		if ( ! is_array( $parsed ) || count( $parsed ) != 3 )
-			return false;
-
-		list( $value, $expire, $mtime ) = $parsed;
-
-		if ( $expire && $expire <= $this->now ) {
-			//$this->delete( $key, $group );
-			return array( false, $expire, $mtime );
-		}
-
-		//$this->cache[ $group ][ $key ] = $parsed;
-		//$this->expires[ $group ][ $key ] = $expire;
-		//if ( ! isset( $this->mtime[ $group ] ) ||
-		//	 $mtime > $this->mtime[ $group ] )
-		//	$this->mtime[ $group ] = $mtime;
-
-		return $parsed;
+		// END check/return parsed
 	}
 
 	public function set( $key, $value, $group = 'default', $expire = 0 ) {
@@ -1052,8 +925,7 @@ class SHM_Partitioned_Cache {
 								   $error['message'] . "\n", FILE_APPEND );
 				if ( $count ) return false;
 			}
-			else if ( substr( $result, 0, 8 ) !== 'a:3:{i:0' ) {
-				// v2/v3 format
+			// BEGIN read entry header
 				$old_key_data_len = unpack( 'N', substr( $result, 8, 4 ) )[1];
 				$time_start = microtime( true );
 				$old_key_data = @ $this->_read( $this->res, $offset + 16, $old_key_data_len );
@@ -1074,7 +946,7 @@ class SHM_Partitioned_Cache {
 				}
 				// Used bytes = header 16 bytes + key bytes + data bytes
 				else if ( ! $count ) $count = 16 + $key_data_len + unpack( 'N', substr( $result, 12, 4 ) )[1];
-			}
+			// END read entry header
 			$padded_count = (int) ceil( $count / $this->block_size ) * $this->block_size;
 			if ( $offset + $padded_count > $this->size ) {
 				// This shouldn't happen, ever
