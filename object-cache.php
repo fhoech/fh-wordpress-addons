@@ -931,7 +931,9 @@ class SHM_Partitioned_Cache {
 				return array( false, $expire, $mtime );
 			}
 			$key_data_len = unpack( 'N', substr( $result, 8, 4 ) )[1];
+			$time_start = microtime( true );
 			$key_data = @ $this->_read( $this->res, $start + 16, $key_data_len );
+			$this->time_read += microtime( true ) - $time_start;
 			if ( $key_data === false ) {
 				$error = error_get_last();
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
