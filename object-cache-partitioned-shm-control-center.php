@@ -100,15 +100,14 @@ function human_size( $bytes ) {
 
 $admin = current_user_can( 'administrator' );
 
-$update_groups = isset( $_REQUEST['update_groups'] );
 $clear_corrupt = isset( $_REQUEST['clear_corrupt'] );
 $clear_all = isset( $_REQUEST['clear_all'] );
 $clear = ! empty( $_REQUEST['clear'] ) ? $_REQUEST['clear'] : false;
-$trim = isset( $_REQUEST['trim'] );
+$defrag = isset( $_REQUEST['defrag'] );
 $get = ! empty( $_REQUEST['get'] ) ? $_REQUEST['get'] : false;
 $dump = isset( $_REQUEST['dump'] );
 
-if ( ( $update_groups || $clear_corrupt || $clear_all || $clear || $trim || $get || $dump ) && ! $admin ) {
+if ( ( $clear_corrupt || $clear_all || $clear || $defrag || $get || $dump ) && ! $admin ) {
 	http_response_code( 403 );
 
 	if ( isset( $_REQUEST['json'] ) ) {
@@ -116,11 +115,10 @@ if ( ( $update_groups || $clear_corrupt || $clear_all || $clear || $trim || $get
 		die();
 	}
 
-	$update_groups = false;
 	$clear_corrupt = false;
 	$clear_all = false;
 	$clear = false;
-	$trim = false;
+	$defrag = false;
 	$get = false;
 	$dump = false;
 
@@ -485,7 +483,7 @@ else {
 
 	$non_persistent_groups = array();
 
-	if ( $update_groups || $trim || $clear_all || $clear ) $GLOBALS['wp_object_cache']->acquire_lock();
+	if ( $defrag || $clear_all || $clear ) $GLOBALS['wp_object_cache']->acquire_lock();
 
 	echo "<p>";
 
@@ -499,6 +497,10 @@ else {
 	else
 		echo "SHM key: " . $shm_cache->get_id( true ) . "<br>\n";
 	echo $shm_cache->get_shm_id() . "<br>\n";
+
+	if ( $clear_all && $shm_cache->clear() ) echo "Cleared cache<br>\n";
+	if ( $defrag && $shm_cache->defrag() ) echo "Defragged cache<br>\n";
+
 	echo "Hashtable size: {$shm_cache->partition_size} bytes (" . human_size( $shm_cache->partition_size ) . ")<br>\n";
 
 	echo "Parsing partition table...";
@@ -506,8 +508,6 @@ else {
 	$shm_cache->parse_partition_table( true );
 	printf( "done (%.1f ms)<br>\n", number_format( ( microtime( true ) - $time_parse_start ) * 1000, 1 ) );
 	echo "Partition entries: " . count( $shm_cache->partition ) . "<br>\n";
-
-	if ( $clear_all ) $shm_cache->clear();
 
 	echo "Enumerating groups...";
 	$time_groups_get_start = microtime( true );
@@ -517,6 +517,7 @@ else {
 
 	if ( $dump ) {
 		echo "Dumping cache contents to .object_cache_shm_dump.bin<br>\n";
+		$GLOBALS['wp_object_cache']->acquire_lock( LOCK_SH );
 		file_put_contents( __DIR__ . '/.object_cache_shm_dump.bin', shmop_read( $shm_cache->res, 0, $shm_cache->size ) );
 	}
 
@@ -565,10 +566,7 @@ else {
 		echo "<tr data-group='$group'" . ( ! $exists ? " class='unallocated'" : ( $admin ? " onclick='get( this )'" : "" ) ) . ( $stats[ 'expire' ] && $stats[ 'expire' ] <= time() ? " class='stale'" : "" ) . ">";
 		echo "<td>$n</td><td>$group</td>";
 		if ( $exists ) {
-			//if ( $trim || ! ( $clear_all || $clear === $group ) ) $data = $shm_cache->get_group( $group );
-			//if ( $trim ) $shm_cache->delete_group( $group );
 			if ( $stats !== false ) {
-				//if ( $trim ) $shm_cache->set_group( $group, $data );
 				$bytes = $stats[ 'bytes_used' ];
 				$bytes_sum += $bytes;
 				echo "<td>";
@@ -606,7 +604,7 @@ else {
 		$n ++;
 	}
 
-	if ( $update_groups || $trim || $clear_all || $clear ) $GLOBALS['wp_object_cache']->release_lock();
+	if ( $defrag || $clear_all || $clear ) $GLOBALS['wp_object_cache']->release_lock();
 
 ?>
 </tbody>
@@ -651,7 +649,7 @@ else {
 	if ( function_exists( 'shmop_open' ) && $admin && ! $get ) {
 ?>
 	<button type="submit" name="dump">Dump SHM to file</button>
-	<button type="submit" name="trim">Trim</button>
+	<button type="submit" name="defrag">Defrag</button>
 	<button type="submit" name="clear_corrupt"<?php if ( ! $corrupt )?> disabled<?php ; ?>>Clear corrupt</button>
 	<button type="submit" name="clear_all" onclick="return confirm( 'Are you sure you want to clear all cache data?' )">Clear all</button>
 <?php
