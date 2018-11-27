@@ -1243,7 +1243,7 @@ class SHM_Partitioned_Cache {
 						if ( $sanity_check ) echo "WARNING - shared memory is corrupt! &lt;group:key&gt; size $key_size &gt; 256 for hash '" . htmlspecialchars( addcslashes( $group_key, "\x00..\x19\x7f..\xff\\" ), ENT_COMPAT, 'UTF-8' ) . "' (header '" . htmlspecialchars( addcslashes( $result, "\x00..\x19\x7f..\xff\\" ), ENT_COMPAT, 'UTF-8' ) . "')<br />\n";
 						continue;
 					}
-					$size = unpack( 'N', substr( $result, 12, 4 ) )[1];
+					$size = 16 + $key_size + unpack( 'N', substr( $result, 12, 4 ) )[1];
 					$key_data = @ $this->_read( $this->res, $offset + 16, $key_size );
 					if ( $key_data === false ) continue;
 					list( $group, $key ) = explode( ':', $key_data, 2 );

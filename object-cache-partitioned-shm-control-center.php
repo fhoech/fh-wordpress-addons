@@ -623,7 +623,7 @@ else {
 
 	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", effective " . human_size( $shm_cache->get_size() - $shm_cache->get_data_offset() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free (<span style='color: rgb($r, $g, 0);'>" . round( $free * 100, 2 ) . "%</span>), ";
 
-	$wasted_bytes = $shm_cache->get_next() - $shm_cache->get_data_offset() - $bytes_allocated_sum;
+	$wasted_bytes = $shm_cache->get_next() - $shm_cache->get_data_offset() - $bytes_sum;
 
 	$wasted = $size ? $wasted_bytes / ( $shm_cache->get_size() - $shm_cache->get_data_offset() ) : 0;
 	$r = 102 * ( 2 - ( 1 - $wasted ) );
