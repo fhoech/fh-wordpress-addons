@@ -301,9 +301,6 @@ class SHM_Partitioned_Cache {
 	private $last_key_data_offset = -1;
 	private $last_key_data_size = -1;
 	private $next = -1;
-	private $cache = array();
-	private $expires = array();
-	private $mtime = array();
 	private $now;
 	private $debug;
 	private $time_read = 0;
@@ -610,9 +607,6 @@ class SHM_Partitioned_Cache {
 		$this->last_key_data_offset = $this->data_offset;
 		$this->last_key_data_size = 0;
 		$this->next = $this->data_offset;
-		$this->cache = array();
-		$this->expires = array();
-		$this->mtime = array();
 
 		return true;
 	}
@@ -778,10 +772,6 @@ class SHM_Partitioned_Cache {
 		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "GET $group:$key\n";
 		if ( $this->res === false ) return false;
 
-		//if ( isset( $this->cache[ $group ][ $key ] ) ) return $this->cache[ $group ][ $key ];
-
-		//$this->cache[ $group ][ $key ] = false;
-
 
 		$group_key = $this->_get_group_key( $key, $group );
 
@@ -805,17 +795,17 @@ class SHM_Partitioned_Cache {
 			return false;
 		}
 		// BEGIN read
-			$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
+			$atime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 			$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
-			if ( ! $expire && defined('FH_OBJECT_CACHE_LIFETIME') && FH_OBJECT_CACHE_LIFETIME ) $expire = $mtime + FH_OBJECT_CACHE_LIFETIME;
+			if ( ! $expire && defined('FH_OBJECT_CACHE_LIFETIME') && FH_OBJECT_CACHE_LIFETIME ) $expire = $atime + FH_OBJECT_CACHE_LIFETIME;
 			if ( $expire && $expire <= $this->now ) {
 				if ( defined( 'FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS' ) && FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS ) 
 					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 									   date( 'Y-m-d H:i:s,v' ) .
 									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Expired " . date( 'Y-m-d H:i:s T', $expire ) . ": '$group:$key' (last modified " .
-									   date( 'Y-m-d H:i:s T', $mtime ) . ")\n", FILE_APPEND );
+									   date( 'Y-m-d H:i:s T', $atime ) . ")\n", FILE_APPEND );
 				//$this->delete( $key, $group );
-				return array( false, $expire, $mtime );
+				return array( false, $expire, $atime );
 			}
 			$key_data_len = unpack( 'N', substr( $result, 8, 4 ) )[1];
 			$time_start = microtime( true );
@@ -853,9 +843,9 @@ class SHM_Partitioned_Cache {
 			$result = $data;
 			// Update access and expiration time
 			if ( $expire ) {
-				$expire = $this->now + ( $expire - $mtime );
-				$mtime = $this->now;
-				$this->_write( $this->res, pack( 'N', $mtime ) . pack( 'N', $expire ), $start );
+				$expire = $this->now + ( $expire - $atime );
+				$atime = $this->now;
+				$this->_write( $this->res, pack( 'N', $atime ) . pack( 'N', $expire ), $start );
 			}
 		// END read
 		$parsed = @ $this->_parse( $result );
@@ -869,12 +859,6 @@ class SHM_Partitioned_Cache {
 			return false;
 		}
 
-		//$this->cache[ $group ][ $key ] = $parsed;
-		//$this->expires[ $group ][ $key ] = $expire;
-		//if ( ! isset( $this->mtime[ $group ] ) ||
-		//	 $mtime > $this->mtime[ $group ] )
-		//	$this->mtime[ $group ] = $mtime;
-
 		// BEGIN check/return parsed
 			if ( $this->check_data_types &&
 				 in_array( $group, $this->complex_groups ) &&
@@ -886,7 +870,7 @@ class SHM_Partitioned_Cache {
 				//$this->delete( $key, $group );
 				return false;
 			}
-			return array( $parsed, $expire, $mtime );
+			return array( $parsed, $expire, $atime );
 		// END check/return parsed
 	}
 
@@ -895,12 +879,12 @@ class SHM_Partitioned_Cache {
 
 		$group_key = $this->_get_group_key( $key, $group );
 
-		$mtime = time();
+		$atime = time();
 		$key_data = $group . ':' . $key;
 		$key_data_len = strlen( $key_data );
 		$data = $this->_prepare( $value );
-		// Data header: mtime(4) expire(4) key_data_len(4) data_len(4) key_data data
-		$data = pack( 'N', $mtime ) . pack( 'N', $expire ) . pack( 'N', $key_data_len ) . pack( 'N', strlen( $data ) ) . $key_data . $data;
+		// Data header: atime(4) expire(4) key_data_len(4) data_len(4) key_data data
+		$data = pack( 'N', $atime ) . pack( 'N', $expire ) . pack( 'N', $key_data_len ) . pack( 'N', strlen( $data ) ) . $key_data . $data;
 		$data_len = strlen( $data );
 		$padded_len = (int) ceil( $data_len / $this->block_size ) * $this->block_size;
 		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) {
@@ -908,7 +892,7 @@ class SHM_Partitioned_Cache {
 			var_dump( $value );
 			$repr = ob_get_contents();
 			ob_end_clean();
-			echo "SET $group:$key = " . htmlspecialchars( $repr, ENT_COMPAT, 'UTF-8' ) . " (mtime = $mtime, expire = $expire, len = $data_len, padded $padded_len)\n";
+			echo "SET $group:$key = " . htmlspecialchars( $repr, ENT_COMPAT, 'UTF-8' ) . " (atime = $atime, expire = $expire, len = $data_len, padded $padded_len)\n";
 		}
 
 		$partition_entry = $this->_get_partition_entry( $group_key );
@@ -1089,8 +1073,6 @@ class SHM_Partitioned_Cache {
 			}
 		}
 
-		//$this->mtime[ $group ] = $mtime;
-
 		return $bytes_written !== false;
 	}
 
@@ -1107,7 +1089,7 @@ class SHM_Partitioned_Cache {
 
 		$result = $this->get( $key, $group );
 		if ( $result === false ) return false;
-		list( $value, $expire, $mtime ) = $result;
+		list( $value, $expire, $atime ) = $result;
 
 		if ( ! is_numeric( $value ) )
 			$value = 0;
@@ -1197,9 +1179,6 @@ class SHM_Partitioned_Cache {
 		}
 
 		$this->partition[ $group_key ] = $permanent ? false : array( $pos, $offset, 0 );
-		//unset( $this->cache[ $group ][ $key ] );
-		//unset( $this->expires[ $group ][ $key ] );
-		//$this->mtime[ $group ] = time();
 
 		if ( $this->debug ) {
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
@@ -1257,7 +1236,7 @@ class SHM_Partitioned_Cache {
 				$result = @ $this->_read( $this->res, $offset, 16 );
 				if ( $result === false ) continue;
 				else {
-					$mtime = unpack( 'N', substr( $result, 0, 4 ) )[1];
+					$atime = unpack( 'N', substr( $result, 0, 4 ) )[1];
 					$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
 					$key_size = unpack( 'N', substr( $result, 8, 4 ) )[1];
 					if ( $key_size > 256 ) {
@@ -1277,7 +1256,7 @@ class SHM_Partitioned_Cache {
 											   'bytes_allocated' => 0,
 											   'entry_max_size' => 0,
 											   'entry_max_size_key' => null,
-											   'mtime' => 0,
+											   'atime' => 0,
 											   'expire' => 0 );
 				if ( $count ) {
 					if ( $sanity_check && $size > $count ) {
@@ -1293,8 +1272,8 @@ class SHM_Partitioned_Cache {
 						$groups[ $group ][ 'entry_max_size' ] = $size;
 						$groups[ $group ][ 'entry_max_size_key' ] = $key;
 					}
-					if ( $mtime > $groups[ $group ][ 'mtime' ] ) {
-						$groups[ $group ][ 'mtime' ] = $mtime;
+					if ( $atime > $groups[ $group ][ 'atime' ] ) {
+						$groups[ $group ][ 'atime' ] = $atime;
 					}
 					if ( $expire > $groups[ $group ][ 'expire' ] ) {
 						$groups[ $group ][ 'expire' ] = $expire;
@@ -1604,7 +1583,6 @@ class WP_Object_Cache {
 	private $expires = array();
 	private $expirations = 0;
 	private $expirations_groups = array();
-	private $mtime = array();
 	private $persistent_cache_reads = 0;
 	private $persistent_cache_reads_hits = 0;
 	private $persistent_cache_reads_hits_groups = array();
@@ -1835,7 +1813,6 @@ class WP_Object_Cache {
 		$this->dirty_groups[$group][$key] = true;
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
-		$this->mtime[$group] = time();
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* Persistent object cache end */
 		return $value;
@@ -1914,7 +1891,6 @@ class WP_Object_Cache {
 		unset( $this->expires[$group][$key] );
         if ( isset( $this->persistent_cache_groups[$group][$key] ) )
 			$this->persistent_cache_groups[$group][$key] = false;
-		$this->mtime[$group] = time();
 		$this->cache_deletions += 1;
 		if ($this->debug) {
 			if (!isset($this->cache_deletions_groups[$group]))
@@ -2015,13 +1991,11 @@ class WP_Object_Cache {
 					$this->time_read += microtime(true) - $time_read_start;
 				}
 				if ($result !== false) {
-					list($value, $expire, $mtime) = $result;
+					list($value, $expire, $atime) = $result;
 					if (!$expire || $expire > $this->now) {
 						$this->cache[$group][$key] = $value;
 						$this->expires[$group][$key] = $expire;
 						$this->persistent_cache_groups[$group][$key] = true;
-						if (!isset($this->mtime[$group]) ||
-							$mtime > $this->mtime[$group]) $this->mtime[$group] = $mtime;
 						$this->persistent_cache_reads_hits += 1;
 						if ($this->debug) {
 							if ( ! isset($this->persistent_cache_reads_hits_groups[$group]) )
@@ -2208,7 +2182,6 @@ class WP_Object_Cache {
 				(!$is_complex && $this->cache[$group][$key] !== $data) ||
 				($is_complex && serialize($this->cache[$group][$key]) != serialize($data))) {
 					$this->dirty_groups[$group][$key] = true;
-					$this->mtime[$group] = time();
 				}
 		}
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
@@ -2285,7 +2258,7 @@ class WP_Object_Cache {
 			unset($this->cache_misses_groups[$group]);
 			$reads = $cache_hits_groups + $cache_misses_groups;
 			$hit_rate = $reads ? number_format( ( 100 / $reads ) * $cache_hits_groups, 1 ) . '%' : ( $this->debug ? '0%' : 'Unknown' );
-			$updated = isset($this->dirty_groups[$group]) ? 'Now' : (isset($this->mtime[$group]) ? human_time_diff( $this->mtime[$group] ) : 'Unknown');
+			$updated = isset($this->dirty_groups[$group]) ? 'Yes' : 'No';
 			$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
 			$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
 			$entries = count($cache);
@@ -2308,7 +2281,7 @@ class WP_Object_Cache {
 		if (!empty($this->persistent_cache_persist_errors_groups)) echo '<tr><th>File Cache Write Errors</th><td>' . implode(', ', array_keys($this->persistent_cache_persist_errors_groups)) . '</td></tr>';
 		echo '</tbody></table>';
 		echo '<h4>Cache Hits</h4>';
-		echo '<table><thead><tr><th>Group</th><th>Hits</th><th>Hits From Persistent Cache</th><th>Misses</th><th>Hit Rate</th><th>Persistent Cache Reads</th><th>Persistent Cache Hits</th><th>Persistent Cache Hit Rate</th><th>Freshness</th><th>Persistent</th><th>Global</th><th>Expirations</th><th>Deletions</th><th>Entries</th><th>Size (KB)</th></tr></thead><tbody>';
+		echo '<table><thead><tr><th>Group</th><th>Hits</th><th>Hits From Persistent Cache</th><th>Misses</th><th>Hit Rate</th><th>Persistent Cache Reads</th><th>Persistent Cache Hits</th><th>Persistent Cache Hit Rate</th><th>Changed</th><th>Persistent</th><th>Global</th><th>Expirations</th><th>Deletions</th><th>Entries</th><th>Size (KB)</th></tr></thead><tbody>';
 		echo implode( "\n", $table_rows );
 		echo '</tbody></table>';
 		foreach ( array( 'Misses' => $this->cache_misses_groups,
@@ -2316,11 +2289,11 @@ class WP_Object_Cache {
 						 'Deletions' => $this->cache_deletions_groups ) as $what => $groups ) {
 			if ( ! empty( $groups ) ) {
 				echo "<h4>Cache $what</h4>";
-				echo "<table><thead><tr><th>Group</th><th>Hits</th><th>Hits From Persistent Cache</th><th>Misses</th><th>Persistent Cache Reads</th><th>Freshness</th><th>Persistent</th><th>Global</th><th>Expirations</th><th>Deletions</th></tr></thead><tbody>";
+				echo "<table><thead><tr><th>Group</th><th>Hits</th><th>Hits From Persistent Cache</th><th>Misses</th><th>Persistent Cache Reads</th><th>Changed</th><th>Persistent</th><th>Global</th><th>Expirations</th><th>Deletions</th></tr></thead><tbody>";
 				foreach ($groups as $group => $count) {
 					$cache_hits_groups = isset($this->cache_hits_groups[$group]) ? $this->cache_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 					$persistent_cache_hits_groups = isset($this->persistent_cache_hits_groups[$group]) ? $this->persistent_cache_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
-					$updated = isset($this->dirty_groups[$group]) ? 'Now' : (isset($this->mtime[$group]) ? human_time_diff( $this->mtime[$group] ) : 'N/A');
+					$updated = isset($this->dirty_groups[$group]) ? 'Yes' : 'No';
 					$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
 					$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
 					$persistent_cache_reads = isset($this->persistent_cache_groups[$group]) ? count($this->persistent_cache_groups[$group]) : 0;
@@ -2382,7 +2355,7 @@ class WP_Object_Cache {
 
 		/* Persistent object cache start */
 		$this->debug = defined('FH_OBJECT_CACHE_DEBUG') ? FH_OBJECT_CACHE_DEBUG : 0;
-		$this->expiration_time = defined('FH_OBJECT_CACHE_LIFETIME') ? FH_OBJECT_CACHE_LIFETIME : 60 * 3;
+		$this->expiration_time = defined('FH_OBJECT_CACHE_LIFETIME') ? FH_OBJECT_CACHE_LIFETIME : 0;
         if ($this->debug) $time_start = microtime(true);
 		if (defined('FH_OBJECT_CACHE_PATH'))
 			$this->cache_dir = FH_OBJECT_CACHE_PATH;

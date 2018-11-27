@@ -426,8 +426,8 @@ else if ( $get ) {
 		foreach ( $groups[$group]['keys'] as $key ) {
 			$result = $shm_cache->get( $key, $group );
 			if ( $result !== false ) {
-				list( $value, $expire, $mtime ) = $result;
-				$entries[$key] = array( 'mtime' => date( 'Y-m-d H:i:s T', $mtime ),
+				list( $value, $expire, $atime ) = $result;
+				$entries[$key] = array( 'atime' => date( 'Y-m-d H:i:s T', $atime ),
 										'expire' => $expire ? date( 'Y-m-d H:i:s T', $expire ) : 0,
 										'expired' => $expire && $expire < time(),
 										'data' => $value );
@@ -527,7 +527,7 @@ else {
 <input type="hidden">
 <table>
 <thead>
-<tr><th>#</th><th>Group</th><th>Entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>Max entry size</th><th>% used</th><th>Last modified</th><th><?php if ( $admin ) { ?>Admin<?php } ?></th></tr>
+<tr><th>#</th><th>Group</th><th>Entries</th><th>Bytes used</th><th></th><th>Bytes allocated</th><th></th><th>Max entry size</th><th>% used</th><th>Last accessed</th><th><?php if ( $admin ) { ?>Admin<?php } ?></th></tr>
 </thead>
 <tbody>
 <?php
@@ -562,7 +562,7 @@ else {
 			if ( ! $stats[ 'bytes_allocated' ] ) continue;
 		}
 		else $exists = $stats[ 'bytes_allocated' ] > 0;
-		$mtime = $stats[ 'mtime' ];
+		$atime = $stats[ 'atime' ];
 		echo "<tr data-group='$group'" . ( ! $exists ? " class='unallocated'" : ( $admin ? " onclick='get( this )'" : "" ) ) . ( $stats[ 'expire' ] && $stats[ 'expire' ] <= time() ? " class='stale'" : "" ) . ">";
 		echo "<td>$n</td><td>$group</td>";
 		if ( $exists ) {
@@ -584,7 +584,7 @@ else {
 				$g = min( 144 * ( .5 + $used ), 204 );
 				echo "<td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td>";
 				//if ( in_array( $group, array( 'themes', 'post_format_relationships', 'bp_member_member_type' ) ) ) var_dump( $data );
-				echo "<td>" . date( 'Y-m-d H:i:s', $mtime ) . ", " . fh_human_time_diff( $mtime ) . "</td>";
+				echo "<td>" . date( 'Y-m-d H:i:s', $atime ) . ", " . fh_human_time_diff( $atime ) . "</td>";
 				echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=" . rawurlencode( $group ) . "' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=" . rawurlencode( $group ) . "&amp;json' title='Dump cache contents as JSON'>JSON</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?clear=" . rawurlencode( $group ) . "' title='Clear cache contents' onclick='return confirm( &quot;Are you sure you want to clear cache data for group $group?&quot; ) && submit( this )' data-action='clear' data-value='$group'>Clear</a>" : "" ) . "</td>";
 			}
 			else {
