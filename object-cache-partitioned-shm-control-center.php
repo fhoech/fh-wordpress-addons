@@ -543,8 +543,8 @@ else {
 	$groups_bytes += $groups_bytes / $shm_cache->hash_bytes * 8;
 	$groups_bytes_allocated = $shm_cache->get_data_offset();
 	$used = $groups_bytes_allocated ? $groups_bytes / $groups_bytes_allocated : 0;
-	$r = 102 * ( 2 - $used );
-	$g = min( 153 * ( .5 + $used ), 204 );
+	$r = 102 * ( 2 - ( 1 - $used ) );
+	$g = min( 153 * ( .5 + ( 1 - $used ) ), 204 );
 
 	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>&lt;Partition table&gt;</td><td>$partition_table_entries (" . round( $time_groups_get * 1000, 1 ) . " ms)</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td>N/A</td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
 	echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
