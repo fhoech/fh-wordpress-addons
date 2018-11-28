@@ -12,7 +12,7 @@ function fh_debug_bar_increase_priority() {
 	// Remove filter that disables Debug Bar
 	remove_filter( 'debug_bar_enable', '__return_false' );
 
-	if ( isset( $GLOBALS['debug_bar'] ) ) {
+	if ( isset( $GLOBALS['debug_bar'] ) && method_exists( $GLOBALS['debug_bar'], 'enable_debug_bar' ) ) {
 		$bar = $GLOBALS['debug_bar'] ;
 		
 		// Do manual equivalent of Debug_Bar->init()
