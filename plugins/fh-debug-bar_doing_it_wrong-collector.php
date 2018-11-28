@@ -56,7 +56,7 @@ class FH_Debug_Bar_Doing_It_Wrong_Collector {
 		}
 	}
 
-	public function deprecated_function( $function, $version, $replacement = null ) {
+	public function deprecated_function( $function, $replacement = null, $version ) {
 		if ( WP_DEBUG ) {
 			if ( function_exists( '__' ) ) {
 				if ( ! is_null( $replacement ) ) {
@@ -102,7 +102,7 @@ class FH_Debug_Bar_Doing_It_Wrong_Collector {
 		}
 	}
 
-	public function deprecated_file_included( $file, $version, $replacement = null, $message = '' ) {
+	public function deprecated_file_included( $file, $replacement = null, $version, $message = '' ) {
 		if ( WP_DEBUG ) {
 			$message = empty( $message ) ? '' : ' ' . $message;
 			if ( function_exists( '__' ) ) {
@@ -124,7 +124,7 @@ class FH_Debug_Bar_Doing_It_Wrong_Collector {
 		}
 	}
 
-	public function deprecated_argument( $function, $version, $message = null ) {
+	public function deprecated_argument( $function, $message = null, $version ) {
 		if ( WP_DEBUG ) {
 			if ( function_exists( '__' ) ) {
 				if ( ! is_null( $message ) ) {
@@ -145,7 +145,7 @@ class FH_Debug_Bar_Doing_It_Wrong_Collector {
 		}
 	}
 
-	public function deprecated_hook( $hook, $version, $replacement = null, $message = null ) {
+	public function deprecated_hook( $hook, $replacement = null, $version, $message = null ) {
 		if ( WP_DEBUG ) {
 			$message = empty( $message ) ? '' : ' ' . $message;
 			if ( ! is_null( $replacement ) ) {
@@ -162,7 +162,7 @@ class FH_Debug_Bar_Doing_It_Wrong_Collector {
 	private function collect( $message ) {
 		$id = uniqid( 'debug-backtrace' );
 		$backtrace = $this->get_backtrace();
-		$message .= '. Backtrace (most recent call last): <a href="javascript:void(0)" onclick="jQuery(&quot;#' . $id . '&quot;).toggle()">Toggle Details</a><br /><span id="' . $id . '" style="display: none">' . implode( "<br />\n", array_slice( $backtrace, 0, -1 ) ) . "<br />\n</span>" . end( $backtrace );
+		$message .= ' Backtrace (most recent call last): <a href="javascript:void(0)" onclick="jQuery(&quot;#' . $id . '&quot;).toggle()">Toggle Details</a><br /><span id="' . $id . '" style="display: none">' . implode( "<br />\n", array_slice( $backtrace, 0, -1 ) ) . "<br />\n</span>" . end( $backtrace );
 		$this->_doing_it_wrong[] = $message;
 		file_put_contents( ABSPATH . '.wordpress-doing-it-wrong.log', '[' . date( 'Y-m-d H:i:s T' ) . '] ' . strip_tags( $message ) . "\n", FILE_APPEND );
 	}
