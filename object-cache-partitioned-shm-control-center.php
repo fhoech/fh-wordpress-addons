@@ -635,7 +635,7 @@ else {
 	$r = 102 * ( 2 - $effectiveused );
 	$g = min( 153 * ( .5 + $effectiveused ), 204 );
 	
-	echo "<p>" . $total_entries_count . " entries using " . human_size( $bytes_sum ) . " (<span style='color: rgb($r, $g, 0);'>" . round( $effectiveused * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated, seek time " . round( $shm_cache->time_seek * 1000, 1 ) . " ms</p>\n";
+	echo "<p>" . $total_entries_count . " entries using " . human_size( $bytes_sum ) . " (<span style='color: rgb($r, $g, 0);'>" . round( $effectiveused * 100, 2 ) . "%</span>) of " . human_size( $bytes_allocated_sum ) . " allocated</p>\n";
 
 	printf( "<p>WordPress loaded in %.1f ms, page generated in %.1f ms (peak memory used %s, allocated %s)</p>\n", round( $time_wp_load * 1000, 1 ), round( ( microtime( true ) - $time_start ) * 1000, 1 ), human_size( memory_get_peak_usage() ), human_size( memory_get_peak_usage( true ) ) );
 
