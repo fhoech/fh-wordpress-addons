@@ -663,8 +663,8 @@ class SHM_Partitioned_Cache {
 		foreach( $this->partition as $group_key => $entry ) {
 			$n ++;
 
-			if ( $this->partition[ $group_key ] === false ) continue;
-			list( $pos, $offset, $count ) = $this->partition[ $group_key ];
+			if ( $entry === false ) continue;
+			list( $pos, $offset, $count ) = $entry;
 			if ( ! $count ) continue;
 
 			// Read data header
@@ -1231,8 +1231,8 @@ class SHM_Partitioned_Cache {
 		if ( $this->res !== false ) {
 			if ( $reset ) $this->read_partition_table( true, $sanity_check );
 			foreach ( $this->partition as $group_key => $entry ) {
-				if ( $this->partition[ $group_key ] === false ) continue;
-				else list( $pos, $offset, $count ) = $this->partition[ $group_key ];
+				if ( $entry === false ) continue;
+				else list( $pos, $offset, $count ) = $entry;
 				$result = @ $this->_read( $this->res, $offset, 16 );
 				if ( $result === false ) continue;
 				else {
