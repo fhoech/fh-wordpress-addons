@@ -424,7 +424,7 @@ else if ( $get ) {
 		$entries = array();
 		$result = true;
 		foreach ( $groups[$group]['keys'] as $key ) {
-			$result = $shm_cache->get( $key, $group );
+			$result = $shm_cache->get( $key, $group, false );
 			if ( $result !== false ) {
 				list( $value, $expire, $atime ) = $result;
 				$entries[$key] = array( 'atime' => date( 'Y-m-d H:i:s T', $atime ),

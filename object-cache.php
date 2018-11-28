@@ -768,7 +768,7 @@ class SHM_Partitioned_Cache {
 		return true;
 	}
 
-	public function get( $key, $group = 'default' ) {
+	public function get( $key, $group = 'default', $update_time = true ) {
 		if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "GET $group:$key\n";
 		if ( $this->res === false ) return false;
 
@@ -842,7 +842,7 @@ class SHM_Partitioned_Cache {
 			}
 			$result = $data;
 			// Update access and expiration time
-			if ( $expire ) {
+			if ( $expire && $update_time ) {
 				$expire = $this->now + ( $expire - $atime );
 				$atime = $this->now;
 				$this->_write( $this->res, pack( 'N', $atime ) . pack( 'N', $expire ), $start );
