@@ -546,7 +546,7 @@ else {
 	$r = 102 * ( 2 - ( 1 - $used ) );
 	$g = min( 153 * ( .5 + ( 1 - $used ) ), 204 );
 
-	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>&lt;Partition table&gt;</td><td>$partition_table_entries (" . round( $time_groups_get * 1000, 1 ) . " ms)</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td>N/A</td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
+	echo "<tr data-group='.groups'" . ( $admin ? " onclick='get( this )'" : "" ) . "><td>0</td><td>&lt;Partition table&gt;</td><td>$partition_table_entries</td><td>$groups_bytes</td><td>" . human_size( $groups_bytes ) . "</td><td>$groups_bytes_allocated</td><td>" . human_size( $groups_bytes_allocated ) . "</td><td>N/A</td><td style='color: rgb($r, $g, 0);'>" . round( $used * 100, 2 ) . "%</td><td>N/A</td>";
 	echo "<td>" . ( $admin ? "<a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups' title='Dump cache contents as PHP'>PHP</a> <a href='" . $_SERVER['SCRIPT_NAME'] . "?get=.groups&amp;json' title='Dump cache contents as JSON'>JSON</a>" : "" ) . "</td>";
 	echo "</tr>";
 
@@ -621,7 +621,7 @@ else {
 	$r = 102 * ( 2 - min( $free * 2, 1 ) );
 	$g = min( 153 * ( .5 + min( $free * 2, 1 ) ), 204 );
 
-	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", effective " . human_size( $shm_cache->get_size() - $shm_cache->get_data_offset() ) . ", " . human_size( $shm_cache->get_size() - $shm_cache->get_next() ) . " free (<span style='color: rgb($r, $g, 0);'>" . round( $free * 100, 2 ) . "%</span>), ";
+	echo "<p>Cache size " . human_size( $shm_cache->get_size() ) . ", effective " . human_size( $shm_cache->get_size() - $shm_cache->get_data_offset() ) . ", " . human_size( $free_bytes ) . " free (<span style='color: rgb($r, $g, 0);'>" . round( $free * 100, 2 ) . "%</span>), ";
 
 	$wasted_bytes = $shm_cache->get_next() - $shm_cache->get_data_offset() - $bytes_sum;
 
