@@ -8,7 +8,7 @@ class FH_QM_Collector_ObjectCache_Stats extends QM_Collector {
 	 * @return string
 	 */
 	public function name() {
-		return esc_html__( 'Cache', 'query-monitor' );
+		return esc_html__( 'Object Cache', 'query-monitor' );
 	}
 
 	/**

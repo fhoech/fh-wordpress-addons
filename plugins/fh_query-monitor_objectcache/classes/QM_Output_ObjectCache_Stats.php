@@ -19,7 +19,7 @@ class FH_QM_Output_ObjectCache_Stats extends QM_Output_Html {
 		global $wp_object_cache;
 		echo '<div id="' . esc_attr( $this->collector->id() ) . '" class="qm qm-non-tabular qm-panel-show" role="group" aria-labelledby="qm-fh-objectcache-caption" tabindex="-1">';
 		echo '<div class="qm-boxed">';
-		echo '<h2 id="qm-fh-objectcache-caption" class="qm-screen-reader-text">Cache</h2>';
+		echo '<h2 id="qm-fh-objectcache-caption" class="qm-screen-reader-text">Object Cache</h2>';
 		echo '<div class="qm-section">';
 		echo '<h3>Object Cache</h3>';
 		if ( method_exists( $wp_object_cache, 'stats' ) ) {
@@ -54,7 +54,7 @@ class FH_QM_Output_ObjectCache_Stats extends QM_Output_Html {
 		$menu[] = $this->menu( array(
 			'id'    => 'qm-fh-objectcache-stats',
 			'href'  => '#qm-fh-objectcache-stats',
-			'title' => esc_html__( 'Cache', 'query-monitor' )
+			'title' => esc_html__( 'Object Cache', 'query-monitor' )
 		) );
 		return $menu;
 	}
