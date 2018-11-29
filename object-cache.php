@@ -1104,7 +1104,7 @@ class SHM_Partitioned_Cache {
 		if ( $value < 0 )
 			$value = 0;
 
-		if ( $this->set( $key, $value, $group ) )
+		if ( $this->set( $key, $value, $group, $expire ) )
 			return $value;
 
 		return false;
