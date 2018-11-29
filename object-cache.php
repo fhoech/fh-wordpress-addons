@@ -554,7 +554,7 @@ class SHM_Partitioned_Cache {
 			$hash_null = str_repeat( "\0", $this->hash_bytes );
 			while ( $start < $this->partition_size ) {
 				$hash = substr( $this->partition_table, $start, $this->hash_bytes );
-				if ( $hash !== $hash_null && substr( $hash, 0, 4 ) !== "\0\0\0\0" ) {
+				if ( $hash !== $hash_null ) {
 					if ( $sanity_check && isset( $partition[ $hash ] ) )
 						echo "WARNING - partition table is corrupt! Duplicate entry '" . htmlspecialchars( addcslashes( $hash, "\x00..\x19\x7f..\xff\\" ), ENT_COMPAT, 'UTF-8' ) . "'<br />\n";
 					$offset_count = @ $this->_read( $this->res, $this->data_offset_count_offset + $i * 8, 8 );
