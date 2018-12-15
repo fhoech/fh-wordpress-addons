@@ -1180,7 +1180,7 @@ class SHM_Partitioned_Cache {
 
 		$this->partition[ $group_key ] = $permanent ? false : array( $pos, $offset, 0 );
 
-		if ( $this->debug ) {
+		if ( $this->debug > 1 ) {
 			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 							   date( 'Y-m-d H:i:s,v' ) .
 							   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Deleted '$group:$key'\n", FILE_APPEND );
@@ -1898,9 +1898,11 @@ class WP_Object_Cache {
 			else
 				$this->cache_deletions_groups[$group] += 1;
 			$this->time_total += microtime(true) - $time_start;
-			file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
-							   date( 'Y-m-d H:i:s,v' ) .
-							   " WP_Object_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Deleted '$group:$key'\n", FILE_APPEND );
+			if ($this->debug > 1) {
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " WP_Object_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Deleted '$group:$key'\n", FILE_APPEND );
+			}
 		}
 		/* Persistent object cache end */
 
