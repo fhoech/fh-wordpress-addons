@@ -842,11 +842,10 @@ class SHM_Partitioned_Cache {
 				return false;
 			}
 			$result = $data;
-			// Update access and expiration time
-			if ( $expire && $update_time ) {
-				$expire = $this->now + ( $expire - $atime );
+			// Update access time
+			if ( $update_time ) {
 				$atime = $this->now;
-				$this->_write( $this->res, pack( 'N', $atime ) . pack( 'N', $expire ), $start );
+				$this->_write( $this->res, pack( 'N', $atime ), $start );
 			}
 		// END read
 		$parsed = @ $this->_parse( $result );
