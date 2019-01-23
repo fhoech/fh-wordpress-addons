@@ -797,7 +797,7 @@ class SHM_Partitioned_Cache {
 		}
 		// BEGIN read
 			$atime = unpack( 'N', substr( $result, 0, 4 ) )[1];
-			$expire = unpack( 'N', substr( $result, 4, 4 ) )[1];
+			$expire = $oexpire = unpack( 'N', substr( $result, 4, 4 ) )[1];
 			if ( ! $expire && defined('FH_OBJECT_CACHE_LIFETIME') && FH_OBJECT_CACHE_LIFETIME ) $expire = $atime + FH_OBJECT_CACHE_LIFETIME;
 			if ( $expire && $expire <= $this->now ) {
 				if ( defined( 'FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS' ) && FH_OBJECT_CACHE_SHM_LOG_EXPIRATIONS ) 
@@ -806,7 +806,7 @@ class SHM_Partitioned_Cache {
 									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Expired " . date( 'Y-m-d H:i:s T', $expire ) . ": '$group:$key' (last modified " .
 									   date( 'Y-m-d H:i:s T', $atime ) . ")\n", FILE_APPEND );
 				//$this->delete( $key, $group );
-				return array( false, $expire, $atime );
+				return array( false, $oexpire, $atime );
 			}
 			$key_data_len = unpack( 'N', substr( $result, 8, 4 ) )[1];
 			$time_start = microtime( true );
@@ -870,7 +870,7 @@ class SHM_Partitioned_Cache {
 				//$this->delete( $key, $group );
 				return false;
 			}
-			return array( $parsed, $expire, $atime );
+			return array( $parsed, $oexpire, $atime );
 		// END check/return parsed
 	}
 
