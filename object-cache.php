@@ -534,6 +534,11 @@ class SHM_Partitioned_Cache {
 			}
 			// Offset for next data chunk
 			if ( ! $start ) $start = $this->data_offset;
+			if ( $this->partition_size === 0 ) {
+				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+								   date( 'Y-m-d H:i:s,v' ) .
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Partition table size is zero (key " . $this->get_id( true ) . ")\n", FILE_APPEND );
+			}
 			$this->last_key_data_offset = $start;
 			$this->last_key_data_size = $count;
 			$this->next = (int) ceil( ( $start + $count ) / $this->block_size ) * $this->block_size;
