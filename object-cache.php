@@ -285,7 +285,7 @@ class SHM_Partitioned_Cache {
 	/*
 	 * Cache structure:
 	 * Header (32 bytes)
-	 * Keys (each key has a fixed length of hash_bytes)
+	 * Hashes (each hash has a fixed length of hash_bytes)
 	 * Offsets to key data and size (each entry has a fixed size of 8 bytes).
 	 *                               Offsets are stored at
 	 *                               ceil( size / 32 / block_size ) * block_size
@@ -297,18 +297,18 @@ class SHM_Partitioned_Cache {
 	 * Byte offset    Content                       Encoding
 	 * ------------------------------------------------------------------------
 	 * 0..3           Partition table size          Unsigned Long (Big Endian)
-	 *                (number of keys * hash_bytes)
-	 * 4..7           Last entry data offset        Unsigned Long (Big Endian)
-	 * 8..11          Last entry data size          Unsigned Long (Big Endian)
+	 *                (number of hashes * hash_bytes)
+	 * 4..7           Last data entry offset        Unsigned Long (Big Endian)
+	 * 8..11          Last data entry size          Unsigned Long (Big Endian)
 	 * 12..15         (Reserved, null)              N/A
 	 * 16..31         Hash algorithm name           ASCII
 	 * 
 	 * OFFSET ENTRY (byte offsets from beginning of entry)
 	 * Byte offset    Content                       Encoding
 	 * ------------------------------------------------------------------------
-	 * 0..3           Data offset (from             Unsigned Long (Big Endian)
+	 * 0..3           Data entry offset (from       Unsigned Long (Big Endian)
 	 *                beginning of file)
-	 * 4..7           Data size (padded to          Unsigned Long (Big Endian)
+	 * 4..7           Data entry size (padded to    Unsigned Long (Big Endian)
 	 *                multiples of block_size)
 	 * 
 	 * DATA ENTRY (byte offsets from beginning of entry, each entry is padded
@@ -318,7 +318,7 @@ class SHM_Partitioned_Cache {
 	 * 0..3           Last access time (Unix)       Unsigned Long (Big Endian)
 	 * 4..7           Expiration time (Unix)        Unsigned Long (Big Endian)
 	 * 8..11          Key size                      Unsigned Long (Big Endian)
-	 * 12..15         Data size                     Unsigned Long (Big Endian)
+	 * 12..15         Data size (actual)            Unsigned Long (Big Endian)
 	 * 16..n-1        Key                           ASCII
 	 * n..m           Data                          PHP serialized data or int/float as string
 	 */
