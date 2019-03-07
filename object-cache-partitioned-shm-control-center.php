@@ -10,19 +10,19 @@ define( 'SHORTINIT', true );
 
 require_once( __DIR__ . '/wp-config.php' );
 
-require( ABSPATH . WPINC . '/formatting.php' );
-require( ABSPATH . WPINC . '/capabilities.php' );
-require( ABSPATH . WPINC . '/class-wp-roles.php' );
-require( ABSPATH . WPINC . '/class-wp-role.php' );
-require( ABSPATH . WPINC . '/class-wp-user.php' );
-require( ABSPATH . WPINC . '/user.php' );
+require_once( ABSPATH . WPINC . '/formatting.php' );
+require_once( ABSPATH . WPINC . '/capabilities.php' );
+require_once( ABSPATH . WPINC . '/class-wp-roles.php' );
+require_once( ABSPATH . WPINC . '/class-wp-role.php' );
+require_once( ABSPATH . WPINC . '/class-wp-user.php' );
+require_once( ABSPATH . WPINC . '/user.php' );
 require_once( ABSPATH . WPINC . '/class-wp-session-tokens.php' );
 require_once( ABSPATH . WPINC . '/class-wp-user-meta-session-tokens.php' );
-require( ABSPATH . WPINC . '/meta.php' );
-require( ABSPATH . WPINC . '/kses.php' );
-require( ABSPATH . WPINC . '/rest-api.php' );
+require_once( ABSPATH . WPINC . '/meta.php' );
+require_once( ABSPATH . WPINC . '/kses.php' );
+require_once( ABSPATH . WPINC . '/rest-api.php' );
 
-require( ABSPATH . WPINC . '/pluggable.php' );
+require_once( ABSPATH . WPINC . '/pluggable.php' );
 
 wp_plugin_directory_constants();
 
