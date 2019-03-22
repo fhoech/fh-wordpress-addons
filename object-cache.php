@@ -663,7 +663,7 @@ class SHM_Partitioned_Cache {
 		return $this->clear();
 	}
 
-	public function defrag() {
+	public function defrag( $compact = false ) {
 		if ( $this->res === false ) return false;
 
 		$this->read_partition_table( true );
@@ -745,7 +745,7 @@ class SHM_Partitioned_Cache {
 				continue;
 			}
 
-			$padded_len = 16 + (int) ceil( $len / $this->block_size ) * $this->block_size;
+			$padded_len = $compact ? 16 + (int) ceil( $len / $this->block_size ) * $this->block_size : $count;
 			$data_offset_count = pack( 'N', $data_offset ) . pack( 'N', $padded_len );
 
 			// Write to temp SHM segment
@@ -811,7 +811,7 @@ class SHM_Partitioned_Cache {
 
 		file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 						   date( 'Y-m-d H:i:s,v' ) .
-						   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defragged SHM segment (key " . $this->get_id( true ) . "), purged " . ( $n - $i ) . " entries\n", FILE_APPEND );
+						   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Defragged SHM segment (key " . $this->get_id( true ) . "), purged " . ( $compact ? "& compacted " : "" ) . ( $n - $i ) . " entries\n", FILE_APPEND );
 
 		return true;
 	}
@@ -1001,6 +1001,8 @@ class SHM_Partitioned_Cache {
 			$padded_count = 0;
 			if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "No existing partition entry. About to create at " . ( $pos + $this->partition_table_offset ) . "\n";
 		}
+
+		$padded_len = max( $padded_len, $padded_count );  // Assign enough space for old and new entry to minimize cache trashing
 
 		if ( $padded_len > $padded_count ) {
 			// Create new entry
