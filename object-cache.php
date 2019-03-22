@@ -1009,9 +1009,18 @@ class SHM_Partitioned_Cache {
 			if ( $offset + $padded_len > $this->size ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group:$key' ($data_len bytes, padded $padded_len) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: Allocated space for data exceeded. Flushing cache.\n", FILE_APPEND );
-				$this->flush();
-				return false;
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Can't write '$group:$key' ($data_len bytes, padded $padded_len) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: Allocated space for data exceeded. Defragging cache.\n", FILE_APPEND );
+				$this->defrag();
+				$offset = $this->next;
+				if ( defined( 'FH_OBJECT_CACHE_SHM_LOCAL_DEBUG' ) ) echo "Data padded $padded_len > existing data padded $padded_count, using next free data segment offset $offset\n";
+				if ( $offset + $padded_len > $this->size ) {
+					file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
+									   date( 'Y-m-d H:i:s,v' ) .
+									   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Couldn't write '$group:$key' ($data_len bytes, padded $padded_len) to SHM segment (key " . $this->get_id( true ) . ") at offset $offset: Allocated space for data exceeded. Flushing cache.\n", FILE_APPEND );
+					$this->flush();
+					return false;
+				}
+				else return $this->set( $key, $value, $group, $expire );
 			}
 		}
 
