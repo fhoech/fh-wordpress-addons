@@ -30,7 +30,7 @@ class FH_Gravatar_Cache {
 
 		add_action( 'fh_gravatar_cache_update_cron', array( &$this, 'fetch_gravatar'), 10, 4 );
 		//add_action( 'fh_gravatar_cache_clean_cron', array( &$this, 'clean_cache'), 10, 0 );
-		add_filter( 'get_avatar', array( &$this, 'get_avatar'), 10, 5 );
+		add_filter( 'get_avatar', array( &$this, 'get_avatar'), 10, 6 );
 		add_filter( 'bp_core_fetch_avatar', array( &$this, 'bp_core_fetch_avatar'), 10, 9 );
 		add_filter( 'bp_core_fetch_avatar_url', array( &$this, 'bp_core_fetch_avatar_url'), 10, 2 );
 
@@ -69,20 +69,26 @@ class FH_Gravatar_Cache {
 			$avatar_url = $avatar;
 		elseif ( preg_match( '~src="([^"]+)"~', $avatar, $match ) )
 			$avatar_url = $match[1];
-		// FIXME: We default to mystery man irrespective of BuddyPress setting
 		$avatar = str_replace( $avatar_url, $this->bp_core_fetch_avatar_url( $avatar_url, $params ), $avatar );
 		return $avatar;
 	}
 
 	public function bp_core_fetch_avatar_url( $avatar_url, $params ) {
-		// FIXME: We default to mystery man irrespective of BuddyPress setting
-		return $this->get_avatar( $avatar_url, $params['email'], $params['width'], 'mm', '' );
+		parse_str( html_entity_decode( $avatar_url ), $url_params );
+		if ( isset( $params['default'] ) ) $default = $params['default'];
+		elseif ( isset( $url_params['d'] ) ) $default = $url_params['d'];
+		$args = array();
+		if ( ! empty( $params['force_default'] ) ) $args['force_default'] = $params['force_default'];
+		elseif ( isset( $url_params['f'] ) && $url_params['f'] === 'y' ) $args['force_default'] = true;
+		return $this->get_avatar( $avatar_url, $params['email'], $params['width'], $default, '', $args );
 	}
 
-	public function get_avatar ( $avatar, $id_or_email, $size, $default, $alt ) {
+	public function get_avatar ( $avatar, $id_or_email, $size, $default, $alt, $args = null ) {
 
 		if ( strpos( $avatar, '//www.gravatar.com/' ) === false )
 			return $avatar;  // Not a gravatar
+
+		if ( ! empty( $args['force_default'] ) ) $id_or_email = '';
 
 		// Get user email
 		$user = false;
@@ -178,6 +184,10 @@ class FH_Gravatar_Cache {
 
 		if ( ! $this->acquire_lock() )
 			return;
+
+		// mm = Mystery Man and mp = Myster Person are the same thing (the latter is the current canonical form used by gravatar.com)
+		// We still use 'mm' internally for cache so old caches don't have to be invalidated.
+		if ( $default === 'mp' ) $default = 'mm';
 
 		if ( empty( $default ) || $default == 'blank' || $default == 'mm' ) $fallback = '404';
 		else $fallback = $default;
