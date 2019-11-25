@@ -77,6 +77,7 @@ class FH_Gravatar_Cache {
 		parse_str( html_entity_decode( $avatar_url ), $url_params );
 		if ( isset( $params['default'] ) ) $default = $params['default'];
 		elseif ( isset( $url_params['d'] ) ) $default = $url_params['d'];
+		else $default = 'mm';
 		$args = array();
 		if ( ! empty( $params['force_default'] ) ) $args['force_default'] = $params['force_default'];
 		elseif ( isset( $url_params['f'] ) && $url_params['f'] === 'y' ) $args['force_default'] = true;
