@@ -392,7 +392,12 @@ class SHM_Partitioned_Cache {
 													 'options:flush-opcache-preload',
 													 'options:simba_tfa_priv_key_format',
 													 'options:auto_core_update_notified',
-													 'options:show_comments_cookies_opt_in' );
+													 'options:show_comments_cookies_opt_in',
+													 'options:bnfw_allow_tracking',
+													 'options:etivite_bp_restrict_messages',
+													 'bp:bp_total_member_count',
+													 'options:wp_mail_smtp_version',
+													 'bp_xprofile_groups:incrementor' );
 	private $check_data_types = false;
 	// Hash algorythm name => byte count
 	private $hash_algos = array( 'crc32' => 4,
