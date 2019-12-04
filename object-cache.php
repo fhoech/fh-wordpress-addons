@@ -733,8 +733,12 @@ class SHM_Partitioned_Cache {
 
 			// Parse data header
 			$expire = unpack( 'N', substr( $data_header, 4, 4 ) )[1];
-			if ( ! $expire && defined('FH_OBJECT_CACHE_LIFETIME') && FH_OBJECT_CACHE_LIFETIME ) $expire = unpack( 'N', substr( $data_header, 0, 4 ) )[1] + FH_OBJECT_CACHE_LIFETIME;
-			if ( $expire && $expire <= $this->now ) continue;
+			if ( defined('FH_OBJECT_CACHE_LIFETIME') && FH_OBJECT_CACHE_LIFETIME ) {
+				$atime = unpack( 'N', substr( $data_header, 0, 4 ) )[1];
+				$max_expire = $atime + FH_OBJECT_CACHE_LIFETIME;
+				if ( ! $expire || $expire > $max_expire ) $expire = $max_expire;
+			}
+			if ( $expire && $expire <= $this->now ) continue;  // Expired
 			$key_size = unpack( 'N', substr( $data_header, 8, 4 ) )[1];
 			$data_len = unpack( 'N', substr( $data_header, 12, 4 ) )[1];
 			$len = $key_size + $data_len;
