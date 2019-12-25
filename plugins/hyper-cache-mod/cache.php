@@ -115,7 +115,7 @@ if ($hc_invalidation_time && $hc_file_time < $hc_invalidation_time) {
 if (array_key_exists("HTTP_IF_MODIFIED_SINCE", $_SERVER)) {
     $if_modified_since = strtotime(preg_replace('/;.*$/', '', $_SERVER["HTTP_IF_MODIFIED_SINCE"]));
     if ($if_modified_since >= $hc_file_time) {
-        header($_SERVER['SERVER_PROTOCOL'] . " 304 Not Modified");
+        hyper_cache_status_header(304);
         hyper_cache_headers(0, false);
         header('X-HyperCache: 304 Not Modified');
         flush();
@@ -143,7 +143,7 @@ if ($hyper_data['type'] == 'blog' || $hyper_data['type'] == 'home' || $hyper_dat
 // Valid cache file check ends here
 
 if (!empty($hyper_data['location'])) {
-    header($_SERVER['SERVER_PROTOCOL'] . ' 301 Moved Permanently');
+    hyper_cache_status_header(301);
     header('Location: ' . $hyper_data['location']);
     header('X-HyperCache: 301 Moved Permanently');
     flush();
@@ -158,7 +158,7 @@ hyper_cache_headers($hc_file_time, !empty($hyper_data['hash']) ? $hyper_data['ha
 header('X-HyperCache: 200 OK');
 
 header('Content-Type: ' . $hyper_data['mime']);
-if (isset($hyper_data['status']) && $hyper_data['status'] == 404) header($_SERVER['SERVER_PROTOCOL'] . " 404 Not Found");
+if (isset($hyper_data['status'])) hyper_cache_status_header($hyper_data['status']);
 
 // Send the cached html
 if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false &&
@@ -291,7 +291,8 @@ function hyper_cache_callback($buffer) {
 
     $data['html'] = $buffer;
 
-    if (is_404()) $data['status'] = 404;
+    $response_code = http_response_code();
+    if ($response_code >= 400) $data['status'] = $response_code;
 
     hyper_cache_write($data);
 
@@ -437,6 +438,118 @@ function hyper_cache_loggedin() {
     return function_exists('is_user_logged_in') && is_user_logged_in();
 }
 
+function hyper_cache_get_status_header_desc( $code ) {  // ALMOST verbatim copy of get_status_header_desc from wp-includes/functions.php
+    global $wp_header_to_desc;
+ 
+    $code = abs( intval( $code ) );  // Original function uses WP's functionally equivalent absint()
+ 
+    if ( ! isset( $wp_header_to_desc ) ) {
+        $wp_header_to_desc = array(
+            100 => 'Continue',
+            101 => 'Switching Protocols',
+            102 => 'Processing',
+            103 => 'Early Hints',
+ 
+            200 => 'OK',
+            201 => 'Created',
+            202 => 'Accepted',
+            203 => 'Non-Authoritative Information',
+            204 => 'No Content',
+            205 => 'Reset Content',
+            206 => 'Partial Content',
+            207 => 'Multi-Status',
+            226 => 'IM Used',
+ 
+            300 => 'Multiple Choices',
+            301 => 'Moved Permanently',
+            302 => 'Found',
+            303 => 'See Other',
+            304 => 'Not Modified',
+            305 => 'Use Proxy',
+            306 => 'Reserved',
+            307 => 'Temporary Redirect',
+            308 => 'Permanent Redirect',
+ 
+            400 => 'Bad Request',
+            401 => 'Unauthorized',
+            402 => 'Payment Required',
+            403 => 'Forbidden',
+            404 => 'Not Found',
+            405 => 'Method Not Allowed',
+            406 => 'Not Acceptable',
+            407 => 'Proxy Authentication Required',
+            408 => 'Request Timeout',
+            409 => 'Conflict',
+            410 => 'Gone',
+            411 => 'Length Required',
+            412 => 'Precondition Failed',
+            413 => 'Request Entity Too Large',
+            414 => 'Request-URI Too Long',
+            415 => 'Unsupported Media Type',
+            416 => 'Requested Range Not Satisfiable',
+            417 => 'Expectation Failed',
+            418 => 'I\'m a teapot',
+            421 => 'Misdirected Request',
+            422 => 'Unprocessable Entity',
+            423 => 'Locked',
+            424 => 'Failed Dependency',
+            426 => 'Upgrade Required',
+            428 => 'Precondition Required',
+            429 => 'Too Many Requests',
+            431 => 'Request Header Fields Too Large',
+            451 => 'Unavailable For Legal Reasons',
+ 
+            500 => 'Internal Server Error',
+            501 => 'Not Implemented',
+            502 => 'Bad Gateway',
+            503 => 'Service Unavailable',
+            504 => 'Gateway Timeout',
+            505 => 'HTTP Version Not Supported',
+            506 => 'Variant Also Negotiates',
+            507 => 'Insufficient Storage',
+            510 => 'Not Extended',
+            511 => 'Network Authentication Required',
+        );
+    }
+ 
+    if ( isset( $wp_header_to_desc[ $code ] ) ) {
+        return $wp_header_to_desc[ $code ];
+    } else {
+        return '';
+    }
+}
+
+function hyper_cache_status_header( $code, $description = '' ) {  // ALMOST verbatim copy of status_header from wp-includes/functions.php
+    if ( ! $description ) {
+        $description = hyper_cache_get_status_header_desc( $code );
+    }
+ 
+    if ( empty( $description ) ) {
+        return;
+    }
+ 
+    $protocol      = $_SERVER['SERVER_PROTOCOL'];  // Original status_header uses wp_get_server_protocol
+    $status_header = "$protocol $code $description";
+    if ( function_exists( 'apply_filters' ) ) {
+ 
+        /**
+         * Filters an HTTP status header.
+         *
+         * @since 2.2.0
+         *
+         * @param string $status_header HTTP status header.
+         * @param int    $code          HTTP status code.
+         * @param string $description   Description for the status code.
+         * @param string $protocol      Server protocol.
+         */
+        $status_header = apply_filters( 'status_header', $status_header, $code, $description, $protocol );
+    }
+ 
+    if ( ! headers_sent() ) {
+        header( $status_header, true, $code );
+    }
+}
+
 function hyper_cache_gzdecode ($data) {
 
     $flags = ord(substr($data, 3, 1));
@@ -469,7 +582,7 @@ function hyper_cache_etag($hash) {
     if (isset($_SERVER['HTTP_IF_NONE_MATCH']) &&
         ($_SERVER['HTTP_IF_NONE_MATCH'] == "*" ||
          strpos(stripslashes($_SERVER['HTTP_IF_NONE_MATCH']), $etag) !== false)) {
-      header($_SERVER['SERVER_PROTOCOL'] . ' 304 Not Modified', true, 304);
+      hyper_cache_status_header(304);
       header('X-HyperCache: 304 Not Modified');
       return 304;
     }
