@@ -2283,11 +2283,11 @@ class WP_Object_Cache {
 		echo '</td></tr>';
 		echo "<tr><th>Cache Misses</th><td>{$this->cache_misses}</td></tr>";
 		$total = $this->cache_misses + $this->cache_hits;
-		echo '<tr><th>Hit Rate</th><td>' . number_format( 100 / $total * $this->cache_hits, 1 ) . '%</td></tr>';
+		echo '<tr><th>Hit Rate</th><td>' . number_format( 100 / $total * $this->cache_hits, 2 ) . '%</td></tr>';
 		echo "<tr><th>Persistent Cache Reads</th><td>{$this->persistent_cache_reads}</td></tr>";
 		echo "<tr><th>Persistent Cache Hits</th><td>{$this->persistent_cache_reads_hits}</td></tr>";
 		$total = $this->cache_misses + $this->persistent_cache_reads_hits;
-		echo '<tr><th>Persistent Cache Hit Rate</th><td>' . ( $total ? number_format( 100 / $total * $this->persistent_cache_reads_hits, 1 ) . '%' : ( $this->debug ? '0%' : 'Unknown' ) ) . '</td></tr>';
+		echo '<tr><th>Persistent Cache Hit Rate</th><td>' . ( $total ? number_format( 100 / $total * $this->persistent_cache_reads_hits, 2 ) . '%' : ( $this->debug ? '0%' : 'Unknown' ) ) . '</td></tr>';
 		if ( $this->debug ) {
 			echo '<tr><th>Persistent Cache Seek Time</th><td>' . number_format( $this->backend->time_seek * 1000, 1 ) . ' ms</td></tr>';
 			echo '<tr><th>Persistent Cache Read Time</th><td>' . number_format( $this->backend->time_read * 1000, 1 ) . ' ms</td></tr>';
@@ -2318,7 +2318,7 @@ class WP_Object_Cache {
 			$cache_misses_groups = isset($this->cache_misses_groups[$group]) ? $this->cache_misses_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			unset($this->cache_misses_groups[$group]);
 			$reads = $cache_hits_groups + $cache_misses_groups;
-			$hit_rate = $reads ? number_format( ( 100 / $reads ) * $cache_hits_groups, 1 ) . '%' : ( $this->debug ? '0%' : 'Unknown' );
+			$hit_rate = $reads ? number_format( ( 100 / $reads ) * $cache_hits_groups, 2 ) . '%' : ( $this->debug ? '0%' : 'Unknown' );
 			$updated = isset($this->dirty_groups[$group]) ? 'Yes' : 'No';
 			$persist = isset($this->non_persistent_groups[$group]) ? 'No' : 'Yes';
 			$global = isset($this->global_groups[$group]) ? 'Yes' : 'No';
@@ -2326,7 +2326,7 @@ class WP_Object_Cache {
 			$total_entries += $entries;
 			$persistent_cache_reads_hits = isset($this->persistent_cache_reads_hits_groups[$group]) ? $this->persistent_cache_reads_hits_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			$persistent_cache_reads = $persistent_cache_reads_hits + $cache_misses_groups;
-			$persistent_cache_reads_hit_rate = $persistent_cache_reads ? number_format( ( 100 / $persistent_cache_reads ) * $persistent_cache_reads_hits, 1 ) . '%' : ( $this->debug ? '0%' : 'Unknown' );
+			$persistent_cache_reads_hit_rate = $persistent_cache_reads ? number_format( ( 100 / $persistent_cache_reads ) * $persistent_cache_reads_hits, 2 ) . '%' : ( $this->debug ? '0%' : 'Unknown' );
 			$expired = isset($this->expirations_groups[$group]) ? $this->expirations_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			$deleted = isset($this->cache_deletions_groups[$group]) ? $this->cache_deletions_groups[$group] : ( $this->debug ? 0 : 'Unknown' );
 			unset($this->cache_deletions_groups[$group]);
