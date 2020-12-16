@@ -397,7 +397,9 @@ class SHM_Partitioned_Cache {
 													 'options:etivite_bp_restrict_messages',
 													 'bp:bp_total_member_count',
 													 'options:wp_mail_smtp_version',
-													 'bp_xprofile_groups:incrementor' );
+													 'bp_xprofile_groups:incrementor',
+													 'options:ac_version',
+													 'options:cpac_options_reply__default' );
 	private $check_data_types = false;
 	// Hash algorythm name => byte count
 	private $hash_algos = array( 'crc32' => 4,
@@ -922,7 +924,7 @@ class SHM_Partitioned_Cache {
 				 ! ( is_object( $parsed ) || is_array( $parsed ) ) ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Not an object or array: '$group:$key'" . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "'" : "" ) . "\n", FILE_APPEND );
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Warning - not an object or array: '$group:$key'" . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "'" : "" ) . "\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
@@ -1398,7 +1400,7 @@ class SHM_Partitioned_Cache {
 			echo '<tr><th>Cache File</th><td>' . FH_OBJECT_CACHE_PATH . "</td></tr>\n";
 		else
 			echo '<tr><th>Shared Memory Key</th><td>' . $this->get_id( true ) . "</td></tr>\n";
-		echo '<tr><th>Resource</th><td>' . $this->res . "</td></tr>\n";
+		echo '<tr><th>Resource</th><td>' . print_r( $this->res, true ) . "</td></tr>\n";
 		$size = $this->size;
 		$used = $this->next - $this->data_offset + $this->partition_size;
 		$free = $size - $used;
