@@ -388,6 +388,7 @@ class SHM_Partitioned_Cache {
 													 'options:wp_mail_smtp_debug',
 													 'options:blacklist_keys',
 													 'options:moderation_keys',
+													 'options:disallowed_keys',
 													 'options:flush-opcache-hide-button',
 													 'options:flush-opcache-preload',
 													 'options:simba_tfa_priv_key_format',
@@ -503,7 +504,7 @@ class SHM_Partitioned_Cache {
 	private function _close( $res ) {
 		if ( $this->use_file_backend )
 			fshmop_close( $res );
-		else
+		else if ( function_exists( 'shmop_close' ) && version_compare( PHP_VERSION, '8.0.0', '<' ) )
 			shmop_close( $res );
 	}
 

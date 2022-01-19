@@ -496,7 +496,8 @@ else {
 		echo "Cache file: " . FH_OBJECT_CACHE_PATH . "<br>\n";
 	else
 		echo "SHM key: " . $shm_cache->get_id( true ) . "<br>\n";
-	echo $shm_cache->get_shm_id() . "<br>\n";
+	$shm_id = $shm_cache->get_shm_id();
+	echo print_r( $shm_id, true ) . "<br>\n";
 
 	if ( $clear_all && $shm_cache->clear() ) echo "Cleared cache<br>\n";
 	if ( $defrag && $shm_cache->defrag() ) echo "Defragged cache<br>\n";
