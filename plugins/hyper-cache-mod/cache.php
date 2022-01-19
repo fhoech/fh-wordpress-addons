@@ -363,7 +363,7 @@ function hyper_mobile_type() {
         }
     }
 
-    if (!isset($hyper_cache_mobile) || $hyper_cache_mobile_agents === false) return '';
+    if (!isset($hyper_cache_mobile) || $hyper_cache_mobile_agents === false || !isset($_SERVER['HTTP_USER_AGENT'])) return '';
 
     $hyper_agent = strtolower($_SERVER['HTTP_USER_AGENT']);
     if (!empty($hyper_cache_mobile_agents)) {
