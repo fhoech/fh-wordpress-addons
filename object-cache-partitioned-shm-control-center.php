@@ -36,7 +36,10 @@ ini_set('log_errors','Off');
 ini_set('display_errors','On');
 ini_set('error_reporting', E_ALL | E_STRICT );
 
-/* Stub WordPress replacement for function from wp-includes/l10n.php */
+/* Stub WordPress replacements for functions from wp-includes/l10n.php which isn't loaded because we set SHORTINIT = true */
+function __( $text, $domain = 'default' ) {
+	return $text;
+}
 function _n( $single, $plural, $number, $domain = 'default' ) {
 	return $number > 1 ? $plural : $single;
 }
