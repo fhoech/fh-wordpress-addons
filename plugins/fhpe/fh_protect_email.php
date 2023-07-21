@@ -315,6 +315,6 @@ class FH_protect_email {
 
 }
 
-if ( ! is_admin() && ! defined('DOING_CRON') ) $fh_protect_email = new FH_protect_email();
+if ( ! is_admin() && ! defined('DOING_CRON') && php_sapi_name() != 'cli' ) $fh_protect_email = new FH_protect_email();
 
 ?>

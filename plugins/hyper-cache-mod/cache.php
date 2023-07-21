@@ -1,5 +1,8 @@
 <?php
 
+// Do not use cache for CLI invocations because most env vars will not be set
+if (php_sapi_name() === 'cli') return false;
+
 global $hyper_cache_stop;
 
 $hyper_cache_stop = false;
@@ -20,10 +23,10 @@ if ($hyper_cache_nocache &&
 // Do not cache post request (comments, plugins and so on)
 if ($_SERVER["REQUEST_METHOD"] == 'POST') return hyper_cache_exit(false, 'Request-Method=POST');
 
-$hyper_qs = strpos($hyper_uri, '?');
-
 // Do not cache WP pages, even if those calls typically don't go throught this script
 if ($hyper_wp) return hyper_cache_exit(false, 'Request-URI*=/wp-');
+
+$hyper_qs = strpos($hyper_uri, '?');
 
 if ($hyper_qs !== false) {
     if ($hyper_cache_strip_qs) $hyper_uri = substr($hyper_uri, 0, $hyper_qs);
@@ -131,7 +134,7 @@ if (!$hyper_data) {
     return;
 }
 
-if ($hyper_data['type'] == 'blog' || $hyper_data['type'] == 'home' || $hyper_data['type'] == 'archive' || $hyper_data['type'] == 'feed' || $hyper_data['type'] == 'search') {
+if (!empty($hyper_data['type']) && ($hyper_data['type'] == 'blog' || $hyper_data['type'] == 'home' || $hyper_data['type'] == 'archive' || $hyper_data['type'] == 'feed' || $hyper_data['type'] == 'search')) {
 
     $hc_invalidation_archive_file =  @filemtime($hyper_cache_path . '_archives.dat');
     if ($hc_invalidation_archive_file && $hc_file_time < $hc_invalidation_archive_file) {
@@ -315,7 +318,7 @@ function hyper_cache_write(&$data) {
 
     $data['host'] = $_SERVER['HTTP_HOST'];
     $data['uri'] = $_SERVER['REQUEST_URI'];
-    $data['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+    if (isset($_SERVER['HTTP_USER_AGENT'])) $data['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
 
     // Support HTTP2 server push
     $headers = headers_list();
