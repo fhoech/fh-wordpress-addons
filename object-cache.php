@@ -346,6 +346,16 @@ class SHM_Partitioned_Cache {
 	private $debug;
 	private $time_read = 0;
 	private $time_seek = 0;
+
+	/*
+	 * @note complex_groups and complex_groups_noncomplex_keys are ONLY used for debugging,
+	 * when FH_OBJECT_CACHE_SHM_CHECK_DATA_TYPES is defined and evaluates to true.
+	 * 
+	 * If any cache entry is in complex_groups, NOT in noncomplex_keys, and is not an array, object, float or int,
+	 * it will be logged and the cache value not used.
+	 * 
+	 * @note noncomplex_keys cache value could also be a serialized string (serialized outside of the cache!)
+	 */
 	private $complex_groups = array( 'options',
 									 'mo',
 									 'posts',
@@ -400,7 +410,14 @@ class SHM_Partitioned_Cache {
 													 'options:wp_mail_smtp_version',
 													 'bp_xprofile_groups:incrementor',
 													 'options:ac_version',
-													 'options:cpac_options_reply__default' );
+													 'options:cpac_options_reply__default',
+													 'posts:find_post_by_old_slug',
+													 'posts:adjacent_post',
+													 'options:wp_mail_smtp',
+													 'options:cpac_options_topic__default',
+													 'options:cpac_options_wp-comments__default',
+													 'options:cpac_options_wp-users__default',
+													 'options:user_count' );
 	private $check_data_types = false;
 	// Hash algorythm name => byte count
 	private $hash_algos = array( 'crc32' => 4,
@@ -922,10 +939,10 @@ class SHM_Partitioned_Cache {
 			if ( $this->check_data_types &&
 				 in_array( $group, $this->complex_groups ) &&
 				 ! in_array( $group . ':' . explode( ':', $key )[0], $this->complex_groups_noncomplex_keys ) &&
-				 ! ( is_object( $parsed ) || is_array( $parsed ) ) ) {
+				 ! ( is_object( $parsed ) || is_array( $parsed ) || is_float( $parsed ) || is_int( $parsed ) || ( is_string( $parsed ) && strlen( $parsed ) > 1 && $parsed[1] == ':' ) ) ) {
 				file_put_contents( __DIR__ . '/.SHM_Partitioned_Cache.log',
 								   date( 'Y-m-d H:i:s,v' ) .
-								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Warning - not an object or array: '$group:$key'" . ( $this->debug ?  ": '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "'" : "" ) . "\n", FILE_APPEND );
+								   " SHM_Partitioned_Cache (" . FH_OBJECT_CACHE_UNIQID . "): Warning - " . gettype( $parsed ) . " is not an object or array: '$group:$key'" . ( $this->debug ?  " raw: '" . addcslashes( $result, "\x00..\x19\x7f..\xff\\" ) . "'" : "" ) . "\n", FILE_APPEND );
 				//$this->delete( $key, $group );
 				return false;
 			}
