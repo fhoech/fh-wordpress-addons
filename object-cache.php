@@ -513,9 +513,15 @@ class SHM_Partitioned_Cache {
 
 	private function _open( $key, $flags, $mode, $size ) {
 		if ( $this->use_file_backend )
+		{
 			return fshmop_open( $key, $flags, $mode, $size );
+		}
 		else
+		{
+			if ( $res = shmop_open( $key, 'w', 0, 0 ) )
+				$size = shmop_size( $res );
 			return shmop_open( $key, $flags, $mode, $size );
+		}
 	}
 
 	private function _close( $res ) {
