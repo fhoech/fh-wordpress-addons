@@ -33,6 +33,27 @@ function wp_cache_add( $key, $data, $group = '', $expire = 0 ) {
 	return $wp_object_cache->add( $key, $data, $group, (int) $expire );
 }
 
+/**
+ * Adds multiple values to the cache in one call.
+ *
+ * @since 6.0.0
+ *
+ * @see WP_Object_Cache::add_multiple()
+ * @global WP_Object_Cache $wp_object_cache Object cache global instance.
+ *
+ * @param array  $data   Array of keys and values to be set.
+ * @param string $group  Optional. Where the cache contents are grouped. Default empty.
+ * @param int    $expire Optional. When to expire the cache contents, in seconds.
+ *                       Default 0 (no expiration).
+ * @return bool[] Array of return values, grouped by key. Each value is either
+ *                true on success, or false if cache key and group already exist.
+ */
+function wp_cache_add_multiple( array $data, $group = '', $expire = 0 ) {
+	global $wp_object_cache;
+
+	return $wp_object_cache->add_multiple( $data, $group, $expire );
+}
+
 /* Persistent object cache start */
 /**
  * Closes the cache.
@@ -87,6 +108,20 @@ function wp_cache_delete($key, $group = '') {
 }
 
 /**
+ * Deletes multiple values from the cache in one call.
+ *
+ * @param array  $keys  Array of keys under which the cache to deleted.
+ * @param string $group Optional. Where the cache contents are grouped. Default empty.
+ * @return bool[] Array of return values, grouped by key. Each value is either
+ *                true on success, or false if the contents were not deleted.
+ */
+function wp_cache_delete_multiple( array $keys, $group = '' ) {
+    global $wp_object_cache;
+
+    return $wp_object_cache->delete_multiple( $keys, $group );
+}
+
+/**
  * Removes all cache items.
  *
  * @since 2.0.0
@@ -99,6 +134,66 @@ function wp_cache_flush() {
 	global $wp_object_cache;
 
 	return $wp_object_cache->flush();
+}
+
+/**
+ * Removes all cache items from the in-memory runtime cache.
+ *
+ * @since 6.0.0
+ *
+ * @see WP_Object_Cache::flush_runtime()
+ *
+ * @return bool True on success, false on failure.
+ */
+function wp_cache_flush_runtime() {
+	global $wp_object_cache;
+
+	return $wp_object_cache->flush_runtime();
+}
+
+/**
+ * Removes all cache items in a group, if the object cache implementation supports it.
+ *
+ * Before calling this function, always check for group flushing support using the
+ * `wp_cache_supports( 'flush_group' )` function.
+ *
+ * @since 6.1.0
+ *
+ * @see WP_Object_Cache::flush_group()
+ * @global WP_Object_Cache $wp_object_cache Object cache global instance.
+ *
+ * @param string $group Name of group to remove from cache.
+ * @return bool True if group was flushed, false otherwise.
+ */
+function wp_cache_flush_group( $group ) {
+	global $wp_object_cache;
+
+	return $wp_object_cache->flush_group( $group );
+}
+
+/**
+ * Determines whether the object cache implementation supports a particular feature.
+ *
+ * @since 6.1.0
+ *
+ * @param string $feature Name of the feature to check for. Possible values include:
+ *                        'add_multiple', 'set_multiple', 'get_multiple', 'delete_multiple',
+ *                        'flush_runtime', 'flush_group'.
+ * @return bool True if the feature is supported, false otherwise.
+ */
+function wp_cache_supports( $feature ) {
+	switch ( $feature ) {
+		case 'add_multiple':
+		case 'set_multiple':
+		case 'get_multiple':
+		case 'delete_multiple':
+		case 'flush_runtime':
+		case 'flush_group':
+			return true;
+
+		default:
+			return false;
+	}
 }
 
 /**
@@ -119,6 +214,27 @@ function wp_cache_get( $key, $group = '', $force = false, &$found = null ) {
 	global $wp_object_cache;
 
 	return $wp_object_cache->get( $key, $group, $force, $found );
+}
+
+/**
+ * Retrieves multiple values from the cache in one call.
+ *
+ * @since 5.5.0
+ *
+ * @see WP_Object_Cache::get_multiple()
+ * @global WP_Object_Cache $wp_object_cache Object cache global instance.
+ *
+ * @param array  $keys  Array of keys under which the cache contents are stored.
+ * @param string $group Optional. Where the cache contents are grouped. Default empty.
+ * @param bool   $force Optional. Whether to force an update of the local cache
+ *                      from the persistent cache. Default false.
+ * @return array Array of return values, grouped by key. Each value is either
+ *               the cache contents on success, or false on failure.
+ */
+function wp_cache_get_multiple( $keys, $group = '', $force = false ) {
+	global $wp_object_cache;
+
+	return $wp_object_cache->get_multiple( $keys, $group, $force );
 }
 
 /**
@@ -186,6 +302,27 @@ function wp_cache_set( $key, $data, $group = '', $expire = 0 ) {
 	global $wp_object_cache;
 
 	return $wp_object_cache->set( $key, $data, $group, (int) $expire );
+}
+
+/**
+ * Sets multiple values to the cache in one call.
+ *
+ * @since 6.0.0
+ *
+ * @see WP_Object_Cache::set_multiple()
+ * @global WP_Object_Cache $wp_object_cache Object cache global instance.
+ *
+ * @param array  $data   Array of keys and values to be set.
+ * @param string $group  Optional. Where the cache contents are grouped. Default empty.
+ * @param int    $expire Optional. When to expire the cache contents, in seconds.
+ *                       Default 0 (no expiration).
+ * @return bool[] Array of return values, grouped by key. Each value is either
+ *                true on success, or false on failure.
+ */
+function wp_cache_set_multiple( array $data, $group = '', $expire = 0 ) {
+	global $wp_object_cache;
+
+	return $wp_object_cache->set_multiple( $data, $group, $expire );
 }
 
 /**
@@ -417,7 +554,14 @@ class SHM_Partitioned_Cache {
 													 'options:cpac_options_topic__default',
 													 'options:cpac_options_wp-comments__default',
 													 'options:cpac_options_wp-users__default',
-													 'options:user_count' );
+													 'options:user_count',
+													 'options:wp_stream_db',
+													 'options:core_updater.lock',
+													 'users:last_changed',
+													 'options:fs_wsalp',
+													 'options:wsal_setup-complete',
+													 'options:wsal_plugin_version',
+													 'options:wsal_disabled-alerts' );
 	private $check_data_types = false;
 	// Hash algorythm name => byte count
 	private $hash_algos = array( 'crc32' => 4,
@@ -1839,6 +1983,28 @@ class WP_Object_Cache {
 	}
 
 	/**
+	 * Adds multiple values to the cache in one call.
+	 *
+	 * @since 6.0.0
+	 *
+	 * @param array  $data   Array of keys and values to be added.
+	 * @param string $group  Optional. Where the cache contents are grouped. Default empty.
+	 * @param int    $expire Optional. When to expire the cache contents, in seconds.
+	 *                       Default 0 (no expiration).
+	 * @return bool[] Array of return values, grouped by key. Each value is either
+	 *                true on success, or false if cache key and group already exist.
+	 */
+	public function add_multiple( array $data, $group = '', $expire = 0 ) {
+		$values = array();
+
+		foreach ( $data as $key => $value ) {
+			$values[ $key ] = $this->add( $key, $value, $group, $expire );
+		}
+
+		return $values;
+	}
+
+	/**
 	 * Sets the list of global groups.
 	 *
 	 * @since 3.0.0
@@ -1930,6 +2096,9 @@ class WP_Object_Cache {
 					case 'delete' :
 						$result = $this->backend->delete( $key, $group );
 						break;
+					case 'delete_group' :
+						$result = $this->backend->delete_group( $group );
+						break;
 					default :
 						// Add, set or replace
 						$result = $this->backend->$cmd( $key, $data, $group, $expire );
@@ -2003,6 +2172,26 @@ class WP_Object_Cache {
 	}
 
 	/**
+	 * Deletes multiple values from the cache in one call.
+	 *
+	 * @since 6.0.0
+	 *
+	 * @param array  $keys  Array of keys to be deleted.
+	 * @param string $group Optional. Where the cache contents are grouped. Default empty.
+	 * @return bool[] Array of return values, grouped by key. Each value is either
+	 *                true on success, or false if the contents were not deleted.
+	 */
+	public function delete_multiple( array $keys, $group = '' ) {
+		$values = array();
+
+		foreach ( $keys as $key ) {
+			$values[ $key ] = $this->delete( $key, $group );
+		}
+
+		return $values;
+	}
+
+	/**
 	 * Clears the object cache of all data
 	 *
 	 * @since 2.0.0
@@ -2027,7 +2216,29 @@ class WP_Object_Cache {
 		if ($this->debug) $this->time_total += microtime(true) - $time_start;
 		/* Persistent object cache end */
 
+		return $this->flush_runtime();
+	}
+
+	public function flush_runtime() {
 		$this->cache = array();
+
+		return true;
+	}
+
+	/**
+	 * Removes all cache items in a group.
+	 *
+	 * @since 6.1.0
+	 *
+	 * @param string $group Name of group to remove from cache.
+	 * @return true Always returns true.
+	 */
+	public function flush_group( $group ) {
+		/* Persistent object cache start */
+		$result = $this->_backend_cmd( 'delete_group', '', null, $group );
+		/* Persistent object cache end */
+
+		unset( $this->cache[ $group ] );
 
 		return true;
 	}
@@ -2164,6 +2375,28 @@ class WP_Object_Cache {
 	}
 
 	/**
+	 * Retrieves multiple values from the cache in one call.
+	 *
+	 * @since 5.5.0
+	 *
+	 * @param array  $keys  Array of keys under which the cache contents are stored.
+	 * @param string $group Optional. Where the cache contents are grouped. Default 'default'.
+	 * @param bool   $force Optional. Whether to force an update of the local cache
+	 *                      from the persistent cache. Default false.
+	 * @return array Array of return values, grouped by key. Each value is either
+	 *               the cache contents on success, or false on failure.
+	 */
+	public function get_multiple( $keys, $group = 'default', $force = false ) {
+		$values = array();
+
+		foreach ( $keys as $key ) {
+			$values[ $key ] = $this->get( $key, $group, $force );
+		}
+
+		return $values;
+	}
+
+	/**
 	 * Increment numeric cache item's value
 	 *
 	 * @since 3.3.0
@@ -2249,6 +2482,27 @@ class WP_Object_Cache {
 		/* Persistent object cache end */
 	}
 
+	/**
+	 * Sets multiple values to the cache in one call.
+	 *
+	 * @since 6.0.0
+	 *
+	 * @param array  $data   Array of key and value to be set.
+	 * @param string $group  Optional. Where the cache contents are grouped. Default empty.
+	 * @param int    $expire Optional. When to expire the cache contents, in seconds.
+	 *                       Default 0 (no expiration).
+	 * @return bool[] Array of return values, grouped by key.
+	 */
+	public function set_multiple( array $data, $group = '', $expire = 0 ) {
+		$values = array();
+
+		foreach ( $data as $key => $value ) {
+			$values[ $key ] = $this->set( $key, $value, $group, $expire );
+		}
+
+		return $values;
+	}
+
 	private function _add_set_replace( $cmd, $key, $data, $group = 'default', $expire = 0 ) {
 		if ( empty( $group ) )
 			$group = 'default';
@@ -2301,7 +2555,7 @@ class WP_Object_Cache {
 		if ( ! $this->debug ) {
 			echo '<p>Define FH_OBJECT_CACHE_DEBUG for additional stats</p>';
 		}
-		echo '<table><tbody>';
+		echo '<style type="text/css">#object-cache-stats table { width: auto; } #object-cache-stats th, #object-cache-stats td { padding-right: 1em; } #object-cache-stats th { white-space: nowrap; }</style><table><tbody>';
 		echo "<tr><th>Cache Hits</th><td>{$this->cache_hits}";
 		if ( $this->debug ) echo " ({$this->persistent_cache_hits} from persistent cache)";
 		echo '</td></tr>';
@@ -2366,7 +2620,7 @@ class WP_Object_Cache {
 		if (!empty($this->persistent_cache_persist_errors_groups)) echo '<tr><th>File Cache Write Errors</th><td>' . implode(', ', array_keys($this->persistent_cache_persist_errors_groups)) . '</td></tr>';
 		echo '</tbody></table>';
 		echo '<h4>Cache Hits</h4>';
-		echo '<table><thead><tr><th>Group</th><th>Hits</th><th>Hits From Persistent Cache</th><th>Misses</th><th>Hit Rate</th><th>Persistent Cache Reads</th><th>Persistent Cache Hits</th><th>Persistent Cache Hit Rate</th><th>Changed</th><th>Persistent</th><th>Global</th><th>Expirations</th><th>Deletions</th><th>Entries</th><th>Size (KB)</th></tr></thead><tbody>';
+		echo '<table style="width: 100%"><thead><tr><th>Group</th><th>Hits</th><th>Hits From Persistent Cache</th><th>Misses</th><th>Hit Rate</th><th>Persistent Cache Reads</th><th>Persistent Cache Hits</th><th>Persistent Cache Hit Rate</th><th>Changed</th><th>Persistent</th><th>Global</th><th>Expirations</th><th>Deletions</th><th>Entries</th><th>Size (KB)</th></tr></thead><tbody>';
 		echo implode( "\n", $table_rows );
 		echo '</tbody></table>';
 		foreach ( array( 'Misses' => $this->cache_misses_groups,
