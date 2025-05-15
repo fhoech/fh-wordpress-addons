@@ -22,6 +22,8 @@ require_once( ABSPATH . WPINC . '/meta.php' );
 require_once( ABSPATH . WPINC . '/kses.php' );
 require_once( ABSPATH . WPINC . '/rest-api.php' );
 
+require_once( ABSPATH . WPINC . '/blocks.php' );
+
 require_once( ABSPATH . WPINC . '/pluggable.php' );
 
 wp_plugin_directory_constants();
